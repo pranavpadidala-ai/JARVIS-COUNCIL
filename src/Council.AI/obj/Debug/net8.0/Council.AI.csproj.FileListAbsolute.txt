@@ -1,0 +1,11 @@
+C:\Users\POOJASMI\JARVIS-COUNCIL\src\Council.AI\bin\Debug\net8.0\Council.AI.deps.json
+C:\Users\POOJASMI\JARVIS-COUNCIL\src\Council.AI\bin\Debug\net8.0\Council.AI.dll
+C:\Users\POOJASMI\JARVIS-COUNCIL\src\Council.AI\bin\Debug\net8.0\Council.AI.pdb
+C:\Users\POOJASMI\JARVIS-COUNCIL\src\Council.AI\obj\Debug\net8.0\Council.AI.GeneratedMSBuildEditorConfig.editorconfig
+C:\Users\POOJASMI\JARVIS-COUNCIL\src\Council.AI\obj\Debug\net8.0\Council.AI.AssemblyInfoInputs.cache
+C:\Users\POOJASMI\JARVIS-COUNCIL\src\Council.AI\obj\Debug\net8.0\Council.AI.AssemblyInfo.cs
+C:\Users\POOJASMI\JARVIS-COUNCIL\src\Council.AI\obj\Debug\net8.0\Council.AI.csproj.CoreCompileInputs.cache
+C:\Users\POOJASMI\JARVIS-COUNCIL\src\Council.AI\obj\Debug\net8.0\Council.AI.dll
+C:\Users\POOJASMI\JARVIS-COUNCIL\src\Council.AI\obj\Debug\net8.0\refint\Council.AI.dll
+C:\Users\POOJASMI\JARVIS-COUNCIL\src\Council.AI\obj\Debug\net8.0\Council.AI.pdb
+C:\Users\POOJASMI\JARVIS-COUNCIL\src\Council.AI\obj\Debug\net8.0\ref\Council.AI.dll

@@ -1,0 +1,14 @@
+C:\Users\POOJASMI\JARVIS-COUNCIL\src\Council.App\bin\Debug\net8.0\Council.App.exe
+C:\Users\POOJASMI\JARVIS-COUNCIL\src\Council.App\bin\Debug\net8.0\Council.App.deps.json
+C:\Users\POOJASMI\JARVIS-COUNCIL\src\Council.App\bin\Debug\net8.0\Council.App.runtimeconfig.json
+C:\Users\POOJASMI\JARVIS-COUNCIL\src\Council.App\bin\Debug\net8.0\Council.App.dll
+C:\Users\POOJASMI\JARVIS-COUNCIL\src\Council.App\bin\Debug\net8.0\Council.App.pdb
+C:\Users\POOJASMI\JARVIS-COUNCIL\src\Council.App\obj\Debug\net8.0\Council.App.GeneratedMSBuildEditorConfig.editorconfig
+C:\Users\POOJASMI\JARVIS-COUNCIL\src\Council.App\obj\Debug\net8.0\Council.App.AssemblyInfoInputs.cache
+C:\Users\POOJASMI\JARVIS-COUNCIL\src\Council.App\obj\Debug\net8.0\Council.App.AssemblyInfo.cs
+C:\Users\POOJASMI\JARVIS-COUNCIL\src\Council.App\obj\Debug\net8.0\Council.App.csproj.CoreCompileInputs.cache
+C:\Users\POOJASMI\JARVIS-COUNCIL\src\Council.App\obj\Debug\net8.0\Council.App.dll
+C:\Users\POOJASMI\JARVIS-COUNCIL\src\Council.App\obj\Debug\net8.0\refint\Council.App.dll
+C:\Users\POOJASMI\JARVIS-COUNCIL\src\Council.App\obj\Debug\net8.0\Council.App.pdb
+C:\Users\POOJASMI\JARVIS-COUNCIL\src\Council.App\obj\Debug\net8.0\Council.App.genruntimeconfig.cache
+C:\Users\POOJASMI\JARVIS-COUNCIL\src\Council.App\obj\Debug\net8.0\ref\Council.App.dll

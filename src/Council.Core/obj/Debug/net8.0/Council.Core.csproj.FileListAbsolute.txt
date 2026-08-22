@@ -1,0 +1,11 @@
+C:\Users\POOJASMI\JARVIS-COUNCIL\src\Council.Core\bin\Debug\net8.0\Council.Core.deps.json
+C:\Users\POOJASMI\JARVIS-COUNCIL\src\Council.Core\bin\Debug\net8.0\Council.Core.dll
+C:\Users\POOJASMI\JARVIS-COUNCIL\src\Council.Core\bin\Debug\net8.0\Council.Core.pdb
+C:\Users\POOJASMI\JARVIS-COUNCIL\src\Council.Core\obj\Debug\net8.0\Council.Core.GeneratedMSBuildEditorConfig.editorconfig
+C:\Users\POOJASMI\JARVIS-COUNCIL\src\Council.Core\obj\Debug\net8.0\Council.Core.AssemblyInfoInputs.cache
+C:\Users\POOJASMI\JARVIS-COUNCIL\src\Council.Core\obj\Debug\net8.0\Council.Core.AssemblyInfo.cs
+C:\Users\POOJASMI\JARVIS-COUNCIL\src\Council.Core\obj\Debug\net8.0\Council.Core.csproj.CoreCompileInputs.cache
+C:\Users\POOJASMI\JARVIS-COUNCIL\src\Council.Core\obj\Debug\net8.0\Council.Core.dll
+C:\Users\POOJASMI\JARVIS-COUNCIL\src\Council.Core\obj\Debug\net8.0\refint\Council.Core.dll
+C:\Users\POOJASMI\JARVIS-COUNCIL\src\Council.Core\obj\Debug\net8.0\Council.Core.pdb
+C:\Users\POOJASMI\JARVIS-COUNCIL\src\Council.Core\obj\Debug\net8.0\ref\Council.Core.dll

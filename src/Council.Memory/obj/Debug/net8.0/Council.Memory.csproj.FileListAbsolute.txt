@@ -1,0 +1,11 @@
+C:\Users\POOJASMI\JARVIS-COUNCIL\src\Council.Memory\bin\Debug\net8.0\Council.Memory.deps.json
+C:\Users\POOJASMI\JARVIS-COUNCIL\src\Council.Memory\bin\Debug\net8.0\Council.Memory.dll
+C:\Users\POOJASMI\JARVIS-COUNCIL\src\Council.Memory\bin\Debug\net8.0\Council.Memory.pdb
+C:\Users\POOJASMI\JARVIS-COUNCIL\src\Council.Memory\obj\Debug\net8.0\Council.Memory.GeneratedMSBuildEditorConfig.editorconfig
+C:\Users\POOJASMI\JARVIS-COUNCIL\src\Council.Memory\obj\Debug\net8.0\Council.Memory.AssemblyInfoInputs.cache
+C:\Users\POOJASMI\JARVIS-COUNCIL\src\Council.Memory\obj\Debug\net8.0\Council.Memory.AssemblyInfo.cs
+C:\Users\POOJASMI\JARVIS-COUNCIL\src\Council.Memory\obj\Debug\net8.0\Council.Memory.csproj.CoreCompileInputs.cache
+C:\Users\POOJASMI\JARVIS-COUNCIL\src\Council.Memory\obj\Debug\net8.0\Council.Memory.dll
+C:\Users\POOJASMI\JARVIS-COUNCIL\src\Council.Memory\obj\Debug\net8.0\refint\Council.Memory.dll
+C:\Users\POOJASMI\JARVIS-COUNCIL\src\Council.Memory\obj\Debug\net8.0\Council.Memory.pdb
+C:\Users\POOJASMI\JARVIS-COUNCIL\src\Council.Memory\obj\Debug\net8.0\ref\Council.Memory.dll
