@@ -12,3 +12,9 @@ C:\Users\POOJASMI\JARVIS-COUNCIL\src\Council.App\obj\Debug\net8.0\refint\Council
 C:\Users\POOJASMI\JARVIS-COUNCIL\src\Council.App\obj\Debug\net8.0\Council.App.pdb
 C:\Users\POOJASMI\JARVIS-COUNCIL\src\Council.App\obj\Debug\net8.0\Council.App.genruntimeconfig.cache
 C:\Users\POOJASMI\JARVIS-COUNCIL\src\Council.App\obj\Debug\net8.0\ref\Council.App.dll
+C:\Users\POOJASMI\JARVIS-COUNCIL\src\Council.App\bin\Debug\net8.0\Council.AI.dll
+C:\Users\POOJASMI\JARVIS-COUNCIL\src\Council.App\bin\Debug\net8.0\Council.Core.dll
+C:\Users\POOJASMI\JARVIS-COUNCIL\src\Council.App\bin\Debug\net8.0\Council.Core.pdb
+C:\Users\POOJASMI\JARVIS-COUNCIL\src\Council.App\bin\Debug\net8.0\Council.AI.pdb
+C:\Users\POOJASMI\JARVIS-COUNCIL\src\Council.App\obj\Debug\net8.0\Council.App.csproj.AssemblyReference.cache
+C:\Users\POOJASMI\JARVIS-COUNCIL\src\Council.App\obj\Debug\net8.0\Council..8056A6EA.Up2Date

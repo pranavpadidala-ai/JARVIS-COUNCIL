@@ -9,3 +9,7 @@ C:\Users\POOJASMI\JARVIS-COUNCIL\src\Council.AI\obj\Debug\net8.0\Council.AI.dll
 C:\Users\POOJASMI\JARVIS-COUNCIL\src\Council.AI\obj\Debug\net8.0\refint\Council.AI.dll
 C:\Users\POOJASMI\JARVIS-COUNCIL\src\Council.AI\obj\Debug\net8.0\Council.AI.pdb
 C:\Users\POOJASMI\JARVIS-COUNCIL\src\Council.AI\obj\Debug\net8.0\ref\Council.AI.dll
+C:\Users\POOJASMI\JARVIS-COUNCIL\src\Council.AI\bin\Debug\net8.0\Council.Core.dll
+C:\Users\POOJASMI\JARVIS-COUNCIL\src\Council.AI\bin\Debug\net8.0\Council.Core.pdb
+C:\Users\POOJASMI\JARVIS-COUNCIL\src\Council.AI\obj\Debug\net8.0\Council.AI.csproj.AssemblyReference.cache
+C:\Users\POOJASMI\JARVIS-COUNCIL\src\Council.AI\obj\Debug\net8.0\Council.AI.csproj.Up2Date

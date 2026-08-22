@@ -7,14 +7,30 @@
   "targets": {
     ".NETCoreApp,Version=v8.0": {
       "Council.Security/1.0.0": {
+        "dependencies": {
+          "Council.Core": "1.0.0"
+        },
         "runtime": {
           "Council.Security.dll": {}
+        }
+      },
+      "Council.Core/1.0.0": {
+        "runtime": {
+          "Council.Core.dll": {
+            "assemblyVersion": "1.0.0",
+            "fileVersion": "1.0.0.0"
+          }
         }
       }
     }
   },
   "libraries": {
     "Council.Security/1.0.0": {
+      "type": "project",
+      "serviceable": false,
+      "sha512": ""
+    },
+    "Council.Core/1.0.0": {
       "type": "project",
       "serviceable": false,
       "sha512": ""

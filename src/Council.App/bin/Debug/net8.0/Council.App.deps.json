@@ -7,14 +7,47 @@
   "targets": {
     ".NETCoreApp,Version=v8.0": {
       "Council.App/1.0.0": {
+        "dependencies": {
+          "Council.AI": "1.0.0",
+          "Council.Core": "1.0.0"
+        },
         "runtime": {
           "Council.App.dll": {}
+        }
+      },
+      "Council.AI/1.0.0": {
+        "dependencies": {
+          "Council.Core": "1.0.0"
+        },
+        "runtime": {
+          "Council.AI.dll": {
+            "assemblyVersion": "1.0.0",
+            "fileVersion": "1.0.0.0"
+          }
+        }
+      },
+      "Council.Core/1.0.0": {
+        "runtime": {
+          "Council.Core.dll": {
+            "assemblyVersion": "1.0.0",
+            "fileVersion": "1.0.0.0"
+          }
         }
       }
     }
   },
   "libraries": {
     "Council.App/1.0.0": {
+      "type": "project",
+      "serviceable": false,
+      "sha512": ""
+    },
+    "Council.AI/1.0.0": {
+      "type": "project",
+      "serviceable": false,
+      "sha512": ""
+    },
+    "Council.Core/1.0.0": {
       "type": "project",
       "serviceable": false,
       "sha512": ""

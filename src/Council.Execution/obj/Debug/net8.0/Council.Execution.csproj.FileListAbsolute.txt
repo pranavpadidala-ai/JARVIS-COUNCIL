@@ -9,3 +9,7 @@ C:\Users\POOJASMI\JARVIS-COUNCIL\src\Council.Execution\obj\Debug\net8.0\Council.
 C:\Users\POOJASMI\JARVIS-COUNCIL\src\Council.Execution\obj\Debug\net8.0\refint\Council.Execution.dll
 C:\Users\POOJASMI\JARVIS-COUNCIL\src\Council.Execution\obj\Debug\net8.0\Council.Execution.pdb
 C:\Users\POOJASMI\JARVIS-COUNCIL\src\Council.Execution\obj\Debug\net8.0\ref\Council.Execution.dll
+C:\Users\POOJASMI\JARVIS-COUNCIL\src\Council.Execution\bin\Debug\net8.0\Council.Core.dll
+C:\Users\POOJASMI\JARVIS-COUNCIL\src\Council.Execution\bin\Debug\net8.0\Council.Core.pdb
+C:\Users\POOJASMI\JARVIS-COUNCIL\src\Council.Execution\obj\Debug\net8.0\Council.Execution.csproj.AssemblyReference.cache
+C:\Users\POOJASMI\JARVIS-COUNCIL\src\Council.Execution\obj\Debug\net8.0\Council..F3B16810.Up2Date
