@@ -13,7 +13,7 @@ using System.Reflection;
 [assembly: System.Reflection.AssemblyCompanyAttribute("Council.AI")]
 [assembly: System.Reflection.AssemblyConfigurationAttribute("Debug")]
 [assembly: System.Reflection.AssemblyFileVersionAttribute("1.0.0.0")]
-[assembly: System.Reflection.AssemblyInformationalVersionAttribute("1.0.0+ab2f46270a79f154d032dc24e794ab325b50ee61")]
+[assembly: System.Reflection.AssemblyInformationalVersionAttribute("1.0.0+c8d3418377150b0bcd2d08204aeb9d5952842f65")]
 [assembly: System.Reflection.AssemblyProductAttribute("Council.AI")]
 [assembly: System.Reflection.AssemblyTitleAttribute("Council.AI")]
 [assembly: System.Reflection.AssemblyVersionAttribute("1.0.0.0")]
