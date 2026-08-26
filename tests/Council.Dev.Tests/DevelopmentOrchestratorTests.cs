@@ -1,7 +1,9 @@
-using CouncilTaskStatus = Council.Dev.Tasks.TaskStatus;
 using Council.Dev.Execution;
+using Council.Dev.Git;
 using Council.Dev.Loop;
 using Council.Dev.Tasks;
+
+using CouncilTaskStatus = Council.Dev.Tasks.TaskStatus;
 
 namespace Council.Dev.Tests;
 
@@ -17,25 +19,53 @@ public class DevelopmentOrchestratorTests
             "Test task",
             "Test description");
 
-        var taskRunner = new Council.Dev.Runner.TaskRunner(taskManager);
-        var loop = new DevelopmentLoop(taskManager, taskRunner);
+        var taskRunner =
+            new Council.Dev.Runner.TaskRunner(taskManager);
 
-        var executor = new FakeDevelopmentExecutor(
-            DevelopmentExecutionResult.Completed(
-                "Development succeeded."));
+        var loop =
+            new DevelopmentLoop(
+                taskManager,
+                taskRunner);
 
-        var orchestrator = new DevelopmentOrchestrator(
-            loop,
-            executor);
+        var executor =
+            new FakeDevelopmentExecutor(
+                DevelopmentExecutionResult.Completed(
+                    "Development succeeded."));
 
-        var result = await orchestrator.ExecuteAsync(task);
+        var gitCheckpointManager =
+            new FakeGitCheckpointManager();
+
+        var orchestrator =
+            new DevelopmentOrchestrator(
+                loop,
+                executor,
+                gitCheckpointManager);
+
+        var result =
+            await orchestrator.ExecuteAsync(task);
 
         Assert.True(result.Success);
-        Assert.Equal(
+
+        Assert.Contains(
             "Development succeeded.",
             result.Message);
 
-        Assert.Equal(1, executor.CallCount);
+        Assert.Equal(
+            1,
+            executor.CallCount);
+
+        Assert.Equal(
+            1,
+            gitCheckpointManager.CreateCheckpointCallCount);
+
+        Assert.Equal(
+            1,
+            gitCheckpointManager.CommitCallCount);
+
+        Assert.Equal(
+            0,
+            gitCheckpointManager.RollbackCallCount);
+
         Assert.Equal(
             CouncilTaskStatus.Completed,
             task.Status);
@@ -51,27 +81,63 @@ public class DevelopmentOrchestratorTests
             "Test task",
             "Test description");
 
-        var taskRunner = new Council.Dev.Runner.TaskRunner(taskManager);
-        var loop = new DevelopmentLoop(taskManager, taskRunner);
+        var taskRunner =
+            new Council.Dev.Runner.TaskRunner(taskManager);
 
-        var executor = new FakeDevelopmentExecutor(
-            DevelopmentExecutionResult.Failed("First failure."),
-            DevelopmentExecutionResult.Failed("Second failure."),
-            DevelopmentExecutionResult.Completed("Recovered."));
+        var loop =
+            new DevelopmentLoop(
+                taskManager,
+                taskRunner);
 
-        var orchestrator = new DevelopmentOrchestrator(
-            loop,
-            executor);
+        var executor =
+            new FakeDevelopmentExecutor(
+                DevelopmentExecutionResult.Failed(
+                    "First failure."),
+                DevelopmentExecutionResult.Failed(
+                    "Second failure."),
+                DevelopmentExecutionResult.Completed(
+                    "Recovered."));
 
-        var result = await orchestrator.ExecuteAsync(
-            task,
-            maxAttempts: 3);
+        var gitCheckpointManager =
+            new FakeGitCheckpointManager();
+
+        var orchestrator =
+            new DevelopmentOrchestrator(
+                loop,
+                executor,
+                gitCheckpointManager);
+
+        var result =
+            await orchestrator.ExecuteAsync(
+                task,
+                maxAttempts: 3);
 
         Assert.True(result.Success);
-        Assert.Equal("Recovered.", result.Message);
 
-        Assert.Equal(3, executor.CallCount);
-        Assert.Equal(3, task.AttemptCount);
+        Assert.Contains(
+            "Recovered.",
+            result.Message);
+
+        Assert.Equal(
+            3,
+            executor.CallCount);
+
+        Assert.Equal(
+            3,
+            task.AttemptCount);
+
+        Assert.Equal(
+            3,
+            gitCheckpointManager.CreateCheckpointCallCount);
+
+        Assert.Equal(
+            1,
+            gitCheckpointManager.CommitCallCount);
+
+        Assert.Equal(
+            2,
+            gitCheckpointManager.RollbackCallCount);
+
         Assert.Equal(
             CouncilTaskStatus.Completed,
             task.Status);
@@ -87,29 +153,63 @@ public class DevelopmentOrchestratorTests
             "Test task",
             "Test description");
 
-        var taskRunner = new Council.Dev.Runner.TaskRunner(taskManager);
-        var loop = new DevelopmentLoop(taskManager, taskRunner);
+        var taskRunner =
+            new Council.Dev.Runner.TaskRunner(taskManager);
 
-        var executor = new FakeDevelopmentExecutor(
-            DevelopmentExecutionResult.Failed("Failure 1."),
-            DevelopmentExecutionResult.Failed("Failure 2."),
-            DevelopmentExecutionResult.Failed("Failure 3."));
+        var loop =
+            new DevelopmentLoop(
+                taskManager,
+                taskRunner);
 
-        var orchestrator = new DevelopmentOrchestrator(
-            loop,
-            executor);
+        var executor =
+            new FakeDevelopmentExecutor(
+                DevelopmentExecutionResult.Failed(
+                    "Failure 1."),
+                DevelopmentExecutionResult.Failed(
+                    "Failure 2."),
+                DevelopmentExecutionResult.Failed(
+                    "Failure 3."));
 
-        var result = await orchestrator.ExecuteAsync(
-            task,
-            maxAttempts: 3);
+        var gitCheckpointManager =
+            new FakeGitCheckpointManager();
+
+        var orchestrator =
+            new DevelopmentOrchestrator(
+                loop,
+                executor,
+                gitCheckpointManager);
+
+        var result =
+            await orchestrator.ExecuteAsync(
+                task,
+                maxAttempts: 3);
 
         Assert.False(result.Success);
+
         Assert.Contains(
             "Failure 3.",
             result.Message);
 
-        Assert.Equal(3, executor.CallCount);
-        Assert.Equal(3, task.AttemptCount);
+        Assert.Equal(
+            3,
+            executor.CallCount);
+
+        Assert.Equal(
+            3,
+            task.AttemptCount);
+
+        Assert.Equal(
+            3,
+            gitCheckpointManager.CreateCheckpointCallCount);
+
+        Assert.Equal(
+            0,
+            gitCheckpointManager.CommitCallCount);
+
+        Assert.Equal(
+            3,
+            gitCheckpointManager.RollbackCallCount);
+
         Assert.Equal(
             CouncilTaskStatus.Failed,
             task.Status);
@@ -125,15 +225,26 @@ public class DevelopmentOrchestratorTests
             "Test task",
             "Test description");
 
-        var taskRunner = new Council.Dev.Runner.TaskRunner(taskManager);
-        var loop = new DevelopmentLoop(taskManager, taskRunner);
+        var taskRunner =
+            new Council.Dev.Runner.TaskRunner(taskManager);
 
-        var executor = new FakeDevelopmentExecutor(
-            DevelopmentExecutionResult.Completed());
+        var loop =
+            new DevelopmentLoop(
+                taskManager,
+                taskRunner);
 
-        var orchestrator = new DevelopmentOrchestrator(
-            loop,
-            executor);
+        var executor =
+            new FakeDevelopmentExecutor(
+                DevelopmentExecutionResult.Completed());
+
+        var gitCheckpointManager =
+            new FakeGitCheckpointManager();
+
+        var orchestrator =
+            new DevelopmentOrchestrator(
+                loop,
+                executor,
+                gitCheckpointManager);
 
         using var cancellationSource =
             new CancellationTokenSource();
@@ -145,6 +256,14 @@ public class DevelopmentOrchestratorTests
                 task,
                 cancellationToken:
                     cancellationSource.Token));
+
+        Assert.Equal(
+            0,
+            executor.CallCount);
+
+        Assert.Equal(
+            0,
+            gitCheckpointManager.CreateCheckpointCallCount);
     }
 
     private static TaskStore CreateStore()
@@ -168,8 +287,9 @@ public class DevelopmentOrchestratorTests
         public FakeDevelopmentExecutor(
             params DevelopmentExecutionResult[] results)
         {
-            _results = new Queue<DevelopmentExecutionResult>(
-                results);
+            _results =
+                new Queue<DevelopmentExecutionResult>(
+                    results);
         }
 
         public Task<DevelopmentExecutionResult> ExecuteAsync(
@@ -190,6 +310,70 @@ public class DevelopmentOrchestratorTests
                 _results.Dequeue());
         }
     }
+
+    private sealed class FakeGitCheckpointManager
+        : IGitCheckpointManager
+    {
+        private int _checkpointNumber;
+
+        public int CreateCheckpointCallCount
+        {
+            get;
+            private set;
+        }
+
+        public int CommitCallCount
+        {
+            get;
+            private set;
+        }
+
+        public int RollbackCallCount
+        {
+            get;
+            private set;
+        }
+
+        public Task<GitCheckpointResult> CreateCheckpointAsync(
+            CancellationToken cancellationToken = default)
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+
+            CreateCheckpointCallCount++;
+
+            _checkpointNumber++;
+
+            return Task.FromResult(
+                GitCheckpointResult.Completed(
+                    $"Checkpoint {_checkpointNumber} created.",
+                    new GitCheckpoint(
+                        $"fake-checkpoint-{_checkpointNumber}")));
+        }
+
+        public Task<GitCheckpointResult> CommitAsync(
+            string message,
+            CancellationToken cancellationToken = default)
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+
+            CommitCallCount++;
+
+            return Task.FromResult(
+                GitCheckpointResult.Completed(
+                    $"Committed: {message}"));
+        }
+
+        public Task<GitCheckpointResult> RollbackAsync(
+            GitCheckpoint checkpoint,
+            CancellationToken cancellationToken = default)
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+
+            RollbackCallCount++;
+
+            return Task.FromResult(
+                GitCheckpointResult.Completed(
+                    $"Rolled back to {checkpoint.CommitSha}."));
+        }
+    }
 }
-
-

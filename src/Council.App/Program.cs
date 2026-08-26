@@ -4,6 +4,7 @@ using Council.Core.Orchestration;
 using Council.Core.Providers;
 using Council.Dev.Actions;
 using Council.Dev.Execution;
+using Council.Dev.Git;
 using Council.Dev.Loop;
 using Council.Dev.Planning;
 using Council.Dev.Runner;
@@ -210,13 +211,23 @@ var developmentLoop =
         new TaskRunner(taskManager));
 
 // ------------------------------------------------------------
+// Git checkpoint manager
+// ------------------------------------------------------------
+
+var gitCheckpointManager =
+    new GitCheckpointManager(
+        terminalController,
+        workspaceRoot);
+
+// ------------------------------------------------------------
 // Development orchestrator
 // ------------------------------------------------------------
 
 var developmentOrchestrator =
     new DevelopmentOrchestrator(
         developmentLoop,
-        autonomousExecutor);
+        autonomousExecutor,
+        gitCheckpointManager);
 
 // ============================================================
 // CREATE DEVELOPMENT TASK
@@ -282,4 +293,5 @@ Console.WriteLine();
 Console.WriteLine("============================================================");
 Console.WriteLine("JARVIS Council execution finished.");
 Console.WriteLine("============================================================");
+
 
