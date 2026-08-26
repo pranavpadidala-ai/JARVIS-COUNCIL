@@ -93,14 +93,14 @@ public sealed class SafeWorkspaceExecutor : IWorkspaceExecutor
             return pathResult.Result!;
         }
 
-        if (!File.Exists(pathResult.Path))
+        if (!File.Exists(pathResult.Path!))
         {
             return WorkspaceActionResult.Failed(
                 $"File does not exist: {action.Target}");
         }
 
         var content = await File.ReadAllTextAsync(
-            pathResult.Path,
+            pathResult.Path!,
             cancellationToken);
 
         return WorkspaceActionResult.Completed(
@@ -176,13 +176,13 @@ public sealed class SafeWorkspaceExecutor : IWorkspaceExecutor
             return pathResult.Result!;
         }
 
-        if (File.Exists(pathResult.Path))
+        if (File.Exists(pathResult.Path!))
         {
             return WorkspaceActionResult.Failed(
                 $"File already exists: {action.Target}");
         }
 
-        var directory = Path.GetDirectoryName(pathResult.Path);
+        var directory = Path.GetDirectoryName(pathResult.Path!);
 
         if (!string.IsNullOrWhiteSpace(directory))
         {
@@ -190,7 +190,7 @@ public sealed class SafeWorkspaceExecutor : IWorkspaceExecutor
         }
 
         await File.WriteAllTextAsync(
-            pathResult.Path,
+            pathResult.Path!,
             action.Content,
             cancellationToken);
 
@@ -215,14 +215,14 @@ public sealed class SafeWorkspaceExecutor : IWorkspaceExecutor
             return pathResult.Result!;
         }
 
-        if (!File.Exists(pathResult.Path))
+        if (!File.Exists(pathResult.Path!))
         {
             return WorkspaceActionResult.Failed(
                 $"File does not exist: {action.Target}");
         }
 
         await File.WriteAllTextAsync(
-            pathResult.Path,
+            pathResult.Path!,
             action.Content,
             cancellationToken);
 
@@ -230,7 +230,7 @@ public sealed class SafeWorkspaceExecutor : IWorkspaceExecutor
             $"Modified file: {action.Target}");
     }
 
-    private async Task<WorkspaceActionResult> DeleteFileAsync(
+    private Task<WorkspaceActionResult> DeleteFileAsync(
         DevelopmentAction action,
         CancellationToken cancellationToken)
     {
@@ -240,25 +240,28 @@ public sealed class SafeWorkspaceExecutor : IWorkspaceExecutor
 
         if (!pathResult.Success)
         {
-            return pathResult.Result!;
+            return Task.FromResult(pathResult.Result!);
         }
 
-        if (!File.Exists(pathResult.Path))
+        if (!File.Exists(pathResult.Path!))
         {
-            return WorkspaceActionResult.Failed(
-                $"File does not exist: {action.Target}");
+            return Task.FromResult(
+                WorkspaceActionResult.Failed(
+                    $"File does not exist: {action.Target}"));
         }
 
-        if (IsProtectedPath(pathResult.Path))
+        if (IsProtectedPath(pathResult.Path!))
         {
-            return WorkspaceActionResult.Failed(
-                $"Protected path cannot be deleted: {action.Target}");
+            return Task.FromResult(
+                WorkspaceActionResult.Failed(
+                    $"Protected path cannot be deleted: {action.Target}"));
         }
 
-        File.Delete(pathResult.Path);
+        File.Delete(pathResult.Path!);
 
-        return WorkspaceActionResult.Completed(
-            $"Deleted file: {action.Target}");
+        return Task.FromResult(
+            WorkspaceActionResult.Completed(
+                $"Deleted file: {action.Target}"));
     }
 
     private (bool Success, string? Path, WorkspaceActionResult? Result)
@@ -376,3 +379,6 @@ public sealed class SafeWorkspaceExecutor : IWorkspaceExecutor
                 StringComparison.OrdinalIgnoreCase));
     }
 }
+
+
+

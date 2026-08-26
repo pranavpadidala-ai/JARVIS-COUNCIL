@@ -6,3 +6,10 @@ obj/
 .env
 .env.*
 !*.env.example
+
+# .NET build output
+**/bin/
+**/obj/
+
+# Backup files
+*.bak
