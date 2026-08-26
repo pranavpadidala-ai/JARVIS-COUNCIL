@@ -1,0 +1,130 @@
+using Council.Dev.Actions;
+using Council.Dev.Planning;
+using Council.Dev.Tasks;
+using Council.Dev.Validation;
+
+namespace Council.Dev.Execution;
+
+public sealed class AutonomousDevelopmentExecutor : IDevelopmentExecutor
+{
+    private readonly IDevelopmentPlanner _planner;
+    private readonly DevelopmentActionExecutor _actionExecutor;
+    private readonly BuildTestExecutor _buildTestExecutor;
+    private readonly TaskManager _taskManager;
+
+    public AutonomousDevelopmentExecutor(
+        IDevelopmentPlanner planner,
+        DevelopmentActionExecutor actionExecutor,
+        BuildTestExecutor buildTestExecutor,
+        TaskManager taskManager)
+    {
+        ArgumentNullException.ThrowIfNull(planner);
+        ArgumentNullException.ThrowIfNull(actionExecutor);
+        ArgumentNullException.ThrowIfNull(buildTestExecutor);
+        ArgumentNullException.ThrowIfNull(taskManager);
+
+        _planner = planner;
+        _actionExecutor = actionExecutor;
+        _buildTestExecutor = buildTestExecutor;
+        _taskManager = taskManager;
+    }
+
+    public async Task<DevelopmentExecutionResult> ExecuteAsync(
+        DevelopmentTask task,
+        CancellationToken cancellationToken = default)
+    {
+        ArgumentNullException.ThrowIfNull(task);
+
+        cancellationToken.ThrowIfCancellationRequested();
+
+        await _taskManager.UpdateStepAsync(
+            task.Id,
+            "Creating AI development plan.",
+            CancellationToken.None);
+
+        var plan =
+            await _planner.CreatePlanAsync(
+                task,
+                cancellationToken);
+
+        if (!plan.Success)
+        {
+            return DevelopmentExecutionResult.Failed(
+                $"Planning failed: {plan.Summary}");
+        }
+
+        return await ExecutePlanAsync(
+            task,
+            plan,
+            cancellationToken);
+    }
+
+    private async Task<DevelopmentExecutionResult> ExecutePlanAsync(
+        DevelopmentTask task,
+        DevelopmentPlan plan,
+        CancellationToken cancellationToken)
+    {
+        if (plan.Actions.Count == 0)
+        {
+            return DevelopmentExecutionResult.Failed(
+                "AI development plan contains no actions.");
+        }
+
+        await _taskManager.UpdateStepAsync(
+            task.Id,
+            $"AI plan created: {plan.Summary}",
+            CancellationToken.None);
+
+        for (var index = 0; index < plan.Actions.Count; index++)
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+
+            var action = plan.Actions[index];
+
+            await _taskManager.UpdateStepAsync(
+                task.Id,
+                $"Executing action {index + 1} of {plan.Actions.Count}: " +
+                $"{action.Type} -> {action.Target}",
+                CancellationToken.None);
+
+            var result =
+                await _actionExecutor.ExecuteAsync(
+                    action,
+                    cancellationToken);
+
+            if (!result.Success)
+            {
+                return DevelopmentExecutionResult.Failed(
+                    $"Action {index + 1} failed: {result.Message}" +
+                    (string.IsNullOrWhiteSpace(result.Content)
+                        ? string.Empty
+                        : $" | {result.Content}"));
+            }
+        }
+
+        await _taskManager.UpdateStepAsync(
+            task.Id,
+            "All planned actions completed. Running build and tests.",
+            CancellationToken.None);
+
+        var validation =
+            await _buildTestExecutor.RunAsync(
+                cancellationToken);
+
+        if (!validation.Success)
+        {
+            return DevelopmentExecutionResult.Failed(
+                validation.Message);
+        }
+
+        await _taskManager.UpdateStepAsync(
+            task.Id,
+            "Development plan completed and validation passed.",
+            CancellationToken.None);
+
+        return DevelopmentExecutionResult.Completed(
+            $"Development completed successfully. " +
+            $"Executed {plan.Actions.Count} actions. " +
+            $"{validation.Message}");
+    }
+}

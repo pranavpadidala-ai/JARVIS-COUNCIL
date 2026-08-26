@@ -44,3 +44,7 @@ C:\Users\POOJASMI\JARVIS-COUNCIL\src\Council.App\bin\Debug\net8.0\Newtonsoft.Jso
 C:\Users\POOJASMI\JARVIS-COUNCIL\src\Council.App\bin\Debug\net8.0\System.CodeDom.dll
 C:\Users\POOJASMI\JARVIS-COUNCIL\src\Council.App\bin\Debug\net8.0\System.Management.dll
 C:\Users\POOJASMI\JARVIS-COUNCIL\src\Council.App\bin\Debug\net8.0\runtimes\win\lib\net7.0\System.Management.dll
+C:\Users\POOJASMI\JARVIS-COUNCIL\src\Council.App\bin\Debug\net8.0\Council.Execution.dll
+C:\Users\POOJASMI\JARVIS-COUNCIL\src\Council.App\bin\Debug\net8.0\Council.Execution.pdb
+C:\Users\POOJASMI\JARVIS-COUNCIL\src\Council.App\bin\Debug\net8.0\Council.Dev.dll
+C:\Users\POOJASMI\JARVIS-COUNCIL\src\Council.App\bin\Debug\net8.0\Council.Dev.pdb

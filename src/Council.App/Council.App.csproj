@@ -3,6 +3,8 @@
   <ItemGroup>
     <ProjectReference Include="..\Council.Core\Council.Core.csproj" />
     <ProjectReference Include="..\Council.AI\Council.AI.csproj" />
+    <ProjectReference Include="..\Council.Execution\Council.Execution.csproj" />
+    <ProjectReference Include="..\Council.Dev\Council.Dev.csproj" />
   </ItemGroup>
 
   <PropertyGroup>

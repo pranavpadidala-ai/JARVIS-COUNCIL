@@ -9,7 +9,9 @@
       "Council.App/1.0.0": {
         "dependencies": {
           "Council.AI": "1.0.0",
-          "Council.Core": "1.0.0"
+          "Council.Core": "1.0.0",
+          "Council.Dev": "1.0.0",
+          "Council.Execution": "1.0.0"
         },
         "runtime": {
           "Council.App.dll": {}
@@ -312,6 +314,28 @@
             "fileVersion": "1.0.0.0"
           }
         }
+      },
+      "Council.Dev/1.0.0": {
+        "dependencies": {
+          "Council.Core": "1.0.0"
+        },
+        "runtime": {
+          "Council.Dev.dll": {
+            "assemblyVersion": "1.0.0",
+            "fileVersion": "1.0.0.0"
+          }
+        }
+      },
+      "Council.Execution/1.0.0": {
+        "dependencies": {
+          "Council.Core": "1.0.0"
+        },
+        "runtime": {
+          "Council.Execution.dll": {
+            "assemblyVersion": "1.0.0",
+            "fileVersion": "1.0.0.0"
+          }
+        }
       }
     }
   },
@@ -502,6 +526,16 @@
       "sha512": ""
     },
     "Council.Core/1.0.0": {
+      "type": "project",
+      "serviceable": false,
+      "sha512": ""
+    },
+    "Council.Dev/1.0.0": {
+      "type": "project",
+      "serviceable": false,
+      "sha512": ""
+    },
+    "Council.Execution/1.0.0": {
       "type": "project",
       "serviceable": false,
       "sha512": ""

@@ -13,7 +13,7 @@ using System.Reflection;
 [assembly: System.Reflection.AssemblyCompanyAttribute("Council.Workspace")]
 [assembly: System.Reflection.AssemblyConfigurationAttribute("Debug")]
 [assembly: System.Reflection.AssemblyFileVersionAttribute("1.0.0.0")]
-[assembly: System.Reflection.AssemblyInformationalVersionAttribute("1.0.0+c8d3418377150b0bcd2d08204aeb9d5952842f65")]
+[assembly: System.Reflection.AssemblyInformationalVersionAttribute("1.0.0+29a1c1d1c7892481fbee61a98087e8fb5ac67fba")]
 [assembly: System.Reflection.AssemblyProductAttribute("Council.Workspace")]
 [assembly: System.Reflection.AssemblyTitleAttribute("Council.Workspace")]
 [assembly: System.Reflection.AssemblyVersionAttribute("1.0.0.0")]

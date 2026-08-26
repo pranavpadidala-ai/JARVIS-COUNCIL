@@ -1,0 +1,573 @@
+using Council.Dev.Actions;
+using Council.Dev.Execution;
+using Council.Dev.Planning;
+using Council.Dev.Tasks;
+using Council.Dev.Terminal;
+using Council.Dev.Validation;
+using Council.Dev.Workspace;
+
+namespace Council.Dev.Tests;
+
+public class AutonomousDevelopmentExecutorTests
+{
+    [Fact]
+    public async Task Successful_plan_executes_actions_and_validation()
+    {
+        var root = CreateWorkspace();
+        var taskFile = Path.Combine(root, "tasks.json");
+
+        try
+        {
+            var store = new TaskStore(taskFile);
+            var manager = new TaskManager(store);
+
+            await manager.InitializeAsync();
+
+            var task = await manager.CreateAsync(
+                "Autonomous test",
+                "Test autonomous development.");
+
+            var planner =
+                new FakeDevelopmentPlanner(
+                    DevelopmentPlan.Created(
+                        "Create test file.",
+                        [
+                            new DevelopmentAction(
+                                DevelopmentActionType.CreateFile,
+                                "Test.cs",
+                                "public class Test {}")
+                        ]));
+
+            var workspace = new SafeWorkspaceExecutor(root);
+
+            var terminal =
+                new FakeTerminalExecutor(
+                    success: true,
+                    output: "Build and tests passed.");
+
+            var actionExecutor =
+                new DevelopmentActionExecutor(
+                    workspace,
+                    terminal,
+                    root);
+
+            var validation =
+                new BuildTestExecutor(
+                    terminal,
+                    root);
+
+            var executor =
+                new AutonomousDevelopmentExecutor(
+                    planner,
+                    actionExecutor,
+                    validation,
+                    manager);
+
+            var result =
+                await executor.ExecuteAsync(task);
+
+            Assert.True(result.Success);
+
+            Assert.True(
+                File.Exists(
+                    Path.Combine(root, "Test.cs")));
+
+            Assert.Equal(
+                2,
+                terminal.Commands.Count);
+
+            Assert.Equal(
+                "dotnet build",
+                terminal.Commands[0].Command);
+
+            Assert.Equal(
+                "dotnet test",
+                terminal.Commands[1].Command);
+        }
+        finally
+        {
+            DeleteDirectory(root);
+        }
+    }
+
+    [Fact]
+    public async Task Planning_failure_stops_execution()
+    {
+        var root = CreateWorkspace();
+        var taskFile = Path.Combine(root, "tasks.json");
+
+        try
+        {
+            var store = new TaskStore(taskFile);
+            var manager = new TaskManager(store);
+
+            await manager.InitializeAsync();
+
+            var task = await manager.CreateAsync(
+                "Planning failure",
+                "Test planning failure.");
+
+            var planner =
+                new FakeDevelopmentPlanner(
+                    DevelopmentPlan.Failed(
+                        "AI planning failed."));
+
+            var terminal = new FakeTerminalExecutor();
+
+            var workspace =
+                new SafeWorkspaceExecutor(root);
+
+            var actionExecutor =
+                new DevelopmentActionExecutor(
+                    workspace,
+                    terminal,
+                    root);
+
+            var validation =
+                new BuildTestExecutor(
+                    terminal,
+                    root);
+
+            var executor =
+                new AutonomousDevelopmentExecutor(
+                    planner,
+                    actionExecutor,
+                    validation,
+                    manager);
+
+            var result =
+                await executor.ExecuteAsync(task);
+
+            Assert.False(result.Success);
+
+            Assert.Contains(
+                "Planning failed",
+                result.Message);
+
+            Assert.Empty(terminal.Commands);
+        }
+        finally
+        {
+            DeleteDirectory(root);
+        }
+    }
+
+    [Fact]
+    public async Task Failed_action_stops_before_validation()
+    {
+        var root = CreateWorkspace();
+        var taskFile = Path.Combine(root, "tasks.json");
+
+        try
+        {
+            var store = new TaskStore(taskFile);
+            var manager = new TaskManager(store);
+
+            await manager.InitializeAsync();
+
+            var task = await manager.CreateAsync(
+                "Action failure",
+                "Test action failure.");
+
+            var planner =
+                new FakeDevelopmentPlanner(
+                    DevelopmentPlan.Created(
+                        "Run failing build.",
+                        [
+                            new DevelopmentAction(
+                                DevelopmentActionType.RunBuild,
+                                ".")
+                        ]));
+
+            var terminal =
+                new FakeTerminalExecutor(
+                    success: false,
+                    error: "Build failed.");
+
+            var workspace =
+                new SafeWorkspaceExecutor(root);
+
+            var actionExecutor =
+                new DevelopmentActionExecutor(
+                    workspace,
+                    terminal,
+                    root);
+
+            var validation =
+                new BuildTestExecutor(
+                    terminal,
+                    root);
+
+            var executor =
+                new AutonomousDevelopmentExecutor(
+                    planner,
+                    actionExecutor,
+                    validation,
+                    manager);
+
+            var result =
+                await executor.ExecuteAsync(task);
+
+            Assert.False(result.Success);
+
+            Assert.Contains(
+                "Action 1 failed",
+                result.Message);
+
+            Assert.Single(
+                terminal.Commands);
+
+            Assert.Equal(
+                "dotnet build",
+                terminal.Commands[0].Command);
+        }
+        finally
+        {
+            DeleteDirectory(root);
+        }
+    }
+
+    private static string CreateWorkspace()
+    {
+        var root = Path.Combine(
+            Path.GetTempPath(),
+            "JARVIS",
+            Guid.NewGuid().ToString("N"));
+
+        Directory.CreateDirectory(root);
+
+        return root;
+    }
+
+    private static void DeleteDirectory(string path)
+    {
+        if (Directory.Exists(path))
+        {
+            Directory.Delete(
+                path,
+                recursive: true);
+        }
+    }
+
+    private sealed class FakeDevelopmentPlanner
+        : IDevelopmentPlanner
+    {
+        private readonly DevelopmentPlan _plan;
+
+        public FakeDevelopmentPlanner(
+            DevelopmentPlan plan)
+        {
+            _plan = plan;
+        }
+
+        public Task<DevelopmentPlan> CreatePlanAsync(
+            DevelopmentTask task,
+            CancellationToken cancellationToken = default)
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+
+            return Task.FromResult(_plan);
+        }
+
+        public Task<DevelopmentPlan> CreateRecoveryPlanAsync(
+            DevelopmentTask task,
+            string failureReason,
+            CancellationToken cancellationToken = default)
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+
+            return Task.FromResult(
+                DevelopmentPlan.Failed(
+                    "Recovery planning intentionally failed for this test."));
+        }
+    }
+
+    private sealed class FakeTerminalExecutor
+        : ITerminalExecutor
+    {
+        private readonly bool _success;
+        private readonly string _output;
+        private readonly string _error;
+
+        public List<TerminalCommand> Commands { get; } = [];
+
+        public FakeTerminalExecutor(
+            bool success = true,
+            string output = "",
+            string error = "")
+        {
+            _success = success;
+            _output = output;
+            _error = error;
+        }
+
+        public Task<TerminalResult> ExecuteAsync(
+            TerminalCommand command,
+            CancellationToken cancellationToken = default)
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+
+            Commands.Add(command);
+
+            return Task.FromResult(
+                new TerminalResult(
+                    _success ? 0 : 1,
+                    _output,
+                    _error,
+                    TimeSpan.Zero,
+                    false,
+                    false));
+        }
+    }
+
+
+    [Fact]
+    public async Task Validation_failure_requests_recovery_plan()
+    {
+        var root = CreateWorkspace();
+        var taskFile = Path.Combine(root, "tasks.json");
+
+        try
+        {
+            var store = new TaskStore(taskFile);
+            var manager = new TaskManager(store);
+
+            await manager.InitializeAsync();
+
+            var task = await manager.CreateAsync(
+                "Validation failure",
+                "Test recovery after validation failure.");
+
+            var planner = new RecordingDevelopmentPlanner(
+                DevelopmentPlan.Created(
+                    "Initial plan",
+                    [
+                        new DevelopmentAction(
+                            DevelopmentActionType.CreateFile,
+                            "Test.cs",
+                            "public class Test {}")
+                    ]),
+                DevelopmentPlan.Failed(
+                    "Recovery planning failed."));
+
+            var terminal = new SequenceTerminalExecutor(
+                [
+                    new TerminalResult(
+                        1,
+                        "Build output",
+                        "Compiler error",
+                        TimeSpan.Zero,
+                        false,
+                        false)
+                ]);
+
+            var workspace = new SafeWorkspaceExecutor(root);
+
+            var actionExecutor = new DevelopmentActionExecutor(
+                workspace,
+                terminal,
+                root);
+
+            var validation = new BuildTestExecutor(
+                terminal,
+                root);
+
+            var executor = new AutonomousDevelopmentExecutor(
+                planner,
+                actionExecutor,
+                validation,
+                manager);
+
+            var result = await executor.ExecuteAsync(task);
+
+            Assert.False(result.Success);
+            Assert.True(planner.RecoveryPlanRequested);
+            Assert.Contains("Build exit code: 1", result.Message);
+            Assert.Contains("Compiler error", result.Message);
+        }
+        finally
+        {
+            DeleteDirectory(root);
+        }
+    }
+
+    [Fact]
+    public async Task Successful_recovery_completes_execution()
+    {
+        var root = CreateWorkspace();
+        var taskFile = Path.Combine(root, "tasks.json");
+
+        try
+        {
+            var store = new TaskStore(taskFile);
+            var manager = new TaskManager(store);
+
+            await manager.InitializeAsync();
+
+            var task = await manager.CreateAsync(
+                "Successful recovery",
+                "Test successful recovery.");
+
+            var planner = new RecordingDevelopmentPlanner(
+                DevelopmentPlan.Created(
+                    "Initial plan",
+                    [
+                        new DevelopmentAction(
+                            DevelopmentActionType.CreateFile,
+                            "Initial.cs",
+                            "public class Initial {}")
+                    ]),
+                DevelopmentPlan.Created(
+                    "Recovery plan",
+                    [
+                        new DevelopmentAction(
+                            DevelopmentActionType.CreateFile,
+                            "Recovery.cs",
+                            "public class Recovery {}")
+                    ]));
+
+            var terminal = new SequenceTerminalExecutor(
+                [
+                    new TerminalResult(
+                        1,
+                        "",
+                        "Initial build failed",
+                        TimeSpan.Zero,
+                        false,
+                        false),
+
+                    new TerminalResult(
+                        0,
+                        "Recovery build passed",
+                        "",
+                        TimeSpan.Zero,
+                        false,
+                        false),
+
+                    new TerminalResult(
+                        0,
+                        "Recovery tests passed",
+                        "",
+                        TimeSpan.Zero,
+                        false,
+                        false)
+                ]);
+
+            var workspace = new SafeWorkspaceExecutor(root);
+
+            var actionExecutor = new DevelopmentActionExecutor(
+                workspace,
+                terminal,
+                root);
+
+            var validation = new BuildTestExecutor(
+                terminal,
+                root);
+
+            var executor = new AutonomousDevelopmentExecutor(
+                planner,
+                actionExecutor,
+                validation,
+                manager);
+
+            var result = await executor.ExecuteAsync(task);
+
+            Assert.True(result.Success);
+            Assert.True(planner.RecoveryPlanRequested);
+
+            Assert.True(
+                File.Exists(
+                    Path.Combine(root, "Recovery.cs")));
+
+            Assert.Equal(3, terminal.Commands.Count);
+
+            Assert.Equal(
+                "dotnet build",
+                terminal.Commands[0].Command);
+
+            Assert.Equal(
+                "dotnet build",
+                terminal.Commands[1].Command);
+
+            Assert.Equal(
+                "dotnet test",
+                terminal.Commands[2].Command);
+        }
+        finally
+        {
+            DeleteDirectory(root);
+        }
+    }
+
+    private sealed class RecordingDevelopmentPlanner
+        : IDevelopmentPlanner
+    {
+        private readonly DevelopmentPlan _initialPlan;
+        private readonly DevelopmentPlan _recoveryPlan;
+
+        public bool RecoveryPlanRequested { get; private set; }
+
+        public RecordingDevelopmentPlanner(
+            DevelopmentPlan initialPlan,
+            DevelopmentPlan recoveryPlan)
+        {
+            _initialPlan = initialPlan;
+            _recoveryPlan = recoveryPlan;
+        }
+
+        public Task<DevelopmentPlan> CreatePlanAsync(
+            DevelopmentTask task,
+            CancellationToken cancellationToken = default)
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+
+            return Task.FromResult(_initialPlan);
+        }
+
+        public Task<DevelopmentPlan> CreateRecoveryPlanAsync(
+            DevelopmentTask task,
+            string failureReason,
+            CancellationToken cancellationToken = default)
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+
+            RecoveryPlanRequested = true;
+
+            return Task.FromResult(_recoveryPlan);
+        }
+    }
+
+    private sealed class SequenceTerminalExecutor
+        : ITerminalExecutor
+    {
+        private readonly Queue<TerminalResult> _results;
+
+        public List<TerminalCommand> Commands { get; } = [];
+
+        public SequenceTerminalExecutor(
+            IEnumerable<TerminalResult> results)
+        {
+            _results = new Queue<TerminalResult>(results);
+        }
+
+        public Task<TerminalResult> ExecuteAsync(
+            TerminalCommand command,
+            CancellationToken cancellationToken = default)
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+
+            Commands.Add(command);
+
+            if (_results.Count == 0)
+            {
+                return Task.FromResult(
+                    TerminalResult.SuccessResult());
+            }
+
+            return Task.FromResult(
+                _results.Dequeue());
+        }
+    }
+
+
+}
