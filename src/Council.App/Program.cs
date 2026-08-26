@@ -184,9 +184,14 @@ else
 // Autonomous executor
 // ------------------------------------------------------------
 
+var repositoryContextProvider =
+    new RepositoryContextProvider(
+        workspaceRoot);
+
 var developmentPlanner =
     new AIDevelopmentPlanner(
-        planningProvider);
+        planningProvider,
+        repositoryContextProvider);
 
 var autonomousExecutor =
     new AutonomousDevelopmentExecutor(
@@ -277,3 +282,4 @@ Console.WriteLine();
 Console.WriteLine("============================================================");
 Console.WriteLine("JARVIS Council execution finished.");
 Console.WriteLine("============================================================");
+

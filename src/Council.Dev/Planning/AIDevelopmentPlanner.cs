@@ -1,3 +1,4 @@
+using System.Text;
 using System.Text.Json;
 using Council.Core.Models;
 using Council.Core.Providers;
@@ -9,12 +10,17 @@ namespace Council.Dev.Planning;
 public sealed class AIDevelopmentPlanner : IDevelopmentPlanner
 {
     private readonly IAIProvider _aiProvider;
+    private readonly RepositoryContextProvider _repositoryContextProvider;
 
-    public AIDevelopmentPlanner(IAIProvider aiProvider)
+    public AIDevelopmentPlanner(
+        IAIProvider aiProvider,
+        RepositoryContextProvider repositoryContextProvider)
     {
         ArgumentNullException.ThrowIfNull(aiProvider);
+        ArgumentNullException.ThrowIfNull(repositoryContextProvider);
 
         _aiProvider = aiProvider;
+        _repositoryContextProvider = repositoryContextProvider;
     }
 
     public async Task<DevelopmentPlan> CreatePlanAsync(
@@ -25,44 +31,14 @@ public sealed class AIDevelopmentPlanner : IDevelopmentPlanner
 
         cancellationToken.ThrowIfCancellationRequested();
 
+        var repositoryContext =
+            await _repositoryContextProvider.InspectAsync(
+                cancellationToken);
+
         var prompt =
-            "You are the planning component of an autonomous software " +
-            "development system.\n\n" +
-            "Create a safe, practical implementation plan for this task.\n\n" +
-            $"Task title:\n{task.Title}\n\n" +
-            $"Task description:\n{task.Description}\n\n" +
-            "Return ONLY valid JSON. Do not use markdown fences. " +
-            "Do not include explanations before or after the JSON.\n\n" +
-            "Required structure:\n" +
-            "{\n" +
-            "  \"summary\": \"short summary\",\n" +
-            "  \"actions\": [\n" +
-            "    {\n" +
-            "      \"type\": \"ReadFile\",\n" +
-            "      \"target\": \"path or target\",\n" +
-            "      \"content\": null\n" +
-            "    }\n" +
-            "  ]\n" +
-            "}\n\n" +
-            "Allowed action types are ONLY:\n" +
-            "ReadFile\n" +
-            "SearchCode\n" +
-            "CreateFile\n" +
-            "ModifyFile\n" +
-            "DeleteFile\n" +
-            "RunBuild\n" +
-            "RunTests\n" +
-            "GitDiff\n\n" +
-            "Rules:\n" +
-            "- Do not execute commands directly.\n" +
-            "- Do not use shell commands.\n" +
-            "- Do not modify files directly.\n" +
-            "- Use only the allowed action types.\n" +
-            "- Keep actions ordered.\n" +
-            "- Use repository-relative paths where applicable.\n" +
-            "- Do not assume files exist unless known from the task/context.\n" +
-            "- Prefer SearchCode when the exact file/path is unknown.\n" +
-            "- Include build/test validation where appropriate.";
+            BuildPlanningPrompt(
+                task,
+                repositoryContext);
 
         return await RequestPlanAsync(
             prompt,
@@ -84,47 +60,154 @@ public sealed class AIDevelopmentPlanner : IDevelopmentPlanner
 
         cancellationToken.ThrowIfCancellationRequested();
 
+        var repositoryContext =
+            await _repositoryContextProvider.InspectAsync(
+                cancellationToken);
+
         var prompt =
-            "You are the recovery planner of an autonomous software " +
-            "development system.\n\n" +
-            "The previous development attempt failed. " +
-            "Create a corrected plan that avoids repeating the failure.\n\n" +
-            $"Task title:\n{task.Title}\n\n" +
-            $"Task description:\n{task.Description}\n\n" +
-            $"Previous failure:\n{failure}\n\n" +
-            "IMPORTANT:\n" +
-            "- Diagnose the failure.\n" +
-            "- Do not repeat the failed action unless you have a valid reason.\n" +
-            "- If a file does not exist, search the repository instead.\n" +
-            "- Do not assume README.md or any other file exists.\n" +
-            "- Use repository-relative paths.\n" +
-            "- Return ONLY valid JSON.\n" +
-            "- Do not use markdown fences.\n" +
-            "- Do not include explanations outside the JSON.\n\n" +
-            "Required structure:\n" +
-            "{\n" +
-            "  \"summary\": \"short recovery summary\",\n" +
-            "  \"actions\": [\n" +
-            "    {\n" +
-            "      \"type\": \"SearchCode\",\n" +
-            "      \"target\": \"pattern\",\n" +
-            "      \"content\": null\n" +
-            "    }\n" +
-            "  ]\n" +
-            "}\n\n" +
-            "Allowed action types are ONLY:\n" +
-            "ReadFile\n" +
-            "SearchCode\n" +
-            "CreateFile\n" +
-            "ModifyFile\n" +
-            "DeleteFile\n" +
-            "RunBuild\n" +
-            "RunTests\n" +
-            "GitDiff";
+            BuildRecoveryPrompt(
+                task,
+                failure,
+                repositoryContext);
 
         return await RequestPlanAsync(
             prompt,
             cancellationToken);
+    }
+
+    private static string BuildPlanningPrompt(
+        DevelopmentTask task,
+        RepositoryContext context)
+    {
+        var builder = new StringBuilder();
+
+        builder.AppendLine(
+            "You are the planning component of an autonomous software development system.");
+        builder.AppendLine();
+
+        builder.AppendLine(
+            "Create a safe, practical implementation plan for this task.");
+        builder.AppendLine();
+
+        builder.AppendLine("TASK TITLE:");
+        builder.AppendLine(task.Title);
+        builder.AppendLine();
+
+        builder.AppendLine("TASK DESCRIPTION:");
+        builder.AppendLine(task.Description);
+        builder.AppendLine();
+
+        builder.AppendLine("ACTUAL REPOSITORY CONTEXT:");
+        builder.AppendLine(context.ToPromptText());
+        builder.AppendLine();
+
+        AppendPlanRules(builder);
+
+        return builder.ToString();
+    }
+
+    private static string BuildRecoveryPrompt(
+        DevelopmentTask task,
+        string failure,
+        RepositoryContext context)
+    {
+        var builder = new StringBuilder();
+
+        builder.AppendLine(
+            "You are the recovery planner of an autonomous software development system.");
+        builder.AppendLine();
+
+        builder.AppendLine(
+            "The previous development attempt failed.");
+        builder.AppendLine(
+            "Diagnose the failure and create a corrected implementation plan.");
+        builder.AppendLine();
+
+        builder.AppendLine("TASK TITLE:");
+        builder.AppendLine(task.Title);
+        builder.AppendLine();
+
+        builder.AppendLine("TASK DESCRIPTION:");
+        builder.AppendLine(task.Description);
+        builder.AppendLine();
+
+        builder.AppendLine("PREVIOUS FAILURE:");
+        builder.AppendLine(failure);
+        builder.AppendLine();
+
+        builder.AppendLine("CURRENT REPOSITORY CONTEXT:");
+        builder.AppendLine(context.ToPromptText());
+        builder.AppendLine();
+
+        builder.AppendLine(
+            "IMPORTANT RECOVERY RULES:");
+        builder.AppendLine(
+            "- Diagnose the previous failure.");
+        builder.AppendLine(
+            "- Do not blindly repeat the failed action.");
+        builder.AppendLine(
+            "- Use the actual repository context above.");
+        builder.AppendLine(
+            "- Do not assume files exist when they are not listed.");
+        builder.AppendLine(
+            "- Use repository-relative paths.");
+        builder.AppendLine();
+
+        AppendPlanRules(builder);
+
+        return builder.ToString();
+    }
+
+    private static void AppendPlanRules(
+        StringBuilder builder)
+    {
+        builder.AppendLine(
+            "Return ONLY valid JSON.");
+        builder.AppendLine(
+            "Do not use markdown fences.");
+        builder.AppendLine(
+            "Do not include explanations outside the JSON.");
+        builder.AppendLine();
+
+        builder.AppendLine("Required structure:");
+        builder.AppendLine("{");
+        builder.AppendLine("  \"summary\": \"short summary\",");
+        builder.AppendLine("  \"actions\": [");
+        builder.AppendLine("    {");
+        builder.AppendLine("      \"type\": \"ReadFile\",");
+        builder.AppendLine("      \"target\": \"path or target\",");
+        builder.AppendLine("      \"content\": null");
+        builder.AppendLine("    }");
+        builder.AppendLine("  ]");
+        builder.AppendLine("}");
+        builder.AppendLine();
+
+        builder.AppendLine("Allowed action types are ONLY:");
+        builder.AppendLine("ReadFile");
+        builder.AppendLine("SearchCode");
+        builder.AppendLine("CreateFile");
+        builder.AppendLine("ModifyFile");
+        builder.AppendLine("DeleteFile");
+        builder.AppendLine("RunBuild");
+        builder.AppendLine("RunTests");
+        builder.AppendLine("GitDiff");
+        builder.AppendLine();
+
+        builder.AppendLine("Rules:");
+        builder.AppendLine(
+            "- Do not execute commands directly.");
+        builder.AppendLine(
+            "- Do not use shell commands.");
+        builder.AppendLine(
+            "- Do not modify files directly.");
+        builder.AppendLine(
+            "- Keep actions ordered.");
+        builder.AppendLine(
+            "- Use only repository-relative paths where applicable.");
+        builder.AppendLine(
+            "- Prefer SearchCode when the exact file/path is unknown.");
+        builder.AppendLine(
+            "- Include build/test validation where appropriate.");
     }
 
     private async Task<DevelopmentPlan> RequestPlanAsync(
@@ -183,7 +266,7 @@ public sealed class AIDevelopmentPlanner : IDevelopmentPlanner
             {
                 if (!Enum.TryParse<DevelopmentActionType>(
                         action.Type,
-                        ignoreCase: true,
+                        true,
                         out var actionType))
                 {
                     return DevelopmentPlan.Failed(
@@ -242,7 +325,8 @@ public sealed class AIDevelopmentPlanner : IDevelopmentPlanner
         var firstBrace = text.IndexOf('{');
         var lastBrace = text.LastIndexOf('}');
 
-        if (firstBrace < 0 || lastBrace <= firstBrace)
+        if (firstBrace < 0 ||
+            lastBrace <= firstBrace)
         {
             return null;
         }
@@ -259,6 +343,3 @@ public sealed class AIDevelopmentPlanner : IDevelopmentPlanner
         string Target,
         string? Content);
 }
-
-
-
