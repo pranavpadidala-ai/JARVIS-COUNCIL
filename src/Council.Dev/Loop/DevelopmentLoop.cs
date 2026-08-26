@@ -20,7 +20,7 @@ public sealed class DevelopmentLoop
     public async Task RunAsync(
         DevelopmentTask task,
         Func<DevelopmentTask, CancellationToken, Task<DevelopmentCycleResult>> executor,
-        int maxAttempts = 3,
+        int maxAttempts = 50,
         CancellationToken cancellationToken = default)
     {
         ArgumentNullException.ThrowIfNull(task);

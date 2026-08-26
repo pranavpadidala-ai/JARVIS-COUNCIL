@@ -9,6 +9,7 @@ public sealed class TaskRunner
 
     public TaskRunner(TaskManager taskManager)
     {
+        ArgumentNullException.ThrowIfNull(taskManager);
         _taskManager = taskManager;
     }
 

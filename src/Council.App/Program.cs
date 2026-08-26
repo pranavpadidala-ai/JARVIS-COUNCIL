@@ -254,7 +254,7 @@ try
     var developmentResult =
         await developmentOrchestrator.ExecuteAsync(
             developmentTask,
-            maxAttempts: 3);
+            maxAttempts: 50);
 
     Console.WriteLine();
     Console.WriteLine("=== Autonomous Development Result ===");
@@ -293,5 +293,3 @@ Console.WriteLine();
 Console.WriteLine("============================================================");
 Console.WriteLine("JARVIS Council execution finished.");
 Console.WriteLine("============================================================");
-
-
