@@ -1,9 +1,15 @@
+using System.Text.RegularExpressions;
 using Council.Dev.Terminal;
 
 namespace Council.Dev.Git;
 
 public sealed class GitCheckpointManager : IGitCheckpointManager
 {
+    private static readonly Regex CommitShaRegex =
+        new(
+            "^[0-9a-fA-F]{40}$",
+            RegexOptions.Compiled | RegexOptions.CultureInvariant);
+
     private readonly ITerminalExecutor _terminalExecutor;
     private readonly string _workingDirectory;
 
@@ -70,10 +76,10 @@ public sealed class GitCheckpointManager : IGitCheckpointManager
 
         var sha = head.StandardOutput.Trim();
 
-        if (string.IsNullOrWhiteSpace(sha))
+        if (!IsValidCommitSha(sha))
         {
             return GitCheckpointResult.Failed(
-                "Git returned an empty HEAD commit.");
+                "Git returned an invalid HEAD commit SHA.");
         }
 
         return GitCheckpointResult.Completed(
@@ -89,6 +95,14 @@ public sealed class GitCheckpointManager : IGitCheckpointManager
         {
             return GitCheckpointResult.Failed(
                 "Commit message is required.");
+        }
+
+        var commitMessage = SanitizeCommitMessage(message);
+
+        if (string.IsNullOrWhiteSpace(commitMessage))
+        {
+            return GitCheckpointResult.Failed(
+                "Commit message is empty after sanitization.");
         }
 
         cancellationToken.ThrowIfCancellationRequested();
@@ -125,10 +139,14 @@ public sealed class GitCheckpointManager : IGitCheckpointManager
 
         cancellationToken.ThrowIfCancellationRequested();
 
-        var commitMessage = SanitizeCommitMessage(message);
+        // Use PowerShell single-quoted string syntax.
+        // Single quotes prevent variable expansion and command
+        // substitution such as $(...).
+        var safeMessage =
+            commitMessage.Replace("'", "''");
 
         var commit = await ExecuteGitAsync(
-            $"git commit -m \"{commitMessage}\"",
+            $"git commit -m '{safeMessage}'",
             cancellationToken);
 
         if (!commit.Success)
@@ -148,10 +166,10 @@ public sealed class GitCheckpointManager : IGitCheckpointManager
     {
         ArgumentNullException.ThrowIfNull(checkpoint);
 
-        if (string.IsNullOrWhiteSpace(checkpoint.CommitSha))
+        if (!IsValidCommitSha(checkpoint.CommitSha))
         {
             return GitCheckpointResult.Failed(
-                "Checkpoint commit SHA is required.");
+                "Checkpoint commit SHA is invalid.");
         }
 
         cancellationToken.ThrowIfCancellationRequested();
@@ -197,6 +215,12 @@ public sealed class GitCheckpointManager : IGitCheckpointManager
             cancellationToken);
     }
 
+    private static bool IsValidCommitSha(string sha)
+    {
+        return !string.IsNullOrWhiteSpace(sha) &&
+               CommitShaRegex.IsMatch(sha);
+    }
+
     private static string GetOutput(
         TerminalResult result)
     {
@@ -212,7 +236,7 @@ public sealed class GitCheckpointManager : IGitCheckpointManager
         string message)
     {
         return message
-            .Replace("\"", "'")
+            .Replace("\0", "")
             .Replace("\r", " ")
             .Replace("\n", " ")
             .Trim();
