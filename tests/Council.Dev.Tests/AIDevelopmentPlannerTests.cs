@@ -34,7 +34,9 @@ public class AIDevelopmentPlannerTests
         }
         """);
 
-        var planner = new AIDevelopmentPlanner(provider);
+        var planner = new AIDevelopmentPlanner(
+            provider,
+            new RepositoryContextProvider(Directory.GetCurrentDirectory()));
 
         var task = new DevelopmentTask
         {
@@ -96,7 +98,9 @@ public class AIDevelopmentPlannerTests
         }
         """);
 
-        var planner = new AIDevelopmentPlanner(provider);
+        var planner = new AIDevelopmentPlanner(
+            provider,
+            new RepositoryContextProvider(Directory.GetCurrentDirectory()));
 
         var result = await planner.CreatePlanAsync(
             CreateTask());
@@ -114,7 +118,9 @@ public class AIDevelopmentPlannerTests
         var provider = new FakeAIProvider(
             "This is not valid JSON.");
 
-        var planner = new AIDevelopmentPlanner(provider);
+        var planner = new AIDevelopmentPlanner(
+            provider,
+            new RepositoryContextProvider(Directory.GetCurrentDirectory()));
 
         var result = await planner.CreatePlanAsync(CreateTask());
 
@@ -129,7 +135,9 @@ public class AIDevelopmentPlannerTests
     {
         var provider = new FakeAIProvider("   ");
 
-        var planner = new AIDevelopmentPlanner(provider);
+        var planner = new AIDevelopmentPlanner(
+            provider,
+            new RepositoryContextProvider(Directory.GetCurrentDirectory()));
 
         var result = await planner.CreatePlanAsync(
             CreateTask());
@@ -157,7 +165,9 @@ public class AIDevelopmentPlannerTests
             }
             """);
 
-        var planner = new AIDevelopmentPlanner(provider);
+        var planner = new AIDevelopmentPlanner(
+            provider,
+            new RepositoryContextProvider(Directory.GetCurrentDirectory()));
 
         using var cancellationSource =
             new CancellationTokenSource();
@@ -187,7 +197,9 @@ public class AIDevelopmentPlannerTests
             }
             """);
 
-        var planner = new AIDevelopmentPlanner(provider);
+        var planner = new AIDevelopmentPlanner(
+            provider,
+            new RepositoryContextProvider(Directory.GetCurrentDirectory()));
 
         await Assert.ThrowsAsync<ArgumentNullException>(
             () => planner.CreatePlanAsync(null!));
@@ -231,3 +243,4 @@ public class AIDevelopmentPlannerTests
         }
     }
 }
+
