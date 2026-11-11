@@ -7,6 +7,7 @@ public sealed class WorkspaceTool : ITool
 {
     private const int MaxReadBytes = 1_000_000;
     private const int MaxWriteBytes = 250_000;
+    private const int MaxListEntries = 200;
     private const int MaxSearchResults = 50;
     private const int MaxSearchFilesScanned = 5000;
     private const long MaxSearchBytesScanned = 20_000_000;
@@ -61,16 +62,38 @@ public sealed class WorkspaceTool : ITool
         }
     }
 
+    // Lists the requested folder and its visible descendants in one tool call.
     private ToolResult ListFiles(string relative)
     {
         var directory = Resolve(relative, allowRoot: true);
         if (!Directory.Exists(directory)) return new ToolResult(false, "Folder does not exist.");
-        var entries = Directory.EnumerateFileSystemEntries(directory)
-            .Where(p => !IsBlockedEntry(p) && !IsReparsePoint(p))
-            .Take(200)
-            .Select(p => (Directory.Exists(p) ? "[DIR] " : "[FILE] ") + Path.GetRelativePath(_root, p))
-            .ToArray();
-        return new ToolResult(true, entries.Length == 0 ? "No visible files or folders." : string.Join(Environment.NewLine, entries));
+
+        var entries = new List<string>();
+        var pending = new Stack<string>();
+        pending.Push(directory);
+
+        while (pending.Count > 0 && entries.Count < MaxListEntries)
+        {
+            var current = pending.Pop();
+            var children = Directory.EnumerateFileSystemEntries(current)
+                .Where(p => !IsBlockedEntry(p) && !IsReparsePoint(p))
+                .OrderBy(p => Path.GetFileName(p), StringComparer.OrdinalIgnoreCase)
+                .ToArray();
+
+            // Reverse push preserves alphabetical traversal with a stack.
+            foreach (var child in children.Reverse())
+            {
+                if (entries.Count >= MaxListEntries) break;
+                var isDirectory = Directory.Exists(child);
+                entries.Add((isDirectory ? "[DIR] " : "[FILE] ") + Path.GetRelativePath(_root, child));
+                if (isDirectory) pending.Push(child);
+            }
+        }
+
+        var summary = entries.Count == 0 ? "No visible files or folders." : string.Join(Environment.NewLine, entries);
+        if (pending.Count > 0)
+            summary += Environment.NewLine + $"Listing stopped at the {MaxListEntries}-entry safety limit.";
+        return new ToolResult(true, summary);
     }
 
     private async Task<ToolResult> ReadFileAsync(string relative, CancellationToken token)
