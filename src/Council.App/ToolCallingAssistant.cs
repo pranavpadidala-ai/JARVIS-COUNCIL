@@ -2,6 +2,7 @@ using System.Text.Json;
 using Council.App.Abaqus;
 using Council.App.Office;
 using Council.App.Skills;
+using Council.App.Voice;
 using Council.Core.Models;
 using Council.Core.Providers;
 using Council.Execution;
@@ -16,6 +17,8 @@ public sealed class ToolCallingAssistant
     private const int MaxToolExecutionsPerTurn = 8;
     private const int MaxHistoryMessages = 25;
     private readonly IAIProvider _provider;
+    private WindowsVoiceService? _voice;
+    private bool _voiceOutputEnabled;
     private readonly ConversationMemoryStore? _memory;
     private bool _memoryLoaded;
     private readonly ToolRegistry _tools = new();
@@ -65,7 +68,7 @@ public sealed class ToolCallingAssistant
         Console.WriteLine("Memory   : " + (_memory is null ? "disabled" : "local conversation history enabled"));
         Console.WriteLine("Workspace: " + Path.GetFullPath(Directory.GetCurrentDirectory()));
         Console.WriteLine("Tools    : list_files, read_file, search_files, create_file, create_folder, abaqus_status, office_workspace");
-        Console.WriteLine("Commands : /help, /skills, /clear, /exit");
+        Console.WriteLine("Commands : /help, /skills, /clear, /voice, /speak on|off, /stop, /exit");
         Console.WriteLine();
 
         if (!_memoryLoaded && _memory is not null)
@@ -92,9 +95,67 @@ public sealed class ToolCallingAssistant
             input = input.Trim();
             if (input.Length == 0) continue;
             if (input.Equals("/exit", StringComparison.OrdinalIgnoreCase)) break;
+            if (input.Equals("/voice", StringComparison.OrdinalIgnoreCase))
+            {
+                if (!OperatingSystem.IsWindows())
+                {
+                    Console.WriteLine("On-demand voice input is currently supported on Windows only.");
+                    continue;
+                }
+
+                try
+                {
+                    Console.WriteLine("[Voice] Speak now. JARVIS listens for one utterance (maximum 20 seconds)...");
+                    var spokenText = await GetVoiceService().ListenOnceAsync(cancellationToken);
+                    if (string.IsNullOrWhiteSpace(spokenText))
+                    {
+                        Console.WriteLine("[Voice] No speech was recognized.");
+                        continue;
+                    }
+
+                    input = spokenText.Trim();
+                    Console.WriteLine("You (voice): " + input);
+                }
+                catch (TimeoutException)
+                {
+                    Console.WriteLine("[Voice] Listening timed out. Try /voice again.");
+                    continue;
+                }
+                catch (Exception ex) when (ex is InvalidOperationException or PlatformNotSupportedException or System.Speech.Recognition.RecognizerException or IOException)
+                {
+                    Console.WriteLine("[Voice] Voice input unavailable: " + ex.Message);
+                    continue;
+                }
+            }
+            if (input.Equals("/speak on", StringComparison.OrdinalIgnoreCase))
+            {
+                if (!OperatingSystem.IsWindows())
+                {
+                    Console.WriteLine("Speech output is currently supported on Windows only.");
+                    continue;
+                }
+                _voiceOutputEnabled = true;
+                Console.WriteLine("JARVIS speech output enabled.");
+                continue;
+            }
+            if (input.Equals("/speak off", StringComparison.OrdinalIgnoreCase))
+            {
+                _voiceOutputEnabled = false;
+                if (OperatingSystem.IsWindows())
+                    _voice?.StopAll();
+                Console.WriteLine("JARVIS speech output disabled.");
+                continue;
+            }
+            if (input.Equals("/stop", StringComparison.OrdinalIgnoreCase))
+            {
+                if (OperatingSystem.IsWindows())
+                    _voice?.StopAll();
+                Console.WriteLine("Active voice capture/speech stopped. This does not interrupt an in-progress AI request.");
+                continue;
+            }
             if (input.Equals("/help", StringComparison.OrdinalIgnoreCase))
             {
-                Console.WriteLine("Ask JARVIS to inspect, search, or create files inside this project, or use office_workspace to list, inspect and create Office documents. /skills lists discovered specialist skills; /clear resets this session; /exit closes it.");
+                Console.WriteLine("Ask JARVIS to inspect, search, or create files inside this project, or use office_workspace to list, inspect and create Office documents. /voice captures one spoken request on Windows; /speak on|off controls spoken replies; /stop cancels active voice capture/speech; /skills lists specialist skills; /clear resets memory; /exit closes JARVIS.");
                 continue;
             }
             if (input.Equals("/skills", StringComparison.OrdinalIgnoreCase))
@@ -140,6 +201,7 @@ public sealed class ToolCallingAssistant
                         var cleanText = response.Content.Trim();
                         Console.WriteLine("JARVIS: " + cleanText + Environment.NewLine);
                         await AddHistoryAsync(new AIMessage("assistant", cleanText), cancellationToken);
+                        await SpeakIfEnabledAsync(cleanText, cancellationToken);
                         completed = true;
                         break;
                     }
@@ -147,6 +209,7 @@ public sealed class ToolCallingAssistant
                     {
                         Console.WriteLine("JARVIS: " + message + Environment.NewLine);
                         await AddHistoryAsync(new AIMessage("assistant", message), cancellationToken);
+                        await SpeakIfEnabledAsync(message, cancellationToken);
                         completed = true;
                         break;
                     }
@@ -193,6 +256,29 @@ public sealed class ToolCallingAssistant
         Console.WriteLine("JARVIS session ended.");
     }
 
+
+    private WindowsVoiceService GetVoiceService()
+    {
+        if (!OperatingSystem.IsWindows())
+            throw new PlatformNotSupportedException("Windows speech APIs are unavailable on this operating system.");
+
+        return _voice ??= new WindowsVoiceService();
+    }
+
+    private async Task SpeakIfEnabledAsync(string text, CancellationToken cancellationToken)
+    {
+        if (!_voiceOutputEnabled || !OperatingSystem.IsWindows())
+            return;
+
+        try
+        {
+            await GetVoiceService().SpeakAsync(text, cancellationToken);
+        }
+        catch (Exception ex) when (ex is InvalidOperationException or PlatformNotSupportedException or IOException or OperationCanceledException)
+        {
+            Console.WriteLine("[Voice] Speech output stopped or unavailable: " + ex.Message);
+        }
+    }
 
     private async Task AddHistoryAsync(AIMessage message, CancellationToken cancellationToken)
     {
