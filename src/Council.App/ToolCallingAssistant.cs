@@ -1,4 +1,5 @@
 using System.Text.Json;
+using Council.App.Abaqus;
 using Council.Core.Models;
 using Council.Core.Providers;
 using Council.Execution;
@@ -19,6 +20,7 @@ public sealed class ToolCallingAssistant
         You are JARVIS, a practical personal AI assistant.
         You have limited tools that can access ONLY the configured JARVIS project workspace.
         Never claim an action succeeded unless its tool result confirms success.
+        The abaqus_status tool is read-only: it only checks whether an Abaqus command launcher can be located. It does not open Abaqus, run simulations, or modify models.
         Never invent file contents or search results.
         When a tool is needed, respond with exactly one JSON object and no markdown.
         For one operation use {"type":"tool_call","name":"read_file","arguments":{"path":"relative/path"}}.
@@ -40,6 +42,7 @@ public sealed class ToolCallingAssistant
         _tools.Register(new WorkspaceTool("search_files", "Search supported project text files. Required argument: query.", workspaceRoot));
         _tools.Register(new WorkspaceTool("create_file", "Create a new file without overwriting. Required arguments: path, content. Parent folder must exist.", workspaceRoot));
         _tools.Register(new WorkspaceTool("create_folder", "Create a folder in the workspace. Required argument: path.", workspaceRoot));
+        _tools.Register(new AbaqusStatusTool());
         _history.Add(new AIMessage("system", SystemPrompt + "\n\nAvailable tools:\n" +
             string.Join("\n", _tools.GetAll().Select(t => t.Name + ": " + t.Description))));
     }
@@ -52,7 +55,7 @@ public sealed class ToolCallingAssistant
         Console.WriteLine("============================================================");
         Console.WriteLine($"Provider : {_provider.Name}");
         Console.WriteLine("Workspace: " + Path.GetFullPath(Directory.GetCurrentDirectory()));
-        Console.WriteLine("Tools    : list_files, read_file, search_files, create_file, create_folder");
+        Console.WriteLine("Tools    : list_files, read_file, search_files, create_file, create_folder, abaqus_status");
         Console.WriteLine("Commands : /help, /clear, /exit");
         Console.WriteLine();
 
@@ -66,7 +69,7 @@ public sealed class ToolCallingAssistant
             if (input.Equals("/exit", StringComparison.OrdinalIgnoreCase)) break;
             if (input.Equals("/help", StringComparison.OrdinalIgnoreCase))
             {
-                Console.WriteLine("Ask JARVIS to inspect, search, or create files inside this project. /clear resets this session; /exit closes it.");
+                Console.WriteLine("Ask JARVIS to inspect, search, or create files inside this project, or use abaqus_status for a read-only Abaqus launcher check. /clear resets this session; /exit closes it.");
                 continue;
             }
             if (input.Equals("/clear", StringComparison.OrdinalIgnoreCase))
