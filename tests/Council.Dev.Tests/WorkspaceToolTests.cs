@@ -106,6 +106,28 @@ public sealed class WorkspaceToolTests
     }
 
     [Fact]
+    public async Task List_files_includes_nested_visible_entries_in_one_result()
+    {
+        var root = CreateWorkspace();
+        Directory.CreateDirectory(Path.Combine(root, "src", "nested"));
+        await File.WriteAllTextAsync(Path.Combine(root, "src", "Program.cs"), "class App {}");
+        await File.WriteAllTextAsync(Path.Combine(root, "src", "nested", "Helper.cs"), "class Helper {}");
+        Directory.CreateDirectory(Path.Combine(root, "src", "obj"));
+        var tool = new WorkspaceTool("list_files", "list", root);
+
+        var result = await tool.ExecuteAsync(new Dictionary<string, string>
+        {
+            ["path"] = ""
+        });
+
+        Assert.True(result.Success);
+        Assert.Contains("[DIR] src", result.Message);
+        Assert.Contains("[FILE] src" + Path.DirectorySeparatorChar + "Program.cs", result.Message);
+        Assert.Contains("[FILE] src" + Path.DirectorySeparatorChar + "nested" + Path.DirectorySeparatorChar + "Helper.cs", result.Message);
+        Assert.DoesNotContain("obj", result.Message);
+    }
+
+    [Fact]
     public async Task Workspace_root_cannot_be_a_symbolic_link()
     {
         var target = CreateWorkspace();
