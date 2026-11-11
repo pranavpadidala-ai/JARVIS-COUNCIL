@@ -1,6 +1,7 @@
 using System.Text.Json;
 using Council.App.Abaqus;
 using Council.App.Office;
+using Council.App.Skills;
 using Council.Core.Models;
 using Council.Core.Providers;
 using Council.Execution;
@@ -15,7 +16,7 @@ public sealed class ToolCallingAssistant
     private const int MaxHistoryMessages = 25;
     private readonly IAIProvider _provider;
     private readonly ToolRegistry _tools = new();
-    private readonly OfficeSkillLibrary _officeSkills = new();
+    private readonly AgentSkillLibrary _skills = new();
     private readonly List<AIMessage> _history = [];
 
     private const string SystemPrompt = """
@@ -226,7 +227,7 @@ public sealed class ToolCallingAssistant
 
     private AIMessage[] BuildMessagesForTurn(string userInput)
     {
-        var skill = _officeSkills.GetInstructions(userInput);
+        var skill = _skills.GetInstructions(userInput);
         return skill is null
             ? _history.ToArray()
             : _history.Take(1).Concat(new[] { new AIMessage("system", skill) }).Concat(_history.Skip(1)).ToArray();
