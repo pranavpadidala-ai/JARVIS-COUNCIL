@@ -46,7 +46,7 @@ The current Windows-native voice slice uses the System.Speech APIs:
 
 - `/voice` opens the default microphone on demand and captures one spoken request (up to 20 seconds). It is command-triggered push-to-talk, not an always-listening service.
 - `/speak on` enables spoken assistant replies through the installed Windows speech voice; `/speak off` disables them.
-- `/stop` cancels active voice capture or speech output. It does not currently interrupt an in-progress AI/provider request or arbitrary processes.
+- Pressing Escape during voice capture or spoken output cancels that active audio operation. It does not currently interrupt an in-progress AI/provider request or arbitrary processes.
 - Voice input requires a working microphone and an installed Windows speech-recognition engine/language. If Windows has no compatible recognizer, JARVIS reports the failure and text input remains available.
 
 The desktop_control tool can launch only Notepad, Calculator, File Explorer, and Task Manager. It rejects arbitrary executable paths, extra command arguments, scripts, shell commands, and unsupported actions. It cannot unlock Windows or bypass Windows Hello/PIN. These restrictions are intentional.
