@@ -1,4 +1,5 @@
 ---
+triggers: Excel, spreadsheet, workbook, worksheet, formula, pivot table, chart, interpolation, average data, data table, engineering calculations
 name: excel-specialist
 description: Use for Excel workbooks, spreadsheets, formulas, engineering calculations, data cleaning, charts, formatting, and workbook review.
 ---
