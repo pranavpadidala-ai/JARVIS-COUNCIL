@@ -60,7 +60,7 @@ public sealed class ToolCallingAssistant
         Console.WriteLine($"Provider : {_provider.Name}");
         Console.WriteLine("Workspace: " + Path.GetFullPath(Directory.GetCurrentDirectory()));
         Console.WriteLine("Tools    : list_files, read_file, search_files, create_file, create_folder, abaqus_status, office_workspace");
-        Console.WriteLine("Commands : /help, /clear, /exit");
+        Console.WriteLine("Commands : /help, /skills, /clear, /exit");
         Console.WriteLine();
 
         while (!cancellationToken.IsCancellationRequested)
@@ -73,7 +73,16 @@ public sealed class ToolCallingAssistant
             if (input.Equals("/exit", StringComparison.OrdinalIgnoreCase)) break;
             if (input.Equals("/help", StringComparison.OrdinalIgnoreCase))
             {
-                Console.WriteLine("Ask JARVIS to inspect, search, or create files inside this project, or use office_workspace to list, inspect and create Office documents. /clear resets this session; /exit closes it.");
+                Console.WriteLine("Ask JARVIS to inspect, search, or create files inside this project, or use office_workspace to list, inspect and create Office documents. /skills lists discovered specialist skills; /clear resets this session; /exit closes it.");
+                continue;
+            }
+            if (input.Equals("/skills", StringComparison.OrdinalIgnoreCase))
+            {
+                var discovered = _skills.ListSkills();
+                Console.WriteLine($"Discovered skills ({discovered.Count}):");
+                foreach (var skillName in discovered)
+                    Console.WriteLine(" - " + skillName);
+                Console.WriteLine();
                 continue;
             }
             if (input.Equals("/clear", StringComparison.OrdinalIgnoreCase))
