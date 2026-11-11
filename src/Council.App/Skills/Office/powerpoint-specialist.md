@@ -1,4 +1,5 @@
 ---
+triggers: PowerPoint, PPTX, presentation, slides, slide deck, thesis defense, seminar
 name: powerpoint-specialist
 description: Use for PowerPoint presentations, slide decks, templates, layouts, charts, speaker notes, and slide review.
 ---
