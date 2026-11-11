@@ -1,4 +1,5 @@
 ---
+triggers: Word, DOCX, thesis, report, memo, letter, manuscript, tracked changes, document formatting
 name: word-specialist
 description: Use for Word documents, reports, thesis chapters, letters, templates, formatting, tables, references, comments, and tracked changes.
 ---
