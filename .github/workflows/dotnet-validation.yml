@@ -1,0 +1,33 @@
+name: .NET 8 build and test
+
+on:
+  push:
+    branches:
+      - integration/openjarvis-omniroute-ultron
+  pull_request:
+    branches:
+      - feature/safe-workspace-tools
+
+permissions:
+  contents: read
+
+jobs:
+  build-and-test:
+    runs-on: windows-latest
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Set up .NET 8
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: 8.0.x
+
+      - name: Restore
+        run: dotnet restore JARVIS.Council.sln
+
+      - name: Build
+        run: dotnet build JARVIS.Council.sln --configuration Release --no-restore
+
+      - name: Test
+        run: dotnet test JARVIS.Council.sln --configuration Release --no-build --no-restore

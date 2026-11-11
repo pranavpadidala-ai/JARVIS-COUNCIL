@@ -146,7 +146,7 @@ public sealed class OmniRouteProvider : IAIProvider
 
     private static string NormalizeRole(string role)
     {
-        var normalized = role?.Trim().ToLowerInvariant();
+        var normalized = role.Trim().ToLowerInvariant();
         return normalized switch
         {
             "system" or "developer" or "user" or "assistant" => normalized,
