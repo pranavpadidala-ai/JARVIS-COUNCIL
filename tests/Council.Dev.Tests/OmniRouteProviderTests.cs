@@ -73,7 +73,7 @@ public sealed class OmniRouteProviderTests
     {
         Assert.Throws<ArgumentException>(() =>
             new OmniRouteProvider(
-                "key", "free-model/model-a", "http://example.com/v1", "free-model"));
+                "key", "free-model/model-a", "http://example.com/v1", "free-model/model-a"));
     }
 
     private sealed class StubHandler(

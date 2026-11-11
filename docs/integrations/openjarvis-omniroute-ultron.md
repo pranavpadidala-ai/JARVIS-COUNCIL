@@ -11,7 +11,7 @@ This document records the first .NET-native integration slice. JARVIS remains th
 
 ## OmniRoute free-only configuration
 
-The JARVIS adapter intentionally blocks the `auto` alias. It requires an explicit model ID of the form `provider-prefix/model-id` and a exact ID in `OMNIROUTE_FREE_MODELS`. This prevents JARVIS from silently asking OmniRoute to choose an unknown-cost route. It does not independently audit the upstream provider's billing terms: choose only a currently free provider connection in the OmniRoute dashboard and use that provider's exact model ID.
+The JARVIS adapter intentionally blocks the `auto` alias. It requires an explicit model ID of the form `provider-prefix/model-id` and an exact ID in `OMNIROUTE_FREE_MODELS`. This prevents JARVIS from silently asking OmniRoute to choose an unknown-cost route. It does not independently audit the upstream provider's billing terms: choose only a currently free provider connection in the OmniRoute dashboard and use that provider's exact model ID.
 
 1. Start OmniRoute locally and open its dashboard at `http://localhost:20128`.
 2. Connect only a provider/account whose current plan and terms you have checked.
