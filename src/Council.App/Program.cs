@@ -1,4 +1,5 @@
 ﻿using Council.AI.Providers;
+using Council.App.Abaqus;
 using Council.App;
 using Council.Core.Models;
 using Council.Core.Orchestration;
@@ -19,6 +20,18 @@ using Council.Execution.Tools;
 // ============================================================
 // JARVIS COUNCIL - AI PROVIDERS
 // ============================================================
+
+// Read-only Abaqus launcher diagnostic; does not require an AI provider.
+if (args.Any(arg => string.Equals(arg, "--abaqus-status", StringComparison.OrdinalIgnoreCase)))
+{
+    var abaqus = new AbaqusInstallationDetector().Detect();
+    Console.WriteLine("JARVIS Abaqus 2024 integration check");
+    Console.WriteLine(abaqus.IsAvailable ? "Launcher: DETECTED" : "Launcher: NOT DETECTED");
+    Console.WriteLine(abaqus.Message);
+    if (abaqus.CommandPath is not null)
+        Console.WriteLine("Path: " + abaqus.CommandPath);
+    return;
+}
 
 var mockProvider = new MockAIProvider();
 
