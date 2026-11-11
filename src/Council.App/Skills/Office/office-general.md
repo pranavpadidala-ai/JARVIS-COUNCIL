@@ -1,4 +1,5 @@
 ---
+triggers: Microsoft Office, Office document, Office file, Excel Word PowerPoint
 name: office-general
 description: Choose the correct Microsoft Office workflow, preserve source files, verify outputs, and explain limitations clearly.
 ---
