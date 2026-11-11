@@ -1,4 +1,5 @@
 ﻿using Council.AI.Providers;
+using Council.App;
 using Council.Core.Models;
 using Council.Core.Orchestration;
 using Council.Core.Providers;
@@ -92,6 +93,24 @@ var providers = new List<IAIProvider>
 {
     activeProvider
 };
+
+// Interactive assistant is the normal startup experience.
+// Pass --dev to run the existing autonomous developer demo.
+if (!args.Any(arg =>
+        string.Equals(arg, "--dev", StringComparison.OrdinalIgnoreCase)))
+{
+    if (activeProvider.Name == "Mock")
+    {
+        Console.WriteLine(
+            "No AI API key detected. JARVIS is running in mock mode.");
+        Console.WriteLine(
+            "Set GEMINI_API_KEY or OPENAI_API_KEY to enable real AI responses.");
+    }
+
+    var assistant = new ConsoleAssistant(activeProvider);
+    await assistant.RunAsync();
+    return;
+}
 
 
 // ============================================================
