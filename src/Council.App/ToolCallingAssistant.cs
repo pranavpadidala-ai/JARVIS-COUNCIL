@@ -123,7 +123,7 @@ public sealed class ToolCallingAssistant
                     Console.WriteLine("[Voice] Listening timed out. Try /voice again.");
                     continue;
                 }
-                catch (Exception ex) when (ex is InvalidOperationException or PlatformNotSupportedException or System.Speech.Recognition.RecognizerException or IOException)
+                catch (Exception ex)
                 {
                     Console.WriteLine("[Voice] Voice input unavailable: " + ex.Message);
                     continue;
