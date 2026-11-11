@@ -257,7 +257,7 @@ public sealed class OfficeWorkspaceTool : ITool
             }
         }
 
-        sheet.Columns().AdjustToContents();
+        sheet.ColumnsUsed().AdjustToContents();
         workbook.SaveAs(path);
         return new ToolResult(true,
             "Created new Excel workbook: " + Path.GetRelativePath(_root, path) +
