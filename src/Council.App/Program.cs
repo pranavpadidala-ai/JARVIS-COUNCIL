@@ -16,6 +16,7 @@ using Council.Dev.Validation;
 using Council.Dev.Workspace;
 using Council.Execution;
 using Council.Execution.Tools;
+using Council.Memory;
 
 // ============================================================
 // JARVIS COUNCIL - AI PROVIDERS
@@ -60,6 +61,12 @@ var ollamaBaseUrl =
     Environment.GetEnvironmentVariable("OLLAMA_BASE_URL")
     ?? "http://localhost:11434";
 
+var omniRouteApiKey = Environment.GetEnvironmentVariable("OMNIROUTE_API_KEY");
+var omniRouteModel = Environment.GetEnvironmentVariable("OMNIROUTE_MODEL");
+var omniRouteBaseUrl = Environment.GetEnvironmentVariable("OMNIROUTE_BASE_URL")
+    ?? "http://localhost:20128/v1";
+var omniRouteFreePrefixes = Environment.GetEnvironmentVariable("OMNIROUTE_FREE_MODEL_PREFIXES");
+
 IAIProvider activeProvider;
 
 switch (selectedProvider?.Trim().ToLowerInvariant())
@@ -85,6 +92,17 @@ switch (selectedProvider?.Trim().ToLowerInvariant())
     case "ollama":
         activeProvider = new OllamaProvider(
             ollamaModel, ollamaBaseUrl, contextTokens: 4096);
+        break;
+
+    case "omniroute":
+        if (string.IsNullOrWhiteSpace(omniRouteApiKey))
+            throw new InvalidOperationException("OMNIROUTE_API_KEY is required for OmniRoute.");
+        if (string.IsNullOrWhiteSpace(omniRouteModel))
+            throw new InvalidOperationException("OMNIROUTE_MODEL must be an explicit provider/model ID; the auto alias is not allowed.");
+        if (string.IsNullOrWhiteSpace(omniRouteFreePrefixes))
+            throw new InvalidOperationException("OMNIROUTE_FREE_MODEL_PREFIXES must list the free provider prefixes you have explicitly approved.");
+        activeProvider = new OmniRouteProvider(
+            omniRouteApiKey, omniRouteModel, omniRouteBaseUrl, omniRouteFreePrefixes);
         break;
 
     case "mock":
@@ -134,7 +152,10 @@ if (!args.Any(arg =>
     }
 
     var interactiveWorkspaceRoot = Directory.GetCurrentDirectory();
-    var assistant = new ToolCallingAssistant(activeProvider, interactiveWorkspaceRoot);
+    var memoryEnabled = bool.TryParse(
+        Environment.GetEnvironmentVariable("JARVIS_MEMORY_ENABLED"), out var enableMemory) && enableMemory;
+    var memoryStore = memoryEnabled ? new ConversationMemoryStore() : null;
+    var assistant = new ToolCallingAssistant(activeProvider, interactiveWorkspaceRoot, memoryStore);
     await assistant.RunAsync();
     return;
 }

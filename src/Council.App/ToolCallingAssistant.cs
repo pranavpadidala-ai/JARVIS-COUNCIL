@@ -6,6 +6,7 @@ using Council.Core.Models;
 using Council.Core.Providers;
 using Council.Execution;
 using Council.Execution.Tools;
+using Council.Memory;
 
 namespace Council.App;
 
@@ -15,6 +16,8 @@ public sealed class ToolCallingAssistant
     private const int MaxToolExecutionsPerTurn = 8;
     private const int MaxHistoryMessages = 25;
     private readonly IAIProvider _provider;
+    private readonly ConversationMemoryStore? _memory;
+    private bool _memoryLoaded;
     private readonly ToolRegistry _tools = new();
     private readonly AgentSkillLibrary _skills = new();
     private readonly List<AIMessage> _history = [];
@@ -37,9 +40,10 @@ public sealed class ToolCallingAssistant
         Be clear and concise. Explain when a requested action is blocked.
         """;
 
-    public ToolCallingAssistant(IAIProvider provider, string workspaceRoot)
+    public ToolCallingAssistant(IAIProvider provider, string workspaceRoot, ConversationMemoryStore? memory = null)
     {
         _provider = provider ?? throw new ArgumentNullException(nameof(provider));
+        _memory = memory;
         _tools.Register(new WorkspaceTool("list_files", "Recursively list visible files and folders. Required argument: path (use empty string for workspace root).", workspaceRoot));
         _tools.Register(new WorkspaceTool("read_file", "Read a text file. Required argument: path.", workspaceRoot));
         _tools.Register(new WorkspaceTool("search_files", "Search supported project text files. Required argument: query.", workspaceRoot));
@@ -58,10 +62,27 @@ public sealed class ToolCallingAssistant
         Console.WriteLine("                         J.A.R.V.I.S");
         Console.WriteLine("============================================================");
         Console.WriteLine($"Provider : {_provider.Name}");
+        Console.WriteLine("Memory   : " + (_memory is null ? "disabled" : "local conversation history enabled"));
         Console.WriteLine("Workspace: " + Path.GetFullPath(Directory.GetCurrentDirectory()));
         Console.WriteLine("Tools    : list_files, read_file, search_files, create_file, create_folder, abaqus_status, office_workspace");
         Console.WriteLine("Commands : /help, /skills, /clear, /exit");
         Console.WriteLine();
+
+        if (!_memoryLoaded && _memory is not null)
+        {
+            try
+            {
+                var restored = await _memory.LoadRecentAsync(MaxHistoryMessages, cancellationToken);
+                _history.InsertRange(1, restored);
+                TrimHistory();
+                Console.WriteLine($"[Memory] Restored {restored.Count} local conversation messages.");
+            }
+            catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+            {
+                Console.WriteLine("[Memory] Could not restore local history: " + ex.Message);
+            }
+        }
+        _memoryLoaded = true;
 
         while (!cancellationToken.IsCancellationRequested)
         {
@@ -88,11 +109,17 @@ public sealed class ToolCallingAssistant
             if (input.Equals("/clear", StringComparison.OrdinalIgnoreCase))
             {
                 _history.RemoveRange(1, _history.Count - 1);
+                if (_memory is not null)
+                {
+                    try { await _memory.ClearAsync(cancellationToken); }
+                    catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+                    { Console.WriteLine("[Memory] Could not clear persisted history: " + ex.Message); }
+                }
                 Console.WriteLine("Conversation cleared.");
                 continue;
             }
 
-            _history.Add(new AIMessage("user", input));
+            await AddHistoryAsync(new AIMessage("user", input), cancellationToken);
             TrimHistory();
             Console.WriteLine();
             try
@@ -112,14 +139,14 @@ public sealed class ToolCallingAssistant
                     {
                         var cleanText = response.Content.Trim();
                         Console.WriteLine("JARVIS: " + cleanText + Environment.NewLine);
-                        _history.Add(new AIMessage("assistant", cleanText));
+                        await AddHistoryAsync(new AIMessage("assistant", cleanText), cancellationToken);
                         completed = true;
                         break;
                     }
                     if (type == "message")
                     {
                         Console.WriteLine("JARVIS: " + message + Environment.NewLine);
-                        _history.Add(new AIMessage("assistant", message));
+                        await AddHistoryAsync(new AIMessage("assistant", message), cancellationToken);
                         completed = true;
                         break;
                     }
@@ -129,20 +156,20 @@ public sealed class ToolCallingAssistant
                         completed = true;
                         break;
                     }
-                    _history.Add(new AIMessage("assistant", response.Content));
+                    await AddHistoryAsync(new AIMessage("assistant", response.Content), cancellationToken);
                     foreach (var call in calls)
                     {
                         cancellationToken.ThrowIfCancellationRequested();
                         if (!_tools.TryGet(call.Name, out var tool))
                         {
                             Console.WriteLine($"[Tool: {call.Name}] Blocked/failed");
-                            _history.Add(new AIMessage("user", "Tool result: FAILED: Unknown tool name; operation blocked."));
+                            await AddHistoryAsync(new AIMessage("user", "Tool result: FAILED: Unknown tool name; operation blocked."), cancellationToken);
                         }
                         else
                         {
                             var result = await tool.ExecuteAsync(call.Arguments, cancellationToken);
                             Console.WriteLine($"[Tool: {tool.Name}] {(result.Success ? "Success" : "Blocked/failed")}");
-                            _history.Add(new AIMessage("user", "Tool result (" + tool.Name + "): " + (result.Success ? "SUCCESS: " : "FAILED: ") + result.Message));
+                            await AddHistoryAsync(new AIMessage("user", "Tool result (" + tool.Name + "): " + (result.Success ? "SUCCESS: " : "FAILED: ") + result.Message), cancellationToken);
                         }
                         toolExecutions++;
                         TrimHistory();
@@ -164,6 +191,23 @@ public sealed class ToolCallingAssistant
         }
         Console.WriteLine();
         Console.WriteLine("JARVIS session ended.");
+    }
+
+
+    private async Task AddHistoryAsync(AIMessage message, CancellationToken cancellationToken)
+    {
+        _history.Add(message);
+        if (_memory is null)
+            return;
+
+        try
+        {
+            await _memory.AppendAsync(message, cancellationToken);
+        }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+        {
+            Console.WriteLine("[Memory] Could not persist this message: " + ex.Message);
+        }
     }
 
     private sealed record ToolCall(string Name, Dictionary<string, string> Arguments);

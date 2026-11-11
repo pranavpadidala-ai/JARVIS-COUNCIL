@@ -5,6 +5,7 @@
     <ProjectReference Include="..\Council.AI\Council.AI.csproj" />
     <ProjectReference Include="..\Council.Execution\Council.Execution.csproj" />
     <ProjectReference Include="..\Council.Dev\Council.Dev.csproj" />
+    <ProjectReference Include="..\Council.Memory\Council.Memory.csproj" />
   </ItemGroup>
 
   <ItemGroup>
