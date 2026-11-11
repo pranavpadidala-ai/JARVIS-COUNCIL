@@ -70,7 +70,7 @@ public sealed class ToolCallingAssistant
         Console.WriteLine("Memory   : " + (_memory is null ? "disabled" : "local conversation history enabled"));
         Console.WriteLine("Workspace: " + Path.GetFullPath(Directory.GetCurrentDirectory()));
         Console.WriteLine("Tools    : workspace files, Abaqus status, Office workspace, allowlisted Windows app launcher");
-        Console.WriteLine("Commands : /help, /skills, /clear, /voice, /speak on|off, /stop, /exit");
+        Console.WriteLine("Commands : /help, /skills, /clear, /voice, /speak on|off, /exit");
         Console.WriteLine();
 
         if (!_memoryLoaded && _memory is not null)
@@ -108,7 +108,7 @@ public sealed class ToolCallingAssistant
                 try
                 {
                     Console.WriteLine("[Voice] Speak now. JARVIS listens for one utterance (maximum 20 seconds)...");
-                    var spokenText = await GetVoiceService().ListenOnceAsync(cancellationToken);
+                    var spokenText = await ListenOnceWithEscapeAsync(cancellationToken);
                     if (string.IsNullOrWhiteSpace(spokenText))
                     {
                         Console.WriteLine("[Voice] No speech was recognized.");
@@ -121,6 +121,11 @@ public sealed class ToolCallingAssistant
                 catch (TimeoutException)
                 {
                     Console.WriteLine("[Voice] Listening timed out. Try /voice again.");
+                    continue;
+                }
+                catch (OperationCanceledException)
+                {
+                    Console.WriteLine("[Voice] Capture stopped with Escape.");
                     continue;
                 }
                 catch (Exception ex)
@@ -148,16 +153,9 @@ public sealed class ToolCallingAssistant
                 Console.WriteLine("JARVIS speech output disabled.");
                 continue;
             }
-            if (input.Equals("/stop", StringComparison.OrdinalIgnoreCase))
-            {
-                if (OperatingSystem.IsWindows())
-                    _voice?.StopAll();
-                Console.WriteLine("Active voice capture/speech stopped. This does not interrupt an in-progress AI request.");
-                continue;
-            }
             if (input.Equals("/help", StringComparison.OrdinalIgnoreCase))
             {
-                Console.WriteLine("Ask JARVIS to inspect, search, or create project files, use Office workspace, or ask it to open Notepad, Calculator, File Explorer, or Task Manager. /voice captures one spoken request on Windows; /speak on|off controls spoken replies; /stop cancels active voice capture/speech; /skills lists specialist skills; /clear resets memory; /exit closes JARVIS.");
+                Console.WriteLine("Ask JARVIS to inspect, search, or create project files, use Office workspace, or ask it to open Notepad, Calculator, File Explorer, or Task Manager. /voice captures one spoken request on Windows; /speak on|off controls spoken replies; press Escape during voice capture or speech to stop it; /skills lists specialist skills; /clear resets memory; /exit closes JARVIS.");
                 continue;
             }
             if (input.Equals("/skills", StringComparison.OrdinalIgnoreCase))
@@ -259,6 +257,60 @@ public sealed class ToolCallingAssistant
     }
 
 
+    private async Task<string?> ListenOnceWithEscapeAsync(CancellationToken cancellationToken)
+    {
+        using var voiceCancellation = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
+        var escapeMonitor = MonitorEscapeAsync(voiceCancellation, voiceCancellation.Token);
+        try
+        {
+            return await GetVoiceService().ListenOnceAsync(voiceCancellation.Token);
+        }
+        finally
+        {
+            voiceCancellation.Cancel();
+            await escapeMonitor;
+        }
+    }
+
+    private async Task SpeakWithEscapeAsync(string text, CancellationToken cancellationToken)
+    {
+        using var voiceCancellation = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
+        var escapeMonitor = MonitorEscapeAsync(voiceCancellation, voiceCancellation.Token);
+        try
+        {
+            await GetVoiceService().SpeakAsync(text, voiceCancellation.Token);
+        }
+        finally
+        {
+            voiceCancellation.Cancel();
+            await escapeMonitor;
+        }
+    }
+
+    private static async Task MonitorEscapeAsync(
+        CancellationTokenSource voiceCancellation,
+        CancellationToken cancellationToken)
+    {
+        if (Console.IsInputRedirected)
+            return;
+
+        try
+        {
+            while (!cancellationToken.IsCancellationRequested)
+            {
+                if (Console.KeyAvailable && Console.ReadKey(intercept: true).Key == ConsoleKey.Escape)
+                {
+                    voiceCancellation.Cancel();
+                    return;
+                }
+
+                await Task.Delay(50, cancellationToken);
+            }
+        }
+        catch (OperationCanceledException) { }
+        catch (InvalidOperationException) { }
+    }
+
     private WindowsVoiceService GetVoiceService()
     {
         if (!OperatingSystem.IsWindows())
@@ -274,7 +326,7 @@ public sealed class ToolCallingAssistant
 
         try
         {
-            await GetVoiceService().SpeakAsync(text, cancellationToken);
+            await SpeakWithEscapeAsync(text, cancellationToken);
         }
         catch (Exception ex) when (ex is InvalidOperationException or PlatformNotSupportedException or IOException or OperationCanceledException)
         {
