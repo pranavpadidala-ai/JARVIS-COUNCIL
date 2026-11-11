@@ -40,6 +40,8 @@ public sealed class WindowsVoiceService : IDisposable
         {
             if (args.Error is not null)
                 completion.TrySetException(args.Error);
+            else if (args.Cancelled && cancellationToken.IsCancellationRequested)
+                completion.TrySetCanceled(cancellationToken);
             else if (args.Cancelled)
                 completion.TrySetResult(null);
             else
@@ -64,7 +66,8 @@ public sealed class WindowsVoiceService : IDisposable
             recognizer.RecognizeCompleted -= handler;
             try { recognizer.RecognizeAsyncCancel(); }
             catch (InvalidOperationException) { }
-            recognizer.SetInputToNull();
+            try { recognizer.SetInputToNull(); }
+            catch (InvalidOperationException) { }
             lock (_sync)
             {
                 if (ReferenceEquals(_activeRecognizer, recognizer))
