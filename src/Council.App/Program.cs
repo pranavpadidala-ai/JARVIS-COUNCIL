@@ -52,6 +52,14 @@ var openAiModel =
     Environment.GetEnvironmentVariable("OPENAI_MODEL")
     ?? "gpt-5.2";
 
+var ollamaModel =
+    Environment.GetEnvironmentVariable("OLLAMA_MODEL")
+    ?? "qwen3.5:2b-q4_K_M";
+
+var ollamaBaseUrl =
+    Environment.GetEnvironmentVariable("OLLAMA_BASE_URL")
+    ?? "http://localhost:11434";
+
 IAIProvider activeProvider;
 
 switch (selectedProvider?.Trim().ToLowerInvariant())
@@ -72,6 +80,11 @@ switch (selectedProvider?.Trim().ToLowerInvariant())
 
         activeProvider = new OpenAIProvider(
             openAiApiKey, openAiModel);
+        break;
+
+    case "ollama":
+        activeProvider = new OllamaProvider(
+            ollamaModel, ollamaBaseUrl, contextTokens: 4096);
         break;
 
     case "mock":
@@ -117,7 +130,7 @@ if (!args.Any(arg =>
         Console.WriteLine(
             "No AI API key detected. JARVIS is running in mock mode.");
         Console.WriteLine(
-            "Set GEMINI_API_KEY or OPENAI_API_KEY to enable real AI responses.");
+            "Set GEMINI_API_KEY or OPENAI_API_KEY, or set JARVIS_AI_PROVIDER=ollama for a local model.");
     }
 
     var interactiveWorkspaceRoot = Directory.GetCurrentDirectory();
