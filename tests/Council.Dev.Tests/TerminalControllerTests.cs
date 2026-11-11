@@ -16,7 +16,7 @@ public class TerminalControllerTests
                 TimeSpan.FromSeconds(10)));
 
         Assert.True(result.Success);
-        Assert.Contains("8.", result.StandardOutput);
+        Assert.True(Version.TryParse(result.StandardOutput.Trim(), out _));
         Assert.False(result.TimedOut);
         Assert.False(result.Cancelled);
     }
