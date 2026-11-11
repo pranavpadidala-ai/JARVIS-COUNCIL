@@ -70,7 +70,7 @@ public sealed class ToolCallingAssistant
         Console.WriteLine("Memory   : " + (_memory is null ? "disabled" : "local conversation history enabled"));
         Console.WriteLine("Workspace: " + Path.GetFullPath(Directory.GetCurrentDirectory()));
         Console.WriteLine("Tools    : workspace files, Abaqus status, Office workspace, allowlisted Windows app launcher");
-        Console.WriteLine("Commands : /help, /skills, /clear, /voice, /speak on|off, /exit");
+        Console.WriteLine("Commands : /help, /skills, /clear, /voice, /speak on|off, Ctrl+C cancels active request");
         Console.WriteLine();
 
         if (!_memoryLoaded && _memory is not null)
@@ -172,7 +172,7 @@ public sealed class ToolCallingAssistant
             }
             if (input.Equals("/help", StringComparison.OrdinalIgnoreCase))
             {
-                Console.WriteLine("Ask JARVIS to inspect, search, or create project files, use Office workspace, or ask it to open Notepad, Calculator, File Explorer, or Task Manager. /voice captures one spoken request on Windows; /speak on|off controls spoken replies; press Escape during voice capture or speech to stop it; /skills lists specialist skills; /clear resets memory; /exit closes JARVIS.");
+                Console.WriteLine("Ask JARVIS to inspect, search, or create project files, use Office workspace, or ask it to open Notepad, Calculator, File Explorer, or Task Manager. /voice captures one spoken request on Windows; /speak on|off controls spoken replies; press Escape during voice capture or speech to stop it; press Ctrl+C during an active AI/tool request to cancel that request without closing JARVIS; /skills lists specialist skills; /clear resets memory; /exit closes JARVIS.");
                 continue;
             }
             if (input.Equals("/skills", StringComparison.OrdinalIgnoreCase))
