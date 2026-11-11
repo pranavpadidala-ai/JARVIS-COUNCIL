@@ -15,6 +15,15 @@ public sealed class ConversationMemoryStore
     private readonly string _filePath;
     private readonly SemaphoreSlim _gate = new(1, 1);
 
+    private static readonly HashSet<string> StopWords = new(StringComparer.OrdinalIgnoreCase)
+    {
+        "a", "an", "and", "are", "as", "at", "be", "but", "by", "did", "do",
+        "for", "from", "had", "has", "have", "how", "i", "in", "is", "it",
+        "me", "my", "of", "on", "or", "our", "please", "the", "their",
+        "them", "there", "this", "to", "was", "we", "what", "when", "where",
+        "which", "who", "why", "with", "you", "your"
+    };
+
     public ConversationMemoryStore(string? filePath = null)
     {
         var configuredPath = filePath ??
@@ -67,6 +76,77 @@ public sealed class ConversationMemoryStore
             }
 
             return messages.TakeLast(maxMessages).ToArray();
+        }
+        finally
+        {
+            _gate.Release();
+        }
+    }
+
+    /// <summary>
+    /// Finds older conversation messages with meaningful keyword overlap.
+    /// This is deliberately local and deterministic; it does not call an embedding API.
+    /// </summary>
+    public async Task<IReadOnlyList<AIMessage>> SearchRelevantAsync(
+        string query,
+        int maxResults = 5,
+        CancellationToken cancellationToken = default)
+    {
+        if (maxResults is < 1 or > 20)
+            throw new ArgumentOutOfRangeException(nameof(maxResults));
+
+        var queryTokens = Tokenize(query)
+            .Where(token => token.Length > 1 && !StopWords.Contains(token))
+            .ToHashSet(StringComparer.OrdinalIgnoreCase);
+        if (queryTokens.Count == 0)
+            return Array.Empty<AIMessage>();
+
+        await _gate.WaitAsync(cancellationToken);
+        try
+        {
+            if (!File.Exists(_filePath))
+                return Array.Empty<AIMessage>();
+
+            var lines = await File.ReadAllLinesAsync(_filePath, cancellationToken);
+            var matches = new List<(AIMessage Message, int Score, DateTimeOffset Timestamp)>();
+            foreach (var line in lines)
+            {
+                cancellationToken.ThrowIfCancellationRequested();
+                if (string.IsNullOrWhiteSpace(line))
+                    continue;
+
+                try
+                {
+                    var stored = JsonSerializer.Deserialize<StoredMessage>(line);
+                    if (stored is null || !IsPersistableRole(stored.Role) ||
+                        string.IsNullOrWhiteSpace(stored.Content))
+                        continue;
+
+                    var contentTokens = Tokenize(stored.Content);
+                    var distinctContentTokens = contentTokens.ToHashSet(StringComparer.OrdinalIgnoreCase);
+                    var matchedTokens = queryTokens.Count(token => distinctContentTokens.Contains(token));
+                    if (matchedTokens == 0)
+                        continue;
+
+                    var occurrences = contentTokens.Count(token => queryTokens.Contains(token));
+                    var score = matchedTokens * 10 + Math.Min(occurrences, 20);
+                    matches.Add((
+                        new AIMessage(stored.Role, stored.Content),
+                        score,
+                        stored.Timestamp));
+                }
+                catch (JsonException)
+                {
+                    // Ignore a damaged or partially written record and continue.
+                }
+            }
+
+            return matches
+                .OrderByDescending(match => match.Score)
+                .ThenByDescending(match => match.Timestamp)
+                .Take(maxResults)
+                .Select(match => match.Message)
+                .ToArray();
         }
         finally
         {
@@ -128,6 +208,21 @@ public sealed class ConversationMemoryStore
         var temporaryPath = _filePath + ".tmp";
         await File.WriteAllLinesAsync(temporaryPath, retained, cancellationToken);
         File.Move(temporaryPath, _filePath, overwrite: true);
+    }
+
+    private static IEnumerable<string> Tokenize(string? value)
+    {
+        if (string.IsNullOrWhiteSpace(value))
+            return Array.Empty<string>();
+
+        return value
+            .ToLowerInvariant()
+            .Split((char[]?)null, StringSplitOptions.RemoveEmptyEntries)
+            .SelectMany(part => part.Split(
+                part.Where(char.IsLetterOrDigit).Count() == part.Length
+                    ? Array.Empty<char>()
+                    : part.Where(character => !char.IsLetterOrDigit(character)).ToArray(),
+                StringSplitOptions.RemoveEmptyEntries));
     }
 
     private static bool IsPersistableRole(string? role) =>
