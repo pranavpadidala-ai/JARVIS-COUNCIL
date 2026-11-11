@@ -65,7 +65,7 @@ var omniRouteApiKey = Environment.GetEnvironmentVariable("OMNIROUTE_API_KEY");
 var omniRouteModel = Environment.GetEnvironmentVariable("OMNIROUTE_MODEL");
 var omniRouteBaseUrl = Environment.GetEnvironmentVariable("OMNIROUTE_BASE_URL")
     ?? "http://localhost:20128/v1";
-var omniRouteFreePrefixes = Environment.GetEnvironmentVariable("OMNIROUTE_FREE_MODEL_PREFIXES");
+var omniRouteFreeModels = Environment.GetEnvironmentVariable("OMNIROUTE_FREE_MODELS");
 
 IAIProvider activeProvider;
 
@@ -99,10 +99,10 @@ switch (selectedProvider?.Trim().ToLowerInvariant())
             throw new InvalidOperationException("OMNIROUTE_API_KEY is required for OmniRoute.");
         if (string.IsNullOrWhiteSpace(omniRouteModel))
             throw new InvalidOperationException("OMNIROUTE_MODEL must be an explicit provider/model ID; the auto alias is not allowed.");
-        if (string.IsNullOrWhiteSpace(omniRouteFreePrefixes))
-            throw new InvalidOperationException("OMNIROUTE_FREE_MODEL_PREFIXES must list the free provider prefixes you have explicitly approved.");
+        if (string.IsNullOrWhiteSpace(omniRouteFreeModels))
+            throw new InvalidOperationException("OMNIROUTE_FREE_MODELS must list the exact free model IDs you have explicitly approved.");
         activeProvider = new OmniRouteProvider(
-            omniRouteApiKey, omniRouteModel, omniRouteBaseUrl, omniRouteFreePrefixes);
+            omniRouteApiKey, omniRouteModel, omniRouteBaseUrl, omniRouteFreeModels);
         break;
 
     case "mock":

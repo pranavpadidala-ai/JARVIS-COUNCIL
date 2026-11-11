@@ -30,7 +30,7 @@ public sealed class OmniRouteProviderTests
             "local-gateway-key",
             "free-model/model-a",
             "http://localhost:20128/v1",
-            "free-model",
+            "free-model/model-a",
             client);
 
         var result = await provider.AskAsync(new AIRequest(
@@ -40,7 +40,7 @@ public sealed class OmniRouteProviderTests
         ]));
 
         Assert.Equal("Hello from OmniRoute", result.Content);
-        Assert.Equal("OmniRoute (allowlisted models)", result.Provider);
+        Assert.Equal("OmniRoute (explicit free-model allowlist)", result.Provider);
         Assert.Equal("Bearer local-gateway-key", authorization);
         Assert.Contains("\"model\":\"free-model/model-a\"", body);
         Assert.Contains("\"stream\":false", body);
@@ -51,21 +51,21 @@ public sealed class OmniRouteProviderTests
     {
         var exception = Assert.Throws<InvalidOperationException>(() =>
             new OmniRouteProvider(
-                "key", "auto", "http://localhost:20128/v1", "free-model",
+                "key", "auto", "http://localhost:20128/v1", "free-model/model-a",
                 new HttpClient(new StubHandler(_ => Task.FromResult(new HttpResponseMessage(HttpStatusCode.OK))))));
 
         Assert.Contains("explicit provider/model", exception.Message);
     }
 
     [Fact]
-    public void Constructor_RejectsModelOutsideConfiguredFreePrefixes()
+    public void Constructor_RejectsModelOutsideConfiguredFreeModelAllowlist()
     {
         var exception = Assert.Throws<InvalidOperationException>(() =>
             new OmniRouteProvider(
-                "key", "paid-provider/model-a", "http://localhost:20128/v1", "free-model",
+                "key", "paid-provider/model-a", "http://localhost:20128/v1", "free-model/model-a",
                 new HttpClient(new StubHandler(_ => Task.FromResult(new HttpResponseMessage(HttpStatusCode.OK))))));
 
-        Assert.Contains("not in OMNIROUTE_FREE_MODEL_PREFIXES", exception.Message);
+        Assert.Contains("not in OMNIROUTE_FREE_MODELS", exception.Message);
     }
 
     [Fact]

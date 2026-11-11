@@ -11,13 +11,13 @@ This document records the first .NET-native integration slice. JARVIS remains th
 
 ## OmniRoute free-only configuration
 
-The JARVIS adapter intentionally blocks the `auto` alias. It requires an explicit model ID of the form `provider-prefix/model-id` and a matching prefix in `OMNIROUTE_FREE_MODEL_PREFIXES`. This prevents JARVIS from silently asking OmniRoute to choose an unknown-cost route. It does not independently audit the upstream provider's billing terms: choose only a currently free provider connection in the OmniRoute dashboard and use that provider's exact model ID.
+The JARVIS adapter intentionally blocks the `auto` alias. It requires an explicit model ID of the form `provider-prefix/model-id` and a exact ID in `OMNIROUTE_FREE_MODELS`. This prevents JARVIS from silently asking OmniRoute to choose an unknown-cost route. It does not independently audit the upstream provider's billing terms: choose only a currently free provider connection in the OmniRoute dashboard and use that provider's exact model ID.
 
 1. Start OmniRoute locally and open its dashboard at `http://localhost:20128`.
 2. Connect only a provider/account whose current plan and terms you have checked.
 3. Copy the local gateway API key from OmniRoute's Endpoints/API settings.
 4. Check the live model list at `http://localhost:20128/v1/models` using that key.
-5. Set the model ID and its provider prefix exactly as returned by the model list.
+5. Copy the exact model ID returned by the model list.
 
 PowerShell example (replace placeholders; do not commit these values):
 
@@ -26,11 +26,11 @@ $env:JARVIS_AI_PROVIDER = "omniroute"
 $env:OMNIROUTE_BASE_URL = "http://localhost:20128/v1"
 $env:OMNIROUTE_API_KEY = "YOUR_LOCAL_OMNIROUTE_GATEWAY_KEY"
 $env:OMNIROUTE_MODEL = "YOUR_FREE_PROVIDER_PREFIX/YOUR_MODEL_ID"
-$env:OMNIROUTE_FREE_MODEL_PREFIXES = "YOUR_FREE_PROVIDER_PREFIX"
+$env:OMNIROUTE_FREE_MODELS = "YOUR_FREE_PROVIDER_PREFIX/YOUR_MODEL_ID"
 dotnet run --project src/Council.App/Council.App.csproj
 ```
 
-Multiple explicitly approved free prefixes can be separated with semicolons. The adapter rejects `auto`, models outside the allowlist, non-loopback plain HTTP gateways, and missing configuration. A remote gateway must use HTTPS. The gateway key is not the same as an upstream provider API key.
+Multiple explicitly approved free model IDs can be separated with semicolons. The adapter rejects `auto`, model IDs outside the exact allowlist, non-loopback plain HTTP gateways, and missing configuration. A remote gateway must use HTTPS. The gateway key is not the same as an upstream provider API key.
 
 ## Optional local conversation history
 

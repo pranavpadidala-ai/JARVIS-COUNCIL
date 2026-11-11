@@ -9,7 +9,7 @@ namespace Council.AI.Providers;
 
 /// <summary>
 /// OpenAI-compatible client for a local OmniRoute gateway.
-/// Free-tier safety is enforced by requiring an explicit model prefix allowlist.
+/// Free-tier safety is enforced by requiring an exact model-ID allowlist.
 /// The special "auto" model is deliberately rejected because its cost cannot be
 /// guaranteed by the client.
 /// </summary>
@@ -19,15 +19,15 @@ public sealed class OmniRouteProvider : IAIProvider
     private readonly Uri _baseUri;
     private readonly string _apiKey;
     private readonly string _model;
-    private readonly HashSet<string> _allowedPrefixes;
+    private readonly HashSet<string> _allowedModels;
 
-    public string Name => "OmniRoute (allowlisted models)";
+    public string Name => "OmniRoute (explicit free-model allowlist)";
 
     public OmniRouteProvider(
         string apiKey,
         string model,
         string baseUrl,
-        string freeModelPrefixes,
+        string freeModelIds,
         HttpClient? httpClient = null)
     {
         if (string.IsNullOrWhiteSpace(apiKey))
@@ -47,15 +47,15 @@ public sealed class OmniRouteProvider : IAIProvider
                 "A remote OmniRoute gateway must use HTTPS so its API key is not sent in clear text.",
                 nameof(baseUrl));
 
-        _allowedPrefixes = (freeModelPrefixes ?? string.Empty)
+        _allowedModels = (freeModelIds ?? string.Empty)
             .Split(new[] { ';', ',' }, StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
             .ToHashSet(StringComparer.OrdinalIgnoreCase);
 
-        if (_allowedPrefixes.Count == 0 ||
-            _allowedPrefixes.Any(prefix => prefix.Contains('/') || prefix.Equals("auto", StringComparison.OrdinalIgnoreCase)))
+        if (_allowedModels.Count == 0 ||
+            _allowedModels.Any(id => !id.Contains('/') || id.Equals("auto", StringComparison.OrdinalIgnoreCase)))
             throw new ArgumentException(
-                "Provide one or more explicit free-provider prefixes separated by semicolons. Do not use 'auto'.",
-                nameof(freeModelPrefixes));
+                "Provide one or more exact provider/model IDs separated by semicolons. Do not use 'auto'.",
+                nameof(freeModelIds));
 
         _apiKey = apiKey;
         _baseUri = baseUri;
@@ -138,10 +138,9 @@ public sealed class OmniRouteProvider : IAIProvider
             throw new InvalidOperationException(
                 "Free-only routing requires an explicit provider/model ID such as free-provider/model-name. The 'auto' alias is blocked.");
 
-        var prefix = model[..separator];
-        if (!_allowedPrefixes.Contains(prefix))
+        if (!_allowedModels.Contains(model))
             throw new InvalidOperationException(
-                $"OmniRoute model prefix '{prefix}' is not in OMNIROUTE_FREE_MODEL_PREFIXES. Request blocked to prevent accidental paid routing.");
+                $"OmniRoute model '{model}' is not in OMNIROUTE_FREE_MODELS. Request blocked to prevent accidental paid routing.");
     }
 
     private static string NormalizeRole(string role)
