@@ -46,7 +46,8 @@ The current Windows-native voice slice uses the System.Speech APIs:
 
 - `/voice` opens the default microphone on demand and captures one spoken request (up to 20 seconds). It is command-triggered push-to-talk, not an always-listening service.
 - `/speak on` enables spoken assistant replies through the installed Windows speech voice; `/speak off` disables them.
-- Pressing Escape during voice capture or spoken output cancels that active audio operation. It does not currently interrupt an in-progress AI/provider request or arbitrary processes.
+- Pressing Escape during voice capture or spoken output cancels that active audio operation.
+- Pressing Ctrl+C while an AI request or tool operation is running cancels the current turn and keeps the interactive session open. The provider and current tool receive a cancellation token; an operation that ignores cancellation may finish before stopping. Completed operations and saved history are preserved. Ctrl+C while idle retains the normal console-exit behaviour.
 - Voice input requires a working microphone and an installed Windows speech-recognition engine/language. If Windows has no compatible recognizer, JARVIS reports the failure and text input remains available.
 
 The desktop_control tool can launch only Notepad, Calculator, File Explorer, and Task Manager. It rejects arbitrary executable paths, extra command arguments, scripts, shell commands, and unsupported actions. It cannot unlock Windows or bypass Windows Hello/PIN. These restrictions are intentional.
@@ -57,4 +58,4 @@ Always-on wake-word listening, screen capture/vision, general window manipulatio
 
 ## Validation status
 
-The GitHub Actions workflow runs Windows .NET 8 restore, build, and the existing xUnit test suite. The memory retrieval change passed 168 tests. The new voice and desktop-control changes are being validated in the latest CI run; do not treat them as verified until that run completes successfully. No merge into the default branch is performed.
+The GitHub Actions workflow runs Windows .NET 8 restore, build, and the existing xUnit test suite. The memory retrieval change passed 168 tests. The voice and desktop-control changes passed Windows .NET 8 CI. The subsequent Ctrl+C turn-cancellation change is being validated in the latest CI run; do not treat that newest change as verified until its run completes successfully. No merge into the default branch is performed.
