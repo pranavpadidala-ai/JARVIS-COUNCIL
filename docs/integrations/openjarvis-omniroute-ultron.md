@@ -6,7 +6,7 @@ This document records the first .NET-native integration slice. JARVIS remains th
 
 - **OpenJarvis (Stanford):** adopt the local-first inference-engine abstraction, explicit agent-loop boundaries, persistent memory/retrieval direction, and evaluation/trace principles. Do not transplant its Python/Rust stack into the .NET 8 solution or run several inference runtimes concurrently on the 8 GB laptop.
 - **OmniRoute:** use its OpenAI-compatible Chat Completions endpoint as a provider behind `IAIProvider`. OmniRoute is a gateway, not a free API grant; it requires eligible provider connections and its own gateway key. Free quotas and provider terms can change.
-- **Ultron/Altron (Abdulatif228):** treat the README-described wake phrase, speech/TTS, explicit screen analysis, work/game modes, app/window control, plan cancellation, local file search and diagnostics as feature requirements for future native .NET modules. Do not copy its Python implementation: its README does not provide a reusable software license, and machine-specific launch sequences are not portable.
+- **Ultron/Altron (Abdulatif228):** use its README-described voice, TTS, app/window control, plan cancellation, local file search and diagnostics as feature requirements. The first native .NET slice now includes on-demand Windows speech input/output and a strict built-in-app launcher. Wake-word listening, screen analysis and general window automation remain future work. Do not copy its Python implementation: its README does not provide a reusable software license, and machine-specific launch sequences are not portable.
 - **Existing JARVIS:** retain Council.Dev, tool registry, safe workspace tools, skills, Office/Abaqus tools and current provider adapters.
 
 ## OmniRoute free-only configuration
@@ -38,12 +38,23 @@ Conversation persistence is opt-in. Set `$env:JARVIS_MEMORY_ENABLED = "true"` be
 
 `%LOCALAPPDATA%\JARVIS-Council\Memory\conversation.jsonl`
 
-You can override it with `JARVIS_MEMORY_PATH`. The `/clear` command clears the persisted history too. This first slice stores recent user/assistant conversation turns only; it is not yet semantic document retrieval, vector search, or an autonomous learning loop. The file is plain text on the local machine, so do not use it to store passwords, API keys, or other secrets. Keep memory disabled on shared Windows accounts.
+You can override it with `JARVIS_MEMORY_PATH`. The `/clear` command clears the persisted history too. The store keeps user/assistant turns locally and can retrieve up to five older messages by deterministic keyword overlap for a new request. This is not embedding-based semantic search, document retrieval, or an autonomous learning loop. The file is plain text on the local machine, so do not use it to store passwords, API keys, or other secrets. Keep memory disabled on shared Windows accounts.
+
+## Windows voice and desktop controls
+
+The current Windows-native voice slice uses the System.Speech APIs:
+
+- `/voice` opens the default microphone on demand and captures one spoken request (up to 20 seconds). It is command-triggered push-to-talk, not an always-listening service.
+- `/speak on` enables spoken assistant replies through the installed Windows speech voice; `/speak off` disables them.
+- `/stop` cancels active voice capture or speech output. It does not currently interrupt an in-progress AI/provider request or arbitrary processes.
+- Voice input requires a working microphone and an installed Windows speech-recognition engine/language. If Windows has no compatible recognizer, JARVIS reports the failure and text input remains available.
+
+The desktop_control tool can launch only Notepad, Calculator, File Explorer, and Task Manager. It rejects arbitrary executable paths, extra command arguments, scripts, shell commands, and unsupported actions. It cannot unlock Windows or bypass Windows Hello/PIN. These restrictions are intentional.
 
 ## Deliberately not implemented in this slice
 
-Voice wake-word capture, speech recognition/TTS, continuous microphone service, screen capture/vision, Windows app/window automation, Android remote control, watch support, and home-network control are not imported or claimed as working. They need separate native modules, explicit permissions, stop/cancel handling, and device-specific tests. OpenJarvis's Python agents and Ultron/Altron's machine-specific scripts are not installed by this change.
+Always-on wake-word listening, screen capture/vision, general window manipulation, app closing/process termination, Android remote control, watch support, and home-network control remain future work. They need separate native modules, explicit permissions, stop/cancel handling, and device-specific tests. OpenJarvis's Python agents and Ultron/Altron's machine-specific scripts are not installed by this change.
 
 ## Validation status
 
-The provider and memory test files are included in the solution's existing xUnit test project. This GitHub-only editing workflow cannot execute `dotnet build` or `dotnet test` on the user's laptop; those commands must be run after fetching this branch locally. No merge into the default branch is performed.
+The GitHub Actions workflow runs Windows .NET 8 restore, build, and the existing xUnit test suite. The memory retrieval change passed 168 tests. The new voice and desktop-control changes are being validated in the latest CI run; do not treat them as verified until that run completes successfully. No merge into the default branch is performed.
