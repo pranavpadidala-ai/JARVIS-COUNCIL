@@ -15,6 +15,7 @@ public sealed class ToolCallingAssistant
     private const int MaxHistoryMessages = 25;
     private readonly IAIProvider _provider;
     private readonly ToolRegistry _tools = new();
+    private readonly OfficeSkillLibrary _officeSkills = new();
     private readonly List<AIMessage> _history = [];
 
     private const string SystemPrompt = """
@@ -90,7 +91,7 @@ public sealed class ToolCallingAssistant
                 var toolExecutions = 0;
                 for (var round = 0; round < MaxModelRoundsPerTurn; round++)
                 {
-                    var response = await _provider.AskAsync(new AIRequest(_history.ToArray(), Temperature: 0.2), cancellationToken);
+                    var response = await _provider.AskAsync(new AIRequest(BuildMessagesForTurn(input), Temperature: 0.2), cancellationToken);
                     if (string.IsNullOrWhiteSpace(response.Content))
                     {
                         Console.WriteLine("JARVIS: The AI provider returned an empty response. Please try again." + Environment.NewLine);
@@ -221,6 +222,14 @@ public sealed class ToolCallingAssistant
         }
         call = new ToolCall(name, arguments);
         return true;
+    }
+
+    private AIMessage[] BuildMessagesForTurn(string userInput)
+    {
+        var skill = _officeSkills.GetInstructions(userInput);
+        return skill is null
+            ? _history.ToArray()
+            : _history.Take(1).Concat([new AIMessage("system", skill)]).Concat(_history.Skip(1)).ToArray();
     }
 
     private void TrimHistory()
