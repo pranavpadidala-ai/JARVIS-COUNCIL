@@ -8,6 +8,8 @@ public sealed class WorkspaceTool : ITool
     private const int MaxReadBytes = 1_000_000;
     private const int MaxWriteBytes = 250_000;
     private const int MaxSearchResults = 50;
+    private const int MaxSearchFilesScanned = 5000;
+    private const long MaxSearchBytesScanned = 20_000_000;
     private static readonly HashSet<string> BlockedDirectories = new(StringComparer.OrdinalIgnoreCase)
     {
         ".git", "bin", "obj", "node_modules", ".vs"
@@ -75,6 +77,7 @@ public sealed class WorkspaceTool : ITool
     {
         var path = Resolve(relative);
         if (!File.Exists(path)) return new ToolResult(false, "File does not exist.");
+        if (!SearchExtensions.Contains(Path.GetExtension(path))) return new ToolResult(false, "Only supported text files can be read.");
         var info = new FileInfo(path);
         if (info.Length > MaxReadBytes) return new ToolResult(false, "File exceeds the 1 MB read limit.");
         var content = await File.ReadAllTextAsync(path, token);
@@ -85,9 +88,11 @@ public sealed class WorkspaceTool : ITool
     {
         if (query.Length > 300) return new ToolResult(false, "Search query is too long (maximum 300 characters).");
         var matches = new List<string>();
+        var filesScanned = 0;
+        long bytesScanned = 0;
         var pending = new Stack<string>();
         pending.Push(_root);
-        while (pending.Count > 0 && matches.Count < MaxSearchResults)
+        while (pending.Count > 0 && matches.Count < MaxSearchResults && filesScanned < MaxSearchFilesScanned && bytesScanned < MaxSearchBytesScanned)
         {
             token.ThrowIfCancellationRequested();
             var current = pending.Pop();
@@ -98,14 +103,19 @@ public sealed class WorkspaceTool : ITool
                 if (Directory.Exists(entry)) { pending.Push(entry); continue; }
                 if (!SearchExtensions.Contains(Path.GetExtension(entry))) continue;
                 var info = new FileInfo(entry);
-                if (info.Length > MaxReadBytes) continue;
+                if (info.Length > MaxReadBytes || bytesScanned + info.Length > MaxSearchBytesScanned) continue;
+                filesScanned++;
+                bytesScanned += info.Length;
                 var content = await File.ReadAllTextAsync(entry, token);
                 if (content.Contains(query, StringComparison.OrdinalIgnoreCase))
                     matches.Add(Path.GetRelativePath(_root, entry));
                 if (matches.Count >= MaxSearchResults) break;
             }
         }
-        return new ToolResult(true, matches.Count == 0 ? "No matches found." : string.Join(Environment.NewLine, matches));
+        var summary = matches.Count == 0 ? "No matches found." : string.Join(Environment.NewLine, matches);
+        if (filesScanned >= MaxSearchFilesScanned || bytesScanned >= MaxSearchBytesScanned)
+            summary += Environment.NewLine + "Search stopped at its safety limit.";
+        return new ToolResult(true, summary);
     }
 
     private async Task<ToolResult> CreateFileAsync(string relative, string content, CancellationToken token)
