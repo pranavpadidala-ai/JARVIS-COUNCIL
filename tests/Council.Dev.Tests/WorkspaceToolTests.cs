@@ -116,7 +116,7 @@ public sealed class WorkspaceToolTests
             Assert.Throws<InvalidOperationException>(() =>
                 new WorkspaceTool("list_files", "list", link));
         }
-        catch (UnauthorizedAccessException)
+        catch (Exception ex) when (ex is UnauthorizedAccessException or IOException or PlatformNotSupportedException)
         {
             // Some Windows configurations do not permit creating symbolic links.
         }
