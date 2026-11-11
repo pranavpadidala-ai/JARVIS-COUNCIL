@@ -229,7 +229,7 @@ public sealed class ToolCallingAssistant
         var skill = _officeSkills.GetInstructions(userInput);
         return skill is null
             ? _history.ToArray()
-            : _history.Take(1).Concat([new AIMessage("system", skill)]).Concat(_history.Skip(1)).ToArray();
+            : _history.Take(1).Concat(new[] { new AIMessage("system", skill) }).Concat(_history.Skip(1)).ToArray();
     }
 
     private void TrimHistory()
