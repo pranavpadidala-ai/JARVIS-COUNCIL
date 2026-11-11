@@ -47,6 +47,7 @@ The current Windows-native voice slice uses the System.Speech APIs:
 - `/voice` opens the default microphone on demand and captures one spoken request (up to 20 seconds). It is command-triggered push-to-talk, not an always-listening service.
 - `/speak on` enables spoken assistant replies through the installed Windows speech voice; `/speak off` disables them.
 - Pressing Escape during voice capture or spoken output cancels that active audio operation.
+- On startup, JARVIS registers **Ctrl+Alt+J** as a system-wide shortcut to restore/focus its current console window. This does not start the microphone or submit a command. Set `JARVIS_HOTKEY_ENABLED=false` to disable registration. If another application owns the shortcut, JARVIS reports that it is unavailable and continues normally.
 - Pressing Ctrl+C while an AI request or tool operation is running cancels the current turn and keeps the interactive session open. The provider and current tool receive a cancellation token; an operation that ignores cancellation may finish before stopping. Completed operations and saved history are preserved. Ctrl+C while idle retains the normal console-exit behaviour.
 - Voice input requires a working microphone and an installed Windows speech-recognition engine/language. If Windows has no compatible recognizer, JARVIS reports the failure and text input remains available.
 
@@ -54,8 +55,8 @@ The desktop_control tool can launch only Notepad, Calculator, File Explorer, and
 
 ## Deliberately not implemented in this slice
 
-Always-on wake-word listening, screen capture/vision, general window manipulation, app closing/process termination, Android remote control, watch support, and home-network control remain future work. They need separate native modules, explicit permissions, stop/cancel handling, and device-specific tests. OpenJarvis's Python agents and Ultron/Altron's machine-specific scripts are not installed by this change.
+Always-on wake-word listening, screen capture/vision, general window manipulation, app closing/process termination, Android remote control, watch support, and home-network control remain future work. The global shortcut only focuses the console; it is not a voice wake word and does not unlock Windows. They need separate native modules, explicit permissions, stop/cancel handling, and device-specific tests. OpenJarvis's Python agents and Ultron/Altron's machine-specific scripts are not installed by this change.
 
 ## Validation status
 
-The GitHub Actions workflow runs Windows .NET 8 restore, build, and the existing xUnit test suite. The memory retrieval change passed 168 tests. The voice and desktop-control changes passed Windows .NET 8 CI. The subsequent Ctrl+C turn-cancellation change is being validated in the latest CI run; do not treat that newest change as verified until its run completes successfully. No merge into the default branch is performed.
+The GitHub Actions workflow runs Windows .NET 8 restore, build, and the existing xUnit test suite. The memory retrieval change passed 168 tests. The voice, desktop-control, and Ctrl+C turn-cancellation changes passed Windows .NET 8 CI. The global activation shortcut is the newest change and must pass its own CI run before it is treated as verified. No merge into the default branch is performed.
