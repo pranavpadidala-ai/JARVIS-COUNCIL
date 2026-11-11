@@ -60,7 +60,7 @@ public sealed class OfficeWorkspaceToolTests
 
             using var workbook = new XLWorkbook(Path.Combine(root, "generated.xlsx"));
             Assert.Equal("Load", workbook.Worksheet("Data").Cell("A1").GetString());
-            Assert.Equal(150, workbook.Worksheet("Data").Cell("A3").GetDouble());
+            Assert.Equal(150d, workbook.Worksheet("Data").Cell("A3").GetDouble());
         }
         finally
         {
