@@ -1,4 +1,5 @@
 ---
+triggers: PDF, scanned PDF, OCR, extract tables, PDF document, research paper
 name: pdf-specialist
 description: Use for reading, extracting, merging, splitting, rotating, OCR, forms, and creating PDF documents.
 ---
