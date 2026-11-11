@@ -138,8 +138,7 @@ public sealed class OfficeWorkspaceTool : ITool
                     var value = cell.GetFormattedString();
                     if (!string.IsNullOrWhiteSpace(cell.FormulaA1))
                         value += " [formula: " + cell.FormulaA1 + "]";
-                    values.Add(value.Replace("", " ").Replace("
-", " "));
+                    values.Add(value.Replace("\r", " ").Replace("\n", " "));
                 }
                 output.AppendLine(string.Join(" | ", values));
             }
