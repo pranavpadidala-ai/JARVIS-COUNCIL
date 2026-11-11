@@ -89,6 +89,23 @@ public sealed class ToolCallingAssistant
         }
         _memoryLoaded = true;
 
+        CancellationTokenSource? activeTurnCancellation = null;
+        ConsoleCancelEventHandler cancelHandler = (_, eventArgs) =>
+        {
+            var activeTurn = activeTurnCancellation;
+            if (activeTurn is null)
+                return;
+
+            eventArgs.Cancel = true;
+            try { activeTurn.Cancel(); }
+            catch (ObjectDisposedException) { }
+            Console.WriteLine();
+            Console.WriteLine("[JARVIS] Current request cancellation requested. The session remains open.");
+        };
+        Console.CancelKeyPress += cancelHandler;
+
+        try
+        {
         while (!cancellationToken.IsCancellationRequested)
         {
             Console.Write("You: ");
@@ -183,13 +200,17 @@ public sealed class ToolCallingAssistant
             await AddHistoryAsync(new AIMessage("user", input), cancellationToken);
             TrimHistory();
             Console.WriteLine();
+
+            using var turnCancellation = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
+            activeTurnCancellation = turnCancellation;
+            var turnToken = turnCancellation.Token;
             try
             {
                 var completed = false;
                 var toolExecutions = 0;
                 for (var round = 0; round < MaxModelRoundsPerTurn; round++)
                 {
-                    var response = await _provider.AskAsync(new AIRequest(await BuildMessagesForTurnAsync(input, cancellationToken), Temperature: 0.2), cancellationToken);
+                    var response = await _provider.AskAsync(new AIRequest(await BuildMessagesForTurnAsync(input, turnToken), Temperature: 0.2), turnToken);
                     if (string.IsNullOrWhiteSpace(response.Content))
                     {
                         Console.WriteLine("JARVIS: The AI provider returned an empty response. Please try again." + Environment.NewLine);
@@ -201,7 +222,7 @@ public sealed class ToolCallingAssistant
                         var cleanText = response.Content.Trim();
                         Console.WriteLine("JARVIS: " + cleanText + Environment.NewLine);
                         await AddHistoryAsync(new AIMessage("assistant", cleanText), cancellationToken);
-                        await SpeakIfEnabledAsync(cleanText, cancellationToken);
+                        await SpeakIfEnabledAsync(cleanText, turnToken);
                         completed = true;
                         break;
                     }
@@ -209,7 +230,7 @@ public sealed class ToolCallingAssistant
                     {
                         Console.WriteLine("JARVIS: " + message + Environment.NewLine);
                         await AddHistoryAsync(new AIMessage("assistant", message), cancellationToken);
-                        await SpeakIfEnabledAsync(message, cancellationToken);
+                        await SpeakIfEnabledAsync(message, turnToken);
                         completed = true;
                         break;
                     }
@@ -222,7 +243,7 @@ public sealed class ToolCallingAssistant
                     await AddHistoryAsync(new AIMessage("assistant", response.Content), cancellationToken);
                     foreach (var call in calls)
                     {
-                        cancellationToken.ThrowIfCancellationRequested();
+                        turnToken.ThrowIfCancellationRequested();
                         if (!_tools.TryGet(call.Name, out var tool))
                         {
                             Console.WriteLine($"[Tool: {call.Name}] Blocked/failed");
@@ -230,7 +251,7 @@ public sealed class ToolCallingAssistant
                         }
                         else
                         {
-                            var result = await tool.ExecuteAsync(call.Arguments, cancellationToken);
+                            var result = await tool.ExecuteAsync(call.Arguments, turnToken);
                             Console.WriteLine($"[Tool: {tool.Name}] {(result.Success ? "Success" : "Blocked/failed")}");
                             await AddHistoryAsync(new AIMessage("user", "Tool result (" + tool.Name + "): " + (result.Success ? "SUCCESS: " : "FAILED: ") + result.Message), cancellationToken);
                         }
@@ -241,6 +262,10 @@ public sealed class ToolCallingAssistant
                 if (!completed)
                     Console.WriteLine("JARVIS: Request ended without a final response.");
             }
+            catch (OperationCanceledException) when (turnToken.IsCancellationRequested && !cancellationToken.IsCancellationRequested)
+            {
+                Console.WriteLine("JARVIS: Current request cancelled. Completed work and saved history were preserved.");
+            }
             catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
             {
                 Console.WriteLine("JARVIS session cancelled.");
@@ -250,10 +275,21 @@ public sealed class ToolCallingAssistant
             {
                 Console.WriteLine("JARVIS couldn't complete that request: " + ex.Message);
             }
+            finally
+            {
+                activeTurnCancellation = null;
+            }
             Console.WriteLine();
+        }
+        }
+        finally
+        {
+            Console.CancelKeyPress -= cancelHandler;
+            activeTurnCancellation = null;
         }
         Console.WriteLine();
         Console.WriteLine("JARVIS session ended.");
+        _voice?.Dispose();
     }
 
 
