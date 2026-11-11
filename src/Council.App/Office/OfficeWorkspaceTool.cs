@@ -67,7 +67,7 @@ public sealed class OfficeWorkspaceTool : ITool
         if (args.Keys.Any(key => !key.Equals("action", StringComparison.OrdinalIgnoreCase)))
             return new ToolResult(false, "list_documents accepts only action.");
 
-        var files = Directory.EnumerateFiles(_root, "*", SearchOption.AllDirectories)
+        var files = EnumerateSafeFiles()
             .Where(IsSupportedOfficeFile)
             .Take(101)
             .ToArray();
@@ -301,7 +301,44 @@ public sealed class OfficeWorkspaceTool : ITool
 
         if (!fullPath.StartsWith(prefix, StringComparison.OrdinalIgnoreCase))
             throw new UnauthorizedAccessException("Path is outside the Office workspace.");
+
+        var relative = Path.GetRelativePath(_root, fullPath);
+        var current = _root;
+        var segments = relative.Split(
+            new[] { Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar },
+            StringSplitOptions.RemoveEmptyEntries);
+
+        for (var index = 0; index < segments.Length; index++)
+        {
+            current = Path.Combine(current, segments[index]);
+            if ((Directory.Exists(current) || File.Exists(current)) &&
+                (File.GetAttributes(current) & FileAttributes.ReparsePoint) != 0)
+                throw new UnauthorizedAccessException("Symbolic links and reparse points are not allowed.");
+        }
+
         return fullPath;
+    }
+
+    private IEnumerable<string> EnumerateSafeFiles()
+    {
+        var pending = new Stack<string>();
+        pending.Push(_root);
+
+        while (pending.Count > 0)
+        {
+            var directory = pending.Pop();
+            foreach (var entry in Directory.EnumerateFileSystemEntries(directory))
+            {
+                var attributes = File.GetAttributes(entry);
+                if ((attributes & FileAttributes.ReparsePoint) != 0)
+                    continue;
+
+                if ((attributes & FileAttributes.Directory) != 0)
+                    pending.Push(entry);
+                else
+                    yield return entry;
+            }
+        }
     }
 
     private static bool IsSupportedOfficeFile(string path) =>
