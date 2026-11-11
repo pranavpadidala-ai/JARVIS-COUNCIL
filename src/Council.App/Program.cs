@@ -1,4 +1,4 @@
-using Council.AI.Providers;
+﻿using Council.AI.Providers;
 using Council.Core.Models;
 using Council.Core.Orchestration;
 using Council.Core.Providers;
@@ -19,30 +19,80 @@ using Council.Execution.Tools;
 // JARVIS COUNCIL - AI PROVIDERS
 // ============================================================
 
-var providers = new List<IAIProvider>();
-
-// Always keep Mock available for offline testing.
 var mockProvider = new MockAIProvider();
-providers.Add(mockProvider);
 
-// Add Gemini when an API key is configured.
-var geminiApiKey = Environment.GetEnvironmentVariable("GEMINI_API_KEY");
+var geminiApiKey =
+    Environment.GetEnvironmentVariable("GEMINI_API_KEY");
 
-GeminiProvider? geminiProvider = null;
+var openAiApiKey =
+    Environment.GetEnvironmentVariable("OPENAI_API_KEY");
 
-if (!string.IsNullOrWhiteSpace(geminiApiKey))
+var selectedProvider =
+    Environment.GetEnvironmentVariable("JARVIS_AI_PROVIDER");
+
+var geminiModel =
+    Environment.GetEnvironmentVariable("GEMINI_MODEL")
+    ?? "gemini-3.6-flash";
+
+var openAiModel =
+    Environment.GetEnvironmentVariable("OPENAI_MODEL")
+    ?? "gpt-5.2";
+
+IAIProvider activeProvider;
+
+switch (selectedProvider?.Trim().ToLowerInvariant())
 {
-    geminiProvider = new GeminiProvider(
-        geminiApiKey,
-        model: "gemini-3.6-flash");
+    case "gemini":
+        if (string.IsNullOrWhiteSpace(geminiApiKey))
+            throw new InvalidOperationException(
+                "GEMINI_API_KEY is required for Gemini.");
 
-    providers.Add(geminiProvider);
+        activeProvider = new GeminiProvider(
+            geminiApiKey, geminiModel);
+        break;
+
+    case "openai":
+        if (string.IsNullOrWhiteSpace(openAiApiKey))
+            throw new InvalidOperationException(
+                "OPENAI_API_KEY is required for OpenAI.");
+
+        activeProvider = new OpenAIProvider(
+            openAiApiKey, openAiModel);
+        break;
+
+    case "mock":
+        activeProvider = mockProvider;
+        break;
+
+    case null or "":
+        if (!string.IsNullOrWhiteSpace(geminiApiKey))
+        {
+            activeProvider = new GeminiProvider(
+                geminiApiKey, geminiModel);
+        }
+        else if (!string.IsNullOrWhiteSpace(openAiApiKey))
+        {
+            activeProvider = new OpenAIProvider(
+                openAiApiKey, openAiModel);
+        }
+        else
+        {
+            activeProvider = mockProvider;
+        }
+        break;
+
+    default:
+        throw new InvalidOperationException(
+            $"Unknown JARVIS_AI_PROVIDER: {selectedProvider}");
 }
-else
+
+Console.WriteLine($"Active AI provider: {activeProvider.Name}");
+
+var providers = new List<IAIProvider>
 {
-    Console.WriteLine(
-        "Warning: GEMINI_API_KEY is not configured.");
-}
+    activeProvider
+};
+
 
 // ============================================================
 // JARVIS COUNCIL TEST
@@ -168,19 +218,10 @@ var buildTestExecutor =
 // AI planner
 // ------------------------------------------------------------
 
-IAIProvider planningProvider;
+IAIProvider planningProvider = activeProvider;
 
-if (geminiProvider is not null)
-{
-    planningProvider = geminiProvider;
-    Console.WriteLine("Planner   : Gemini");
-}
-else
-{
-    planningProvider = mockProvider;
-    Console.WriteLine("Planner   : Mock");
-}
-
+Console.WriteLine(
+    $"Planner   : {planningProvider.Name}");
 // ------------------------------------------------------------
 // Autonomous executor
 // ------------------------------------------------------------
@@ -293,3 +334,5 @@ Console.WriteLine();
 Console.WriteLine("============================================================");
 Console.WriteLine("JARVIS Council execution finished.");
 Console.WriteLine("============================================================");
+
+
