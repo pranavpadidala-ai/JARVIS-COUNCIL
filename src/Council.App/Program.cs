@@ -107,7 +107,8 @@ if (!args.Any(arg =>
             "Set GEMINI_API_KEY or OPENAI_API_KEY to enable real AI responses.");
     }
 
-    var assistant = new ConsoleAssistant(activeProvider);
+    var workspaceRoot = Directory.GetCurrentDirectory();
+    var assistant = new ToolCallingAssistant(activeProvider, workspaceRoot);
     await assistant.RunAsync();
     return;
 }
