@@ -20,7 +20,7 @@
   </PropertyGroup>
 
   <ItemGroup>
-    <Content Include="Skills\Office\**\*.md" CopyToOutputDirectory="PreserveNewest" />
+    <Content Include="Skills\**\*.md" CopyToOutputDirectory="PreserveNewest" />
   </ItemGroup>
 
 </Project>
