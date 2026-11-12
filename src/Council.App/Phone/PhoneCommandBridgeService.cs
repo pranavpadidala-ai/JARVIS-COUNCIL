@@ -3,6 +3,7 @@ using System.Net.Sockets;
 using System.Security.Cryptography;
 using System.Text;
 using System.Text.Json;
+using System.Text.Json.Serialization;
 
 namespace Council.App.Phone;
 
@@ -154,7 +155,7 @@ public sealed class PhoneCommandBridgeService : IAsyncDisposable
         response.StatusCode = status;
         response.ContentType = "application/json; charset=utf-8";
         response.Headers["Cache-Control"] = "no-store";
-        var bytes = JsonSerializer.SerializeToUtf8Bytes(payload);
+        var bytes = JsonSerializer.SerializeToUtf8Bytes(payload, new JsonSerializerOptions { Converters = { new JsonStringEnumConverter() } });
         response.ContentLength64 = bytes.Length;
         await response.OutputStream.WriteAsync(bytes, cancellationToken);
         response.Close();
