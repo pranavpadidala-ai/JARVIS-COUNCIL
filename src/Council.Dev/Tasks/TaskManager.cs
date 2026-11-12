@@ -45,10 +45,16 @@ public sealed class TaskManager
         };
 
         _tasks.Add(task);
-
-        await _store.SaveAsync(_tasks, cancellationToken);
-
-        return task;
+        try
+        {
+            await _store.SaveAsync(_tasks, cancellationToken);
+            return task;
+        }
+        catch
+        {
+            _tasks.Remove(task);
+            throw;
+        }
     }
 
     public async Task<bool> UpdateStatusAsync(
@@ -63,12 +69,22 @@ public sealed class TaskManager
             return false;
         }
 
+        var previousStatus = task.Status;
+        var previousUpdatedAt = task.UpdatedAtUtc;
         task.Status = status;
         task.UpdatedAtUtc = DateTime.UtcNow;
 
-        await _store.SaveAsync(_tasks, cancellationToken);
-
-        return true;
+        try
+        {
+            await _store.SaveAsync(_tasks, cancellationToken);
+            return true;
+        }
+        catch
+        {
+            task.Status = previousStatus;
+            task.UpdatedAtUtc = previousUpdatedAt;
+            throw;
+        }
     }
 
     public async Task<bool> UpdateStepAsync(
@@ -83,12 +99,22 @@ public sealed class TaskManager
             return false;
         }
 
+        var previousStep = task.CurrentStep;
+        var previousUpdatedAt = task.UpdatedAtUtc;
         task.CurrentStep = currentStep?.Trim() ?? string.Empty;
         task.UpdatedAtUtc = DateTime.UtcNow;
 
-        await _store.SaveAsync(_tasks, cancellationToken);
-
-        return true;
+        try
+        {
+            await _store.SaveAsync(_tasks, cancellationToken);
+            return true;
+        }
+        catch
+        {
+            task.CurrentStep = previousStep;
+            task.UpdatedAtUtc = previousUpdatedAt;
+            throw;
+        }
     }
 
     public async Task<bool> IncrementAttemptAsync(
@@ -102,12 +128,22 @@ public sealed class TaskManager
             return false;
         }
 
+        var previousAttemptCount = task.AttemptCount;
+        var previousUpdatedAt = task.UpdatedAtUtc;
         task.AttemptCount++;
         task.UpdatedAtUtc = DateTime.UtcNow;
 
-        await _store.SaveAsync(_tasks, cancellationToken);
-
-        return true;
+        try
+        {
+            await _store.SaveAsync(_tasks, cancellationToken);
+            return true;
+        }
+        catch
+        {
+            task.AttemptCount = previousAttemptCount;
+            task.UpdatedAtUtc = previousUpdatedAt;
+            throw;
+        }
     }
 
     public DevelopmentTask? Find(Guid taskId)
