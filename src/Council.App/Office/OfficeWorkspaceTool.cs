@@ -203,6 +203,10 @@ public sealed class OfficeWorkspaceTool : ITool
                     if (visualCandidates.Count >= maxVisualImages)
                         break;
 
+                    if (pdfImage.WidthInSamples <= 0 || pdfImage.HeightInSamples <= 0 ||
+                        (long)pdfImage.WidthInSamples * pdfImage.HeightInSamples > 20_000_000)
+                        continue;
+
                     byte[]? imageBytes = null;
                     var mimeType = string.Empty;
                     if (pdfImage.TryGetPng(out var pngBytes))
