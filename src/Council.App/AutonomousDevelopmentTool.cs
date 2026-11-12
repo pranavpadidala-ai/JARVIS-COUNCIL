@@ -25,6 +25,7 @@ public sealed class AutonomousDevelopmentTool : ITool
 {
     private readonly TaskManager _tasks;
     private readonly DevelopmentOrchestrator _orchestrator;
+    private readonly GitCheckpointManager _checkpoints;
     private readonly SemaphoreSlim _initializeGate = new(1, 1);
     private readonly SemaphoreSlim _runGate = new(1, 1);
     private bool _initialized;
@@ -51,8 +52,8 @@ public sealed class AutonomousDevelopmentTool : ITool
         var planner = new AIDevelopmentPlanner(provider, context);
         var executor = new AutonomousDevelopmentExecutor(planner, actions, validation, _tasks);
         var loop = new DevelopmentLoop(_tasks, new TaskRunner(_tasks));
-        var checkpoints = new GitCheckpointManager(terminal, root);
-        _orchestrator = new DevelopmentOrchestrator(loop, executor, checkpoints);
+        _checkpoints = new GitCheckpointManager(terminal, root);
+        _orchestrator = new DevelopmentOrchestrator(loop, executor, _checkpoints);
     }
 
     public string Name => "development_tasks";
@@ -184,6 +185,10 @@ public sealed class AutonomousDevelopmentTool : ITool
 
         try
         {
+            var preflight = await _checkpoints.CreateCheckpointAsync(cancellationToken);
+            if (!preflight.Success || preflight.Checkpoint is null)
+                return new ToolResult(false, "Autonomous execution blocked before changes: " + preflight.Message);
+
             var result = await _orchestrator.ExecuteAsync(task, maxAttempts, cancellationToken);
             return new ToolResult(result.Success,
                 (result.Success ? "Development task completed. " : "Development task failed. ") +
