@@ -79,15 +79,17 @@ public sealed class GeminiCloudSpeechProvider
             if (!response.RootElement.TryGetProperty("candidates", out var candidates) ||
                 candidates.ValueKind != JsonValueKind.Array || candidates.GetArrayLength() == 0)
                 return null;
-            var parts = candidates[0].TryGetProperty("content", out var content) &&
-                        content.TryGetProperty("parts", out var contentParts) &&
-                        contentParts.ValueKind == JsonValueKind.Array
-                ? contentParts.EnumerateArray()
+            string?[] parts = [];
+            if (candidates[0].TryGetProperty("content", out var content) &&
+                content.TryGetProperty("parts", out var contentParts) &&
+                contentParts.ValueKind == JsonValueKind.Array)
+            {
+                parts = contentParts.EnumerateArray()
                     .Where(part => part.TryGetProperty("text", out var text) && text.ValueKind == JsonValueKind.String)
                     .Select(part => part.GetProperty("text").GetString())
                     .Where(text => !string.IsNullOrWhiteSpace(text))
-                    .ToArray()
-                : [];
+                    .ToArray();
+            }
             var transcript = string.Join("", parts).Trim();
             return transcript.Length == 0 ? null : transcript;
         }

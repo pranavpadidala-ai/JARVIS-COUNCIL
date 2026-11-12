@@ -12,3 +12,8 @@ triggers: Telugu, Hindi, English, code switching, mixed language, voice profile,
 - Use the profile to understand shorthand and respond naturally, not to imitate the user's voice or infer hidden beliefs, personality, intelligence or private thoughts.
 - Do not train a model on private calls by default. Do not upload recordings or transcripts to GitHub or cloud services without explicit informed consent.
 - Store audio and profile outside the source repository; keep a deletion and exclusion process.
+
+
+## Optional cloud speech
+
+When `JARVIS_AUDIO_PROVIDER=gemini`, voice input uses Gemini transcription with a small domain vocabulary for structural engineering and Indian-market terms, and spoken output uses Gemini TTS. Microphone audio is uploaded temporarily to Google's Files API and deletion is attempted after transcription. The default remains local Whisper/Piper; never imply cloud audio is active unless the application reports that configuration.

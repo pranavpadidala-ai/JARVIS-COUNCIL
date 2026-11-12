@@ -61,3 +61,6 @@ The `Finance/PortfolioMonitor` skill uses the registered `indian_market` tool. I
 
 - **Visual computer use:** the visible Windows `computer_use` tool requires an explicit user request, captures screenshots, analyses them with the configured vision provider, performs bounded mouse/keyboard sequences and verifies the resulting screen. It does not run shell commands or operate hidden windows.
 - **Full-PDF engineering review:** set `JARVIS_VISION_PROVIDER=gemini` and `GEMINI_API_KEY` to enable Gemini full-PDF analysis (up to 14 MB inline) alongside local PDF text extraction. The default remains local Ollama to avoid silently sending screenshots/documents to a cloud provider.
+
+
+- **Cloud voice (optional):** set `JARVIS_AUDIO_PROVIDER=gemini` to enable Gemini transcription and TTS. The default is local Whisper/Piper; cloud mode transmits microphone audio and speech text to Google and may consume quota.

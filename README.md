@@ -197,3 +197,18 @@ $env:GEMINI_VISION_MODEL = "gemini-3.8-flash"
 With Gemini selected, JARVIS can analyse complete PDFs up to 14 MB inline (in addition to local selectable-text extraction) and can inspect the visible Windows desktop. Screen captures and PDFs are sent to Google's API and may consume quota or incur charges. Set `JARVIS_VISION_PROVIDER=ollama` to keep image analysis local; local Moondream analyses embedded images but does not provide full-PDF OCR. Set it to `none` to disable vision.
 
 The `computer_use` tool operates the visible primary Windows screen only. It requires an explicit user-directed session, an observe-before-act cycle, bounded mouse/keyboard sequences and post-action screenshot verification. It does not run shell commands or interact with hidden windows. Destructive actions, saving over existing files, solver submission and other irreversible actions require user confirmation.
+
+
+### Optional cloud speech (ears and mouth)
+
+To use Gemini's speech transcription and neural TTS while retaining local Whisper/Piper fallbacks, set these PowerShell variables before starting JARVIS:
+
+```powershell
+$env:JARVIS_AUDIO_PROVIDER = "gemini"
+$env:GEMINI_TRANSCRIBE_MODEL = "gemini-3.5-transcribe"
+$env:GEMINI_TTS_MODEL = "gemini-3.8-flash-lite-tts"
+$env:GEMINI_TTS_VOICE = "Kore"
+# GEMINI_API_KEY must already be configured
+```
+
+Cloud transcription uploads the captured WAV to the Gemini Files API, requests a verbatim transcript with engineering/market vocabulary hints, then attempts to delete the temporary upload. Cloud TTS sends the response text to Gemini and plays the returned audio. If a cloud request fails, JARVIS falls back to local Whisper/Piper or Windows speech. Audio and spoken response text are transmitted to Google while cloud mode is enabled and may consume API quota. Set `JARVIS_AUDIO_PROVIDER=local` to keep voice processing on-device.

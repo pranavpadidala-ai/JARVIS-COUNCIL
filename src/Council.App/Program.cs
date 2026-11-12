@@ -1,6 +1,7 @@
 ﻿using Council.AI.Providers;
 using Council.App.Abaqus;
 using Council.App;
+using Council.App.Voice;
 using Council.Core.Models;
 using Council.Core.Orchestration;
 using Council.Core.Providers;
@@ -189,7 +190,25 @@ if (!args.Any(arg =>
             throw new InvalidOperationException("JARVIS_VISION_PROVIDER must be ollama, gemini, or none.");
     }
 
-    Console.WriteLine("Local audio: Whisper small multilingual + Piper neural speech (on demand).");
+    GeminiCloudSpeechProvider? cloudSpeechProvider = null;
+    var audioProviderChoice = (Environment.GetEnvironmentVariable("JARVIS_AUDIO_PROVIDER") ?? "local").Trim().ToLowerInvariant();
+    switch (audioProviderChoice)
+    {
+        case "gemini":
+            if (string.IsNullOrWhiteSpace(geminiApiKey))
+                throw new InvalidOperationException("GEMINI_API_KEY is required when JARVIS_AUDIO_PROVIDER=gemini.");
+            var transcribeModel = Environment.GetEnvironmentVariable("GEMINI_TRANSCRIBE_MODEL") ?? "gemini-3.5-transcribe";
+            var ttsModel = Environment.GetEnvironmentVariable("GEMINI_TTS_MODEL") ?? "gemini-3.8-flash-lite-tts";
+            var ttsVoice = Environment.GetEnvironmentVariable("GEMINI_TTS_VOICE") ?? "Kore";
+            cloudSpeechProvider = new GeminiCloudSpeechProvider(geminiApiKey, transcribeModel, ttsModel, ttsVoice);
+            Console.WriteLine($"Cloud ears/mouth: Gemini transcription ({transcribeModel}) + TTS ({ttsModel}, voice {ttsVoice}). Microphone audio and speech text are sent to Google and may use API quota.");
+            break;
+        case "local":
+            Console.WriteLine("Local ears/mouth: Whisper small multilingual + Piper neural speech (on demand).");
+            break;
+        default:
+            throw new InvalidOperationException("JARVIS_AUDIO_PROVIDER must be local or gemini.");
+    }
     Console.WriteLine("RAM profile: one Ollama model at a time; local specialist teams run sequentially.");
     var assistant = new ToolCallingAssistant(
         activeProvider, interactiveWorkspaceRoot, memoryStore, imageProvider, cloudSpeechProvider);

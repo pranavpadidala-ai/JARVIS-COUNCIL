@@ -35,3 +35,9 @@ This library is a JARVIS-native adaptation of public agent-skill patterns and wo
 
 - **Google Gemini image understanding:** https://ai.google.dev/gemini-api/docs/image-understanding — optional cloud image understanding for screenshots and embedded figures.
 - **Google Gemini PDF input:** https://ai.google.dev/gemini-api/docs/document-processing — optional full-PDF analysis for engineering drawings, tables, diagrams and scanned content. Cloud vision is opt-in via `JARVIS_VISION_PROVIDER=gemini`; local Ollama remains the default.
+
+
+## Gemini speech services
+
+- **Gemini audio transcription:** https://ai.google.dev/gemini-api/docs/audio — JARVIS optionally uploads one short WAV capture to the Gemini Files API and uses the transcription model with verbatim mode and domain vocabulary hints. The uploaded file is deleted after processing when possible.
+- **Gemini text-to-speech:** https://ai.google.dev/gemini-api/docs/text-to-speech — JARVIS optionally uses the Gemini TTS model and plays the returned WAV audio. Local Whisper and Piper remain the default and fallback.
