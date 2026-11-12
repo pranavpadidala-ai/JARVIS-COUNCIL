@@ -115,6 +115,10 @@ public sealed class WebPageFetchTool : ITool
 
             return new ToolResult(false, "The page could not be fetched safely.");
         }
+        catch (TaskCanceledException) when (!cancellationToken.IsCancellationRequested)
+        {
+            return new ToolResult(false, "Public page fetch timed out.");
+        }
         catch (OperationCanceledException)
         {
             throw;
@@ -122,10 +126,6 @@ public sealed class WebPageFetchTool : ITool
         catch (HttpRequestException ex)
         {
             return new ToolResult(false, "Public page fetch failed safely: " + ex.Message);
-        }
-        catch (TaskCanceledException) when (!cancellationToken.IsCancellationRequested)
-        {
-            return new ToolResult(false, "Public page fetch timed out.");
         }
         catch (IOException ex)
         {
@@ -209,9 +209,11 @@ public sealed class WebPageFetchTool : ITool
         CancellationToken cancellationToken)
     {
         var host = context.DnsEndPoint.Host;
-        var addresses = IPAddress.TryParse(host, out var literal)
-            ? [literal]
-            : await Dns.GetHostAddressesAsync(host, cancellationToken);
+        IPAddress[] addresses;
+        if (IPAddress.TryParse(host, out var literal))
+            addresses = new[] { literal };
+        else
+            addresses = await Dns.GetHostAddressesAsync(host, cancellationToken);
 
         var address = addresses.FirstOrDefault(IsPublicAddress);
         if (address is null)
@@ -261,7 +263,7 @@ public sealed class WebPageFetchTool : ITool
 
     private static bool IsRedirect(HttpStatusCode status) =>
         status is HttpStatusCode.MovedPermanently or HttpStatusCode.Redirect or
-            HttpStatusCode.RedirectMethod or HttpStatusCode.TemporaryRedirect or
+            HttpStatusCode.SeeOther or HttpStatusCode.TemporaryRedirect or
             HttpStatusCode.PermanentRedirect;
 
     private static async Task<byte[]?> ReadBoundedAsync(Stream stream, CancellationToken cancellationToken)
