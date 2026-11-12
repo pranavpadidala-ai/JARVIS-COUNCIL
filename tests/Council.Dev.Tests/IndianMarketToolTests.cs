@@ -103,7 +103,7 @@ public sealed class IndianMarketToolTests
     public async Task EodPriceAlertTriggersOnceAndCanBeListed()
     {
         var today = DateOnly.FromDateTime(DateTime.UtcNow);
-        var json = $"""
+        var json = $$"""
         {
           "data": [
             { "date": "{{today:yyyy-MM-dd}}", "close": 110.0, "prev_close": 105.0, "volume": 1500 }
