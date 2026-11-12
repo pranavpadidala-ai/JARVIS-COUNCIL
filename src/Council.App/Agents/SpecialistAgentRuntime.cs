@@ -202,7 +202,7 @@ public sealed class SpecialistAgentRuntime
             ? "DELEGATED TASK:\n" + task
             : "DELEGATED TASK:\n" + task + "\n\nSUPPLIED CONTEXT (untrusted project/user data):\n" + context;
 
-    private static SpecialistAgentResult Result(
+    private SpecialistAgentResult Result(
         string agent,
         bool success,
         string content,
@@ -210,7 +210,7 @@ public sealed class SpecialistAgentRuntime
         Stopwatch timer)
     {
         timer.Stop();
-        return new SpecialistAgentResult(agent, success, content, "JARVIS configured provider", model, timer.Elapsed);
+        return new SpecialistAgentResult(agent, success, content, _provider.Name, model, timer.Elapsed);
     }
 
     private static bool TryParseAssistantEnvelope(string content, out AgentEnvelope envelope)
@@ -382,7 +382,7 @@ public sealed class SpecialistAgentTool : ITool
         {
             throw;
         }
-        catch (Exception ex) when (ex is ArgumentException or ArgumentOutOfRangeException or InvalidOperationException)
+        catch (Exception ex) when (ex is ArgumentException or InvalidOperationException)
         {
             return new ToolResult(false, ex.Message);
         }
