@@ -54,6 +54,12 @@ public sealed class DhanReadOnlyTool : ITool
         var token = _accessToken();
         if (string.IsNullOrWhiteSpace(clientId) || string.IsNullOrWhiteSpace(token))
             return new ToolResult(false, "Dhan is not connected. Set DHAN_CLIENT_ID and DHAN_ACCESS_TOKEN locally, then restart JARVIS. Do not paste credentials into chat.");
+        clientId = clientId.Trim();
+        token = token.Trim();
+        if (clientId.Length > 24 || clientId.Length == 0 || clientId.Any(ch => !char.IsAsciiDigit(ch)))
+            return new ToolResult(false, "DHAN_CLIENT_ID must be the numeric client ID issued by Dhan.");
+        if (token.Length > 8192 || token.Any(char.IsControl))
+            return new ToolResult(false, "DHAN_ACCESS_TOKEN has an invalid format. Refresh it in Dhan Web and set it locally.");
 
         try
         {
