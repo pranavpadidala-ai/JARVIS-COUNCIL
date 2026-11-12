@@ -45,7 +45,7 @@ public sealed class WindowsComputerUseTool : ITool
     }
 
     public string Name => "computer_use";
-    public string Description => "User-directed visible Windows GUI controller. Actions: begin (purpose), observe (optional task), execute (steps JSON array plus optional task), end. execute supports click/double_click/right_click, drag, type, key and scroll, up to 12 steps, then verifies with a screenshot. Screenshots go to the configured vision provider (local Ollama or cloud Gemini). No shell, arbitrary process launch, hidden-window control, passwords, OTPs, payments, trade orders or destructive actions.";
+    public string Description => "User-directed visible Windows GUI controller. Actions: begin (purpose), observe (optional task), execute (steps JSON array plus optional task), end. execute supports click/double_click/right_click, drag, type, key and scroll, up to 12 steps, then verifies with a screenshot. Screenshots go to the configured vision provider (local Ollama or cloud Gemini). No shell, arbitrary process launch, hidden-window control, passwords, OTPs, payments or trade orders. Save, overwrite, delete and solver-submit actions require explicit user confirmation.";
 
     public async Task<ToolResult> ExecuteAsync(Dictionary<string, string> arguments, CancellationToken cancellationToken = default)
     {
@@ -172,9 +172,18 @@ public sealed class WindowsComputerUseTool : ITool
                     {
                         var key = (OptionalString(step, "key") ?? "").ToUpperInvariant();
                         if (!AllowedKeys.Contains(key)) throw new ArgumentException("Key is not allowlisted. Use ENTER, ESC, TAB, arrows, F2/F5-F12 or approved CTRL combinations.");
-                        if ((key is "DELETE" or "CTRL+S" or "CTRL+SHIFT+S") &&
-                            !string.Equals(OptionalString(step, "approval"), "USER_CONFIRMED", StringComparison.Ordinal))
-                            throw new ArgumentException("This key can delete or save/overwrite an existing engineering file. Ask the user first; after explicit confirmation include approval=USER_CONFIRMED on this step.");
+                        var keyIntent = (OptionalString(step, "intent") ?? "").Trim().ToLowerInvariant();
+                        var approval = OptionalString(step, "approval");
+                        var requiredIntent = key switch
+                        {
+                            "DELETE" => keyIntent == "delete",
+                            "CTRL+S" => keyIntent is "save_existing" or "overwrite",
+                            "CTRL+SHIFT+S" => keyIntent is "save_new" or "overwrite",
+                            _ => true
+                        };
+                        if (!requiredIntent || ((key is "DELETE" or "CTRL+S" or "CTRL+SHIFT+S") &&
+                            !string.Equals(approval, "USER_CONFIRMED", StringComparison.Ordinal)))
+                            throw new ArgumentException("Delete/save keys require explicit user confirmation and a matching intent (delete, save_existing, save_new or overwrite).");
                         _desktop.PressKey(key); break;
                     }
                     case "scroll":

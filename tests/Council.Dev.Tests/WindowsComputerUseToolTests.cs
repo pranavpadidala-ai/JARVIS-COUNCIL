@@ -75,7 +75,7 @@ public sealed class WindowsComputerUseToolTests
         var approved = await tool.ExecuteAsync(new Dictionary<string, string>
         {
             ["action"] = "execute",
-            ["steps"] = """[{"type":"key","key":"CTRL+S","approval":"USER_CONFIRMED"}]"""
+            ["steps"] = """[{"type":"key","key":"CTRL+S","intent":"save_existing","approval":"USER_CONFIRMED"}]"""
         });
         Assert.True(approved.Success, approved.Message);
         Assert.Contains("key:CTRL+S", desktop.Actions);
