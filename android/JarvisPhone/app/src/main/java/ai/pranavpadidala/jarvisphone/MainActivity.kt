@@ -111,7 +111,7 @@ class MainActivity : Activity() {
                 .put("requestId", UUID.randomUUID().toString())
                 .put("text", command)
             request(host, port, token, "POST", "/api/commands", body)
-            commandInput.setText("")
+            runOnUiThread { commandInput.setText("") }
             "Request added to the laptop queue. It still needs approval at the laptop."
         }
     }
