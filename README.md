@@ -166,6 +166,24 @@ The background monitor checks saved holdings and active EOD alerts at **09:00 IS
 
 **Data limitation:** the current TejHQ integration uses daily end-of-day prices, usually the previous trading session's close. It is not a live quote stream, intraday scanner, option-chain feed or broker account sync. Alerts are evaluated against closing prices only. JARVIS cannot place, modify or cancel orders. A live monitor will require a supported broker/data-provider API and the user's explicit connection.
 
+### Optional DhanHQ read-only connection
+
+JARVIS also provides a separate read-only DhanHQ v2 connector for account verification, demat holdings, open positions and one-shot market snapshots. It does not place, modify, cancel, convert or exit orders/positions, and it does not silently copy broker holdings into the manually maintained local ledger.
+
+Set credentials locally in the PowerShell session before launching JARVIS:
+
+```powershell
+$env:DHAN_CLIENT_ID = "YOUR_DHAN_CLIENT_ID"
+$env:DHAN_ACCESS_TOKEN = "YOUR_DHAN_ACCESS_TOKEN"
+dotnet run --project .\src\Council.App\Council.App.csproj
+```
+
+Ask JARVIS to verify the Dhan connection, show broker holdings, show open positions, or fetch a quote using a Dhan exchange segment and numeric security ID. Never paste access tokens into chat or commit them. The connector reads credentials only from process environment variables and does not persist or print them. Dhan's manually generated access token is typically valid for 24 hours, so it must be refreshed locally when it expires.
+
+**Cost and data distinction:** Dhan's account/portfolio trading APIs are documented as free for individual users. Real-time market-data APIs, including market snapshots and WebSocket feeds, require Dhan's Data API subscription (currently ₹499 + applicable taxes/month according to Dhan support). JARVIS does not subscribe or place orders on your behalf. Without a valid Dhan data subscription, use the existing TejHQ EOD monitor or paper data workflows; the Dhan holdings and positions endpoints remain separate read-only account functions.
+
+The initial Dhan quote action uses the REST LTP snapshot endpoint and requires a numeric Dhan security ID. It is not yet an always-on WebSocket tick stream. Live streaming, symbol-to-security-ID master lookup, automatic token renewal and secure Windows credential-vault storage are follow-up work.
+
 PowerShell settings:
 ~~~powershell
 $env:JARVIS_MARKET_MONITOR_ENABLED = "true"
@@ -186,6 +204,7 @@ $env:JARVIS_MARKET_WATCHLIST_PATH = "$env:LOCALAPPDATA\JARVIS\market\watchlist.j
 | `JARVIS_MARKET_MONITOR_ENABLED` | Enable/disable the daily EOD portfolio and alert check |
 | `JARVIS_MARKET_MONITOR_TIME` | Daily check time in IST; default `09:00` |
 | `JARVIS_MARKET_WATCHLIST_PATH` | Override local NSE/BSE holdings and watchlist file |
+| `DHAN_CLIENT_ID`, `DHAN_ACCESS_TOKEN` | Optional read-only DhanHQ account and market-data access |
 | `JARVIS_BRIDGE_BIND` | Laptop Tailscale IPv4 address |
 | `JARVIS_BRIDGE_TOKEN` | Private phone-bridge bearer token |
 | `JARVIS_BRIDGE_PORT` | Phone bridge port; defaults to 47821 |
