@@ -22,6 +22,7 @@ public sealed class ToolCallingAssistant
     private const int MaxHistoryMessages = 25;
     private readonly IAIProvider _provider;
     private readonly IImageUnderstandingProvider? _imageProvider;
+    private readonly GeminiCloudSpeechProvider? _cloudSpeechProvider;
     private WindowsVoiceService? _voice;
     private bool _voiceOutputEnabled;
     private readonly ConversationMemoryStore? _memory;
@@ -50,10 +51,11 @@ public sealed class ToolCallingAssistant
         Be clear and concise. Explain when a requested action is blocked.
         """;
 
-    public ToolCallingAssistant(IAIProvider provider, string workspaceRoot, ConversationMemoryStore? memory = null, IImageUnderstandingProvider? imageProvider = null)
+    public ToolCallingAssistant(IAIProvider provider, string workspaceRoot, ConversationMemoryStore? memory = null, IImageUnderstandingProvider? imageProvider = null, GeminiCloudSpeechProvider? cloudSpeechProvider = null)
     {
         _provider = provider ?? throw new ArgumentNullException(nameof(provider));
         _imageProvider = imageProvider;
+        _cloudSpeechProvider = cloudSpeechProvider;
         _memory = memory;
         _facts = memory is null ? null : new MemoryFactStore(memory.FilePath + ".facts.jsonl");
         _instincts = memory is null ? null : new InstinctStore(workspaceRoot);
@@ -604,7 +606,7 @@ public sealed class ToolCallingAssistant
         if (!OperatingSystem.IsWindows())
             throw new PlatformNotSupportedException("Windows speech APIs are unavailable on this operating system.");
 
-        return _voice ??= new WindowsVoiceService();
+        return _voice ??= new WindowsVoiceService(_cloudSpeechProvider);
     }
 
     private async Task SpeakIfEnabledAsync(string text, CancellationToken cancellationToken)

@@ -27,25 +27,23 @@ public sealed class LocalWhisperSpeechRecognizer
         if (!OperatingSystem.IsWindows())
             throw new PlatformNotSupportedException("Local microphone capture is currently supported on Windows only.");
         if (Environment.OSVersion.Version.Build < 22000)
-            throw new PlatformNotSupportedException(
-                "The Whisper.net CPU runtime requires Windows 11. Windows speech recognition remains available as a fallback.");
+            throw new PlatformNotSupportedException("The Whisper.net CPU runtime requires Windows 11. Windows speech recognition remains available as a fallback.");
+        var audio = await CaptureAudioOnceAsync(cancellationToken);
+        return audio is null ? null : await TranscribeCapturedAudioAsync(audio, cancellationToken);
+    }
 
-        await EnsureModelAsync(cancellationToken);
+    /// <summary>Captures one 16 kHz mono WAV utterance without loading the local Whisper model.</summary>
+    public async Task<byte[]?> CaptureAudioOnceAsync(CancellationToken cancellationToken = default)
+    {
+        if (!OperatingSystem.IsWindows())
+            throw new PlatformNotSupportedException("Local microphone capture is currently supported on Windows only.");
+        cancellationToken.ThrowIfCancellationRequested();
         var audioPath = Path.Combine(Path.GetTempPath(), "jarvis-voice-" + Guid.NewGuid().ToString("N") + ".wav");
         try
         {
             var captured = await CaptureUntilSilenceAsync(audioPath, cancellationToken);
-            if (!captured)
-                return null;
-
-            using var factory = WhisperFactory.FromPath(_modelPath);
-            using var processor = factory.CreateBuilder().WithLanguage("auto").Build();
-            await using var audio = File.OpenRead(audioPath);
-            var transcript = new System.Text.StringBuilder();
-            await foreach (var segment in processor.ProcessAsync(audio).WithCancellation(cancellationToken))
-                transcript.Append(segment.Text);
-            var result = transcript.ToString().Trim();
-            return result.Length == 0 ? null : result;
+            if (!captured) return null;
+            return await File.ReadAllBytesAsync(audioPath, cancellationToken);
         }
         finally
         {
@@ -53,6 +51,25 @@ public sealed class LocalWhisperSpeechRecognizer
             catch (IOException) { }
             catch (UnauthorizedAccessException) { }
         }
+    }
+
+    /// <summary>Transcribes a previously captured WAV utterance with the local Whisper model.</summary>
+    public async Task<string?> TranscribeCapturedAudioAsync(byte[] audioBytes, CancellationToken cancellationToken = default)
+    {
+        if (!OperatingSystem.IsWindows())
+            throw new PlatformNotSupportedException("Local Whisper is currently supported on Windows only.");
+        if (Environment.OSVersion.Version.Build < 22000)
+            throw new PlatformNotSupportedException("The Whisper.net CPU runtime requires Windows 11.");
+        if (audioBytes is null || audioBytes.Length == 0) return null;
+        await EnsureModelAsync(cancellationToken);
+        using var factory = WhisperFactory.FromPath(_modelPath);
+        using var processor = factory.CreateBuilder().WithLanguage("auto").Build();
+        await using var audio = new MemoryStream(audioBytes);
+        var transcript = new System.Text.StringBuilder();
+        await foreach (var segment in processor.ProcessAsync(audio).WithCancellation(cancellationToken))
+            transcript.Append(segment.Text);
+        var result = transcript.ToString().Trim();
+        return result.Length == 0 ? null : result;
     }
 
     private async Task EnsureModelAsync(CancellationToken cancellationToken)

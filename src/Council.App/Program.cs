@@ -192,7 +192,7 @@ if (!args.Any(arg =>
     Console.WriteLine("Local audio: Whisper small multilingual + Piper neural speech (on demand).");
     Console.WriteLine("RAM profile: one Ollama model at a time; local specialist teams run sequentially.");
     var assistant = new ToolCallingAssistant(
-        activeProvider, interactiveWorkspaceRoot, memoryStore, imageProvider);
+        activeProvider, interactiveWorkspaceRoot, memoryStore, imageProvider, cloudSpeechProvider);
     await assistant.RunAsync();
     return;
 }
