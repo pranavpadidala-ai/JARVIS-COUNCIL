@@ -1,0 +1,154 @@
+# JARVIS Council
+
+A Windows-first, .NET 8 personal AI assistant with pluggable cloud/local models, persistent memory, specialist skills, safe workspace and Office tools, public web research, and an explicitly controlled autonomous software-development workflow. A native Android companion can submit commands to the laptop over a private Tailscale network.
+
+## Quick start
+
+Requirements:
+- Windows 10/11
+- .NET 8 SDK
+- Git
+- An AI provider: Gemini, OpenAI, local Ollama, or a configured OmniRoute gateway
+
+Clone the repository, open PowerShell in the repository root, then:
+
+```powershell
+dotnet restore .\JARVIS.Council.sln
+dotnet build .\JARVIS.Council.sln
+dotnet test .\JARVIS.Council.sln
+dotnet run --project .\src\Council.App\Council.App.csproj
+```
+
+The normal startup is the interactive JARVIS assistant. If no provider key is configured, it starts in mock mode so the local application and tools can still be exercised.
+
+## Choose an AI provider
+
+Set configuration in the current PowerShell session. Do not commit API keys or place them in the project workspace.
+
+### Gemini
+
+```powershell
+$env:JARVIS_AI_PROVIDER = "gemini"
+$env:GEMINI_API_KEY = "YOUR_GEMINI_API_KEY"
+# Optional: $env:GEMINI_MODEL = "YOUR_MODEL_ID"
+dotnet run --project .\src\Council.App\Council.App.csproj
+```
+
+### Local Ollama
+
+Start Ollama and pull one model that fits available RAM. On an 8 GB machine, use a small quantized model and keep only one local model loaded at a time.
+
+```powershell
+$env:JARVIS_AI_PROVIDER = "ollama"
+$env:OLLAMA_BASE_URL = "http://localhost:11434"
+$env:OLLAMA_MODEL = "YOUR_INSTALLED_MODEL_TAG"
+dotnet run --project .\src\Council.App\Council.App.csproj
+```
+
+### OpenAI
+
+```powershell
+$env:JARVIS_AI_PROVIDER = "openai"
+$env:OPENAI_API_KEY = "YOUR_OPENAI_API_KEY"
+# Optional: $env:OPENAI_MODEL = "YOUR_MODEL_ID"
+dotnet run --project .\src\Council.App\Council.App.csproj
+```
+
+### OmniRoute
+
+OmniRoute is a gateway, not a free API grant. Connect an eligible provider in the OmniRoute dashboard and explicitly allowlist only model IDs whose current cost you have checked.
+
+```powershell
+$env:JARVIS_AI_PROVIDER = "omniroute"
+$env:OMNIROUTE_BASE_URL = "http://localhost:20128/v1"
+$env:OMNIROUTE_API_KEY = "YOUR_LOCAL_OMNIROUTE_GATEWAY_KEY"
+$env:OMNIROUTE_MODEL = "provider-prefix/exact-model-id"
+$env:OMNIROUTE_FREE_MODELS = "provider-prefix/exact-model-id"
+dotnet run --project .\src\Council.App\Council.App.csproj
+```
+
+The OmniRoute adapter rejects the `auto` alias and any model ID not present in the exact allowlist. Upstream billing and quota rules remain the user's responsibility.
+
+## What JARVIS can do
+
+- **Conversation and memory:** optional local conversation history, deterministic keyword retrieval, and explicit long-term facts.
+- **Specialist skills:** discovers Markdown skills for development, engineering, research, Office, productivity, and other workflows.
+- **Workspace tools:** list, search, read and create files inside the configured project workspace.
+- **Office:** inspect Excel, Word, PowerPoint and selectable-text PDF files; create new Excel workbooks and simple Word documents. Existing files are never overwritten by Office creation tools.
+- **Web research:** `web_search` discovers public sources; `web_open` reads public HTML/plain-text pages. Search results and page contents are untrusted; verify important claims against the source. Search queries are sent to DuckDuckGo.
+- **Autonomous development:** create, list and explicitly run persistent coding tasks. Each run requires a clean Git working tree, creates a checkpoint, uses the safe workspace executor, runs `dotnet build` and `dotnet test`, commits only after success, and rolls back failed attempts.
+- **Windows voice:** `/voice` is on-demand push-to-talk; `/speak on` and `/speak off` control spoken replies. There is no always-on wake-word listener.
+- **Desktop launcher:** opens only Notepad, Calculator, File Explorer and Task Manager.
+- **Abaqus diagnostics:** reports whether a supported Abaqus launcher is detected.
+- **Phone companion:** authenticated queue-only commands over Tailscale; the laptop user must type exact `YES` before a phone request executes.
+
+## Interactive commands
+
+| Command | Action |
+|---|---|
+| `/help` | Show available commands and workflows |
+| `/skills` | List discovered specialist skills |
+| `/remember <fact>` | Save an explicit long-term fact |
+| `/memories` | List saved facts |
+| `/forget <id>` | Remove one saved fact |
+| `/clear` | Clear conversation history and saved facts |
+| `/voice` | Capture one spoken request on demand |
+| `/speak on` / `/speak off` | Enable or disable speech output |
+| `/phone-queue` | List phone requests waiting for approval |
+| `/phone-next` | Preview a phone request and require exact `YES` approval |
+| `/exit` | Close JARVIS |
+
+You can also ask naturally to create/list/run a development task. Creating a task does not execute it. Running a task requires an explicit request and a clean Git working tree. Ctrl+C cancels the active request; during an autonomous task, the task is marked paused and can be resumed by running it again.
+
+## Optional local memory
+
+Memory is disabled by default. Enable it in PowerShell:
+
+```powershell
+$env:JARVIS_MEMORY_ENABLED = "true"
+dotnet run --project .\src\Council.App\Council.App.csproj
+```
+
+Conversation content and explicit facts are encrypted with Windows DPAPI for the current Windows user. The default conversation file is under `%LOCALAPPDATA%\JARVIS-Council\Memory`; override it with `JARVIS_MEMORY_PATH`. The default development task store is `%LOCALAPPDATA%\JARVIS\development-tasks.json`. Encrypted memory files are tied to the Windows user profile; do not expect them to decrypt under another account or on a non-Windows system.
+
+## Optional Android phone companion
+
+The phone bridge is disabled unless both `JARVIS_BRIDGE_BIND` and `JARVIS_BRIDGE_TOKEN` are configured. Install and connect Tailscale on the laptop and phone, then set the laptop's Tailscale IPv4 address and a random token of at least 32 UTF-8 bytes:
+
+```powershell
+$env:JARVIS_BRIDGE_BIND = "100.x.y.z"
+$env:JARVIS_BRIDGE_TOKEN = "YOUR_RANDOM_SECRET_AT_LEAST_32_BYTES"
+$env:JARVIS_BRIDGE_PORT = "47821"
+dotnet run --project .\src\Council.App\Council.App.csproj
+```
+
+Enter the same address, port and token in the Android companion. The app stores the token encrypted with Android Keystore. Do not port-forward the bridge or expose it to the public internet. Phone requests are queued only; the laptop user must approve each request locally.
+
+## Useful environment variables
+
+| Variable | Purpose |
+|---|---|
+| `JARVIS_AI_PROVIDER` | `gemini`, `openai`, `ollama`, `omniroute`, or `mock` |
+| `JARVIS_MEMORY_ENABLED` | Set `true` to enable encrypted local memory |
+| `JARVIS_MEMORY_PATH` | Override conversation-memory file path |
+| `JARVIS_SKILLS_PATH` | Override specialist-skill directory |
+| `JARVIS_OFFICE_WORKSPACE` | Dedicated Office document workspace |
+| `JARVIS_HOTKEY_ENABLED` | Set `false` to disable Ctrl+Alt+J |
+| `JARVIS_BRIDGE_BIND` | Laptop Tailscale IPv4 address |
+| `JARVIS_BRIDGE_TOKEN` | Private phone-bridge bearer token |
+| `JARVIS_BRIDGE_PORT` | Phone bridge port; defaults to 47821 |
+| `GEMINI_API_KEY`, `OPENAI_API_KEY` | Provider credentials |
+| `OLLAMA_BASE_URL`, `OLLAMA_MODEL` | Local Ollama endpoint and model |
+| `OMNIROUTE_BASE_URL`, `OMNIROUTE_API_KEY`, `OMNIROUTE_MODEL`, `OMNIROUTE_FREE_MODELS` | OmniRoute gateway configuration |
+
+## Safety model
+
+- Direct workspace file tools are confined to the configured workspace and do not overwrite or delete existing files.
+- Autonomous development can modify/delete workspace files only after an explicit task-run request and clean-Git preflight. Failed attempts are rolled back; successful validated changes are committed.
+- Phone commands never execute at the HTTP endpoint and always require local laptop approval.
+- Public page reading permits only HTTP/HTTPS on ports 80/443, validates DNS destinations and redirects, blocks private/reserved IP ranges, disables cookies/proxies, and caps response size.
+- Memory is opt-in and encrypted at rest on Windows. Credential redaction is best-effort; never store passwords, API keys, recovery codes, or other secrets in memory.
+
+## Current validation
+
+GitHub Actions runs Windows .NET 8 restore/build/tests and an Android debug-APK build. Check the latest commit's workflow results before relying on a new feature. The integration work is kept on a draft pull request and is not merged into the default branch.
