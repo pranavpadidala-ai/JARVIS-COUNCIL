@@ -91,6 +91,14 @@ public sealed class DhanReadOnlyTool : ITool
         {
             return new ToolResult(false, "Dhan request timed out.");
         }
+        catch (ArgumentException ex)
+        {
+            return new ToolResult(false, ex.Message);
+        }
+        catch (OverflowException)
+        {
+            return new ToolResult(false, "security_id must be a valid 32-bit Dhan security ID.");
+        }
         catch (HttpRequestException)
         {
             return new ToolResult(false, "Could not reach DhanHQ. Check the internet connection and try again.");
@@ -127,12 +135,13 @@ public sealed class DhanReadOnlyTool : ITool
         };
         if (!validSegments.Contains(segment))
             throw new ArgumentException("exchange_segment must be a supported Dhan segment such as NSE_EQ, BSE_EQ, NSE_FNO, or IDX_I.");
-        if (securityId.Length is < 1 or > 12 || securityId.Any(ch => !char.IsAsciiDigit(ch)))
-            throw new ArgumentException("security_id must contain 1–12 digits.");
+        if (securityId.Length is < 1 or > 10 || securityId.Any(ch => !char.IsAsciiDigit(ch)) ||
+            !int.TryParse(securityId, System.Globalization.NumberStyles.None, System.Globalization.CultureInfo.InvariantCulture, out var parsedId))
+            throw new ArgumentException("security_id must be a valid positive 32-bit Dhan security ID.");
 
         var payload = JsonSerializer.Serialize(new Dictionary<string, int[]>
         {
-            [segment] = [int.Parse(securityId, System.Globalization.CultureInfo.InvariantCulture)]
+            [segment] = [parsedId]
         });
         return new HttpRequestMessage(HttpMethod.Post, new Uri(new Uri(ApiBase), "marketfeed/ltp"))
         {
