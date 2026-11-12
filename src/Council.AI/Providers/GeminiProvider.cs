@@ -6,7 +6,7 @@ using Google.GenAI.Types;
 
 namespace Council.AI.Providers;
 
-public sealed class GeminiProvider : IAIProvider
+public sealed class GeminiProvider : IAIProvider, IImageUnderstandingProvider
 {
     private readonly Client _client;
     private readonly string _defaultModel;
@@ -122,6 +122,67 @@ public sealed class GeminiProvider : IAIProvider
             Content: content,
             Model: model,
             Duration: stopwatch.Elapsed);
+    }
+
+    public async Task<string> DescribeImagesAsync(
+        string prompt,
+        IReadOnlyList<AIImage> images,
+        CancellationToken cancellationToken = default)
+    {
+        if (string.IsNullOrWhiteSpace(prompt))
+            throw new ArgumentException("An image analysis prompt is required.", nameof(prompt));
+        ArgumentNullException.ThrowIfNull(images);
+        if (images.Count == 0)
+            throw new ArgumentException("At least one image is required.", nameof(images));
+        if (images.Count > 12)
+            throw new ArgumentException("A maximum of 12 images can be analysed in one request.", nameof(images));
+
+        var parts = new List<Part> { new Part { Text = prompt } };
+        foreach (var image in images)
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+            if (image.Data is null || image.Data.Length == 0)
+                continue;
+            if (image.Data.Length > 8 * 1024 * 1024)
+                throw new ArgumentException("An image exceeds the 8 MB per-image limit.", nameof(images));
+            if (image.MimeType is not ("image/png" or "image/jpeg" or "image/webp"))
+                throw new ArgumentException("Only PNG, JPEG, and WebP images are supported.", nameof(images));
+
+            parts.Add(new Part
+            {
+                Text = "Image source: " + image.Name
+            });
+            parts.Add(new Part
+            {
+                InlineData = new Blob
+                {
+                    Data = image.Data,
+                    MimeType = image.MimeType
+                }
+            });
+        }
+
+        if (parts.Count == 1)
+            throw new ArgumentException("No supported image data was supplied.", nameof(images));
+
+        var response = await _client.Models.GenerateContentAsync(
+            _defaultModel,
+            [new Content { Role = "user", Parts = parts }],
+            new GenerateContentConfig { Temperature = 0.1 },
+            cancellationToken);
+
+        var text = response.Candidates?
+            .FirstOrDefault()?
+            .Content?
+            .Parts?
+            .Where(part => !string.IsNullOrWhiteSpace(part.Text))
+            .Select(part => part.Text)
+            .ToList();
+
+        var result = text is { Count: > 0 } ? string.Join("", text) : null;
+        if (string.IsNullOrWhiteSpace(result))
+            throw new InvalidOperationException("Gemini returned no image analysis text.");
+        return result;
     }
 
     private static bool IsRole(string? actual, string expected) =>
