@@ -57,6 +57,46 @@ public sealed class WindowsComputerUseToolTests
         Assert.Empty(desktop.Actions);
     }
 
+
+    [Fact]
+    public async Task BlocksSaveAndDeleteKeysUntilTheUserConfirms()
+    {
+        var desktop = new FakeDesktop();
+        var tool = new WindowsComputerUseTool(new FakeVision(), desktop);
+        Assert.True((await tool.ExecuteAsync(new Dictionary<string, string> { ["action"] = "begin", ["purpose"] = "Modify an Abaqus model" })).Success);
+        Assert.True((await tool.ExecuteAsync(new Dictionary<string, string> { ["action"] = "observe" })).Success);
+        var blocked = await tool.ExecuteAsync(new Dictionary<string, string>
+        {
+            ["action"] = "execute",
+            ["steps"] = """[{"type":"key","key":"CTRL+S"}]"""
+        });
+        Assert.False(blocked.Success);
+        Assert.Empty(desktop.Actions);
+        var approved = await tool.ExecuteAsync(new Dictionary<string, string>
+        {
+            ["action"] = "execute",
+            ["steps"] = """[{"type":"key","key":"CTRL+S","approval":"USER_CONFIRMED"}]"""
+        });
+        Assert.True(approved.Success, approved.Message);
+        Assert.Contains("key:CTRL+S", desktop.Actions);
+    }
+
+    [Fact]
+    public async Task RequiresConfirmationForDestructiveGuiIntent()
+    {
+        var desktop = new FakeDesktop();
+        var tool = new WindowsComputerUseTool(new FakeVision(), desktop);
+        Assert.True((await tool.ExecuteAsync(new Dictionary<string, string> { ["action"] = "begin", ["purpose"] = "Submit a verified Abaqus job" })).Success);
+        Assert.True((await tool.ExecuteAsync(new Dictionary<string, string> { ["action"] = "observe" })).Success);
+        var blocked = await tool.ExecuteAsync(new Dictionary<string, string>
+        {
+            ["action"] = "execute",
+            ["steps"] = """[{"type":"click","x":200,"y":300,"intent":"submit_job"}]"""
+        });
+        Assert.False(blocked.Success);
+        Assert.Empty(desktop.Actions);
+    }
+
     private sealed class FakeVision : IImageUnderstandingProvider
     {
         public int CallCount { get; private set; }

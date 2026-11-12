@@ -153,6 +153,26 @@ dotnet run --project .\src\Council.App\Council.App.csproj
 
 Enter the same address, port and token in the Android companion. The app stores the token encrypted with Android Keystore. Do not port-forward the bridge or expose it to the public internet. Phone requests are queued only; the laptop user must approve each request locally.
 
+## Indian share-market monitoring
+
+JARVIS includes a local NSE/BSE equity watchlist, holdings ledger, EOD portfolio valuation and one-shot closing-price alerts. Ask naturally, for example:
+
+- "Add RELIANCE and TCS to my watchlist."
+- "Save 10 shares of RELIANCE at an average buy price of 1,250 rupees."
+- "Alert me if RELIANCE's daily close goes above 1,500."
+- "Show my portfolio and active alerts."
+
+The background monitor checks saved holdings and active EOD alerts at **09:00 IST on weekdays while JARVIS is running**. It prints a daily summary in the JARVIS console. The time can be changed with JARVIS_MARKET_MONITOR_TIME. It records local holdings/alerts under %LOCALAPPDATA%\JARVIS\market; override the watchlist location with JARVIS_MARKET_WATCHLIST_PATH.
+
+**Data limitation:** the current TejHQ integration uses daily end-of-day prices, usually the previous trading session's close. It is not a live quote stream, intraday scanner, option-chain feed or broker account sync. Alerts are evaluated against closing prices only. JARVIS cannot place, modify or cancel orders. A live monitor will require a supported broker/data-provider API and the user's explicit connection.
+
+PowerShell settings:
+~~~powershell
+$env:JARVIS_MARKET_MONITOR_ENABLED = "true"
+$env:JARVIS_MARKET_MONITOR_TIME = "09:00"
+$env:JARVIS_MARKET_WATCHLIST_PATH = "$env:LOCALAPPDATA\JARVIS\market\watchlist.json"
+~~~
+
 ## Useful environment variables
 
 | Variable | Purpose |
@@ -163,6 +183,9 @@ Enter the same address, port and token in the Android companion. The app stores 
 | `JARVIS_SKILLS_PATH` | Override specialist-skill directory |
 | `JARVIS_OFFICE_WORKSPACE` | Dedicated Office document workspace |
 | `JARVIS_HOTKEY_ENABLED` | Set `false` to disable Ctrl+Alt+J |
+| `JARVIS_MARKET_MONITOR_ENABLED` | Enable/disable the daily EOD portfolio and alert check |
+| `JARVIS_MARKET_MONITOR_TIME` | Daily check time in IST; default `09:00` |
+| `JARVIS_MARKET_WATCHLIST_PATH` | Override local NSE/BSE holdings and watchlist file |
 | `JARVIS_BRIDGE_BIND` | Laptop Tailscale IPv4 address |
 | `JARVIS_BRIDGE_TOKEN` | Private phone-bridge bearer token |
 | `JARVIS_BRIDGE_PORT` | Phone bridge port; defaults to 47821 |

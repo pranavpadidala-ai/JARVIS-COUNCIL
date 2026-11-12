@@ -137,6 +137,10 @@ public sealed class WindowsComputerUseTool : ITool
                 if (step.ValueKind != JsonValueKind.Object || !step.TryGetProperty("type", out var typeElement))
                     throw new ArgumentException("Every step must be an object with a type.");
                 var type = typeElement.GetString()?.Trim().ToLowerInvariant();
+                var intent = (OptionalString(step, "intent") ?? "").Trim().ToLowerInvariant();
+                if ((intent is "save_existing" or "overwrite" or "delete" or "submit_job" or "close_unsaved") &&
+                    !string.Equals(OptionalString(step, "approval"), "USER_CONFIRMED", StringComparison.Ordinal))
+                    throw new ArgumentException("This GUI action is irreversible or starts an Abaqus job. Ask the user first; after explicit confirmation include intent and approval=USER_CONFIRMED.");
                 switch (type)
                 {
                     case "click":
@@ -168,6 +172,9 @@ public sealed class WindowsComputerUseTool : ITool
                     {
                         var key = (OptionalString(step, "key") ?? "").ToUpperInvariant();
                         if (!AllowedKeys.Contains(key)) throw new ArgumentException("Key is not allowlisted. Use ENTER, ESC, TAB, arrows, F2/F5-F12 or approved CTRL combinations.");
+                        if ((key is "DELETE" or "CTRL+S" or "CTRL+SHIFT+S") &&
+                            !string.Equals(OptionalString(step, "approval"), "USER_CONFIRMED", StringComparison.Ordinal))
+                            throw new ArgumentException("This key can delete or save/overwrite an existing engineering file. Ask the user first; after explicit confirmation include approval=USER_CONFIRMED on this step.");
                         _desktop.PressKey(key); break;
                     }
                     case "scroll":
