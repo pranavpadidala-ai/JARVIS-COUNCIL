@@ -6,7 +6,7 @@ using Google.GenAI.Types;
 
 namespace Council.AI.Providers;
 
-public sealed class GeminiProvider : IAIProvider, IImageUnderstandingProvider
+public sealed class GeminiProvider : IAIProvider, IImageUnderstandingProvider, IDocumentUnderstandingProvider
 {
     private readonly Client _client;
     private readonly string _defaultModel;
@@ -182,6 +182,29 @@ public sealed class GeminiProvider : IAIProvider, IImageUnderstandingProvider
         var result = text is { Count: > 0 } ? string.Join("", text) : null;
         if (string.IsNullOrWhiteSpace(result))
             throw new InvalidOperationException("Gemini returned no image analysis text.");
+        return result;
+    }
+
+
+    public async Task<string> AnalyzeDocumentAsync(string prompt, AIImage document, CancellationToken cancellationToken = default)
+    {
+        if (string.IsNullOrWhiteSpace(prompt)) throw new ArgumentException("A document-analysis prompt is required.", nameof(prompt));
+        ArgumentNullException.ThrowIfNull(document);
+        if (document.MimeType != "application/pdf") throw new ArgumentException("Only PDF documents are supported.", nameof(document));
+        if (document.Data is null || document.Data.Length == 0) throw new ArgumentException("PDF data cannot be empty.", nameof(document));
+        if (document.Data.Length > 18 * 1024 * 1024) throw new ArgumentException("PDF exceeds the 18 MB inline-analysis limit.", nameof(document));
+        var parts = new List<Part>
+        {
+            new Part { Text = prompt + Environment.NewLine + "Document name: " + document.Name },
+            new Part { InlineData = new Blob { Data = document.Data, MimeType = "application/pdf" } }
+        };
+        var response = await _client.Models.GenerateContentAsync(_defaultModel,
+            [new Content { Role = "user", Parts = parts }],
+            new GenerateContentConfig { Temperature = 0.1 }, cancellationToken);
+        var text = response.Candidates?.FirstOrDefault()?.Content?.Parts?
+            .Where(part => !string.IsNullOrWhiteSpace(part.Text)).Select(part => part.Text).ToList();
+        var result = text is { Count: > 0 } ? string.Join("", text) : null;
+        if (string.IsNullOrWhiteSpace(result)) throw new InvalidOperationException("Gemini returned no PDF document analysis text.");
         return result;
     }
 

@@ -159,22 +159,40 @@ if (!args.Any(arg =>
     var memoryEnabled = bool.TryParse(
         Environment.GetEnvironmentVariable("JARVIS_MEMORY_ENABLED"), out var enableMemory) && enableMemory;
     var memoryStore = memoryEnabled ? new ConversationMemoryStore() : null;
-    IImageUnderstandingProvider? localVisionProvider = null;
+    IImageUnderstandingProvider? imageProvider = null;
+    var visionProviderChoice = (Environment.GetEnvironmentVariable("JARVIS_VISION_PROVIDER") ?? "ollama").Trim().ToLowerInvariant();
     var localVisionEnabled =
         !bool.TryParse(Environment.GetEnvironmentVariable("JARVIS_LOCAL_VISION_ENABLED"), out var visionEnabled) ||
         visionEnabled;
-    if (localVisionEnabled)
+    switch (visionProviderChoice)
     {
-        var visionModel = Environment.GetEnvironmentVariable("JARVIS_VISION_MODEL") ?? "moondream";
-        localVisionProvider = new OllamaVisionProvider(
-            visionModel, ollamaBaseUrl, contextTokens: 2048);
-        Console.WriteLine($"Local vision: Ollama / {visionModel} (install with scripts/Install-LocalModels.ps1).");
+        case "gemini":
+            if (string.IsNullOrWhiteSpace(geminiApiKey))
+                throw new InvalidOperationException("GEMINI_API_KEY is required when JARVIS_VISION_PROVIDER=gemini.");
+            var cloudVisionModel = Environment.GetEnvironmentVariable("GEMINI_VISION_MODEL") ?? "gemini-3.8-flash";
+            imageProvider = new GeminiProvider(geminiApiKey, cloudVisionModel);
+            Console.WriteLine($"Cloud vision/document reader: Gemini / {cloudVisionModel}. Screen captures and PDFs are sent to Google and may use API quota.");
+            break;
+        case "ollama":
+            if (localVisionEnabled)
+            {
+                var localVisionModel = Environment.GetEnvironmentVariable("JARVIS_VISION_MODEL") ?? "moondream";
+                imageProvider = new OllamaVisionProvider(localVisionModel, ollamaBaseUrl, contextTokens: 2048);
+                Console.WriteLine($"Local vision: Ollama / {localVisionModel} (install with scripts/Install-LocalModels.ps1). Full-PDF OCR is not supported locally.");
+            }
+            else Console.WriteLine("Vision disabled by JARVIS_LOCAL_VISION_ENABLED=false.");
+            break;
+        case "none":
+            Console.WriteLine("Vision provider disabled.");
+            break;
+        default:
+            throw new InvalidOperationException("JARVIS_VISION_PROVIDER must be ollama, gemini, or none.");
     }
 
     Console.WriteLine("Local audio: Whisper small multilingual + Piper neural speech (on demand).");
     Console.WriteLine("RAM profile: one Ollama model at a time; local specialist teams run sequentially.");
     var assistant = new ToolCallingAssistant(
-        activeProvider, interactiveWorkspaceRoot, memoryStore, localVisionProvider);
+        activeProvider, interactiveWorkspaceRoot, memoryStore, imageProvider);
     await assistant.RunAsync();
     return;
 }

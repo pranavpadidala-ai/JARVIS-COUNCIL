@@ -55,3 +55,9 @@ All agents currently use the configured provider and default model. Per-agent mo
 ## Indian market monitoring
 
 The `Finance/PortfolioMonitor` skill uses the registered `indian_market` tool. It stores only the user's manually supplied holdings/watchlist in the local application-data folder and fetches the latest available daily close from TejHQ. This is an end-of-day monitor, not a real-time feed or broker integration. The `Finance/DayTrading` and related skills are JARVIS-native adaptations of selected public workflows; they do not add an intraday feed, broker connection, or order execution. See `SOURCES.md` for upstream attribution.
+
+
+## Visual desktop and engineering-document reading
+
+- **Visual computer use:** the visible Windows `computer_use` tool requires an explicit user request, captures screenshots, analyses them with the configured vision provider, performs bounded mouse/keyboard sequences and verifies the resulting screen. It does not run shell commands or operate hidden windows.
+- **Full-PDF engineering review:** set `JARVIS_VISION_PROVIDER=gemini` and `GEMINI_API_KEY` to enable Gemini full-PDF analysis (up to 18 MB inline) alongside local PDF text extraction. The default remains local Ollama to avoid silently sending screenshots/documents to a cloud provider.
