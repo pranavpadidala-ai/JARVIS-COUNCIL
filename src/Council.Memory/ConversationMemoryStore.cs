@@ -169,6 +169,7 @@ public sealed class ConversationMemoryStore
         {
             var directory = Path.GetDirectoryName(_filePath)!;
             Directory.CreateDirectory(directory);
+            await MigrateLegacyRecordsAsync(cancellationToken);
             var record = new StoredMessage(
                 DateTimeOffset.UtcNow,
                 message.Role.Trim().ToLowerInvariant(),
@@ -201,6 +202,54 @@ public sealed class ConversationMemoryStore
         {
             _gate.Release();
         }
+    }
+
+    private async Task MigrateLegacyRecordsAsync(CancellationToken cancellationToken)
+    {
+        if (!File.Exists(_filePath))
+            return;
+
+        var lines = await File.ReadAllLinesAsync(_filePath, cancellationToken);
+        var migrated = new List<string>(lines.Length);
+        var changed = false;
+
+        foreach (var line in lines)
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+            if (string.IsNullOrWhiteSpace(line))
+            {
+                migrated.Add(line);
+                continue;
+            }
+
+            try
+            {
+                var stored = JsonSerializer.Deserialize<StoredMessage>(line);
+                if (stored is null || stored.Content.StartsWith("dpapi:v1:", StringComparison.Ordinal))
+                {
+                    migrated.Add(line);
+                    continue;
+                }
+
+                migrated.Add(JsonSerializer.Serialize(stored with
+                {
+                    Content = LocalMemoryProtector.Protect(
+                        SecretRedactor.Redact(stored.Content))
+                }));
+                changed = true;
+            }
+            catch (JsonException)
+            {
+                migrated.Add(line);
+            }
+        }
+
+        if (!changed)
+            return;
+
+        var temporaryPath = _filePath + ".migrate.tmp";
+        await File.WriteAllLinesAsync(temporaryPath, migrated, cancellationToken);
+        File.Move(temporaryPath, _filePath, overwrite: true);
     }
 
     private async Task CompactAsync(CancellationToken cancellationToken)
