@@ -55,7 +55,7 @@ The desktop_control tool can launch only Notepad, Calculator, File Explorer, and
 
 ## Optional Android-to-laptop command inbox (first protocol slice)
 
-The first phone bridge slice is a **private, queue-only HTTP endpoint**, not a complete Android app and not remote desktop control. It is disabled unless both `JARVIS_BRIDGE_BIND` and `JARVIS_BRIDGE_TOKEN` are set. The bind address must be the laptop's Tailscale IPv4 address in `100.64.0.0/10`; ordinary LAN/public addresses are rejected. The HTTP traffic is intended to travel only inside Tailscale's encrypted private network. Do not port-forward this endpoint or expose it to the public internet.
+The phone bridge is a **private, queue-only HTTP endpoint**, paired with a native Android companion app. It is not remote desktop control. It is disabled unless both `JARVIS_BRIDGE_BIND` and `JARVIS_BRIDGE_TOKEN` are set. The bind address must be the laptop's Tailscale IPv4 address in `100.64.0.0/10`; ordinary LAN/public addresses are rejected. The HTTP traffic is intended to travel only inside Tailscale's encrypted private network. Do not port-forward this endpoint or expose it to the public internet.
 
 The bearer token must be at least 32 UTF-8 bytes. Keep it private and do not commit it. Configure the laptop's Tailscale address and token in the current PowerShell session before starting JARVIS:
 
@@ -76,7 +76,7 @@ Every request must include `Authorization: Bearer <token>`. POST bodies are limi
 
 The laptop console provides `/phone-queue` to list pending requests and `/phone-next` to preview the next request. **JARVIS will not execute a phone request until the person at the laptop types the exact word `YES`.** Only a completed assistant turn marks it completed; cancellation or an incomplete turn leaves it queued. The endpoint itself never executes commands.
 
-There is not yet a Galaxy Android companion app, automatic background polling, remote result notifications, or wake-on-LAN. The next step is the Android client and a pairing/setup flow; only after that should the manual approval flow be expanded. If the HTTP listener cannot bind because of Windows permissions, JARVIS reports the issue and continues without the bridge.
+The Android companion app supports bridge address/port/token entry, connection checks, request submission, queue refresh, and cancellation of unapproved requests. After a successful authenticated operation, it stores the connection settings encrypted with an AES-256-GCM key held by Android Keystore; the bearer token is not stored in plaintext preferences. The app can restore the encrypted pairing after restart and provides a forget-connection action. Android backup is disabled for the app. Laptop-side approval remains mandatory. Background polling, remote completion notifications, richer result history, and wake-on-LAN are being implemented as later parts of the complete phone experience. If the HTTP listener cannot bind because of Windows permissions, JARVIS reports the issue and continues without the bridge.
 
 ## Deliberately not implemented in this slice
 
@@ -84,4 +84,4 @@ Always-on wake-word listening, screen capture/vision, general window manipulatio
 
 ## Validation status
 
-The GitHub Actions workflow runs Windows .NET 8 restore, build, and the existing xUnit test suite. The memory retrieval change passed 168 tests. The voice, desktop-control, and Ctrl+C turn-cancellation changes passed Windows .NET 8 CI. The global activation shortcut is the newest change and must pass its own CI run before it is treated as verified. No merge into the default branch is performed.
+The GitHub Actions workflow runs Windows .NET 8 restore, build, and the existing xUnit test suite. The memory retrieval change passed 168 tests. The voice, desktop-control, and Ctrl+C turn-cancellation changes passed Windows .NET 8 CI. The global activation shortcut, encrypted Android pairing, and companion APK must pass the latest branch CI run before they are treated as verified. No merge into the default branch is performed.
