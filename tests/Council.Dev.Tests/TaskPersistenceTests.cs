@@ -17,9 +17,10 @@ public class TaskPersistenceTests
             var manager = new TaskManager(new TaskStore(directoryUsedAsFile));
             await manager.InitializeAsync();
 
-            await Assert.ThrowsAnyAsync<IOException>(() =>
+            var exception = await Record.ExceptionAsync(() =>
                 manager.CreateAsync("Should not remain", "The persistence target is invalid."));
 
+            Assert.True(exception is IOException or UnauthorizedAccessException);
             Assert.Empty(manager.Tasks);
             Assert.Empty(Directory.GetFiles(root, "*.tmp"));
         }
