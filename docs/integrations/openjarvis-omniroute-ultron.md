@@ -69,14 +69,14 @@ dotnet run --project src/Council.App/Council.App.csproj
 The protocol currently supports:
 - `GET /api/health` — authenticated health check.
 - `POST /api/commands` — authenticated JSON body: `{"requestId":"unique-id-0001","text":"Summarize my report"}`. Request IDs make retries idempotent.
-- `GET /api/commands` — list queued and historical commands.
+- `GET /api/commands` — list queued and historical commands, including the assistant response for completed requests.
 - `POST /api/commands/{guid}/cancel` — cancel a command that has not been approved.
 
 Every request must include `Authorization: Bearer <token>`. POST bodies are limited to 8 KB; command text is limited to 2,000 characters; the pending queue is limited to 100 items. Queue data is stored locally at `%LOCALAPPDATA%\JARVIS-Council\PhoneBridge\inbox.json` using atomic file replacement.
 
 The laptop console provides `/phone-queue` to list pending requests and `/phone-next` to preview the next request. **JARVIS will not execute a phone request until the person at the laptop types the exact word `YES`.** Only a completed assistant turn marks it completed; cancellation or an incomplete turn leaves it queued. The endpoint itself never executes commands.
 
-The Android companion app supports bridge address/port/token entry, connection checks, request submission, queue refresh, and cancellation of unapproved requests. After a successful authenticated operation, it stores the connection settings encrypted with an AES-256-GCM key held by Android Keystore; the bearer token is not stored in plaintext preferences. The app can restore the encrypted pairing after restart and provides a forget-connection action. Android backup is disabled for the app. Laptop-side approval remains mandatory. Background polling, remote completion notifications, richer result history, and wake-on-LAN are being implemented as later parts of the complete phone experience. If the HTTP listener cannot bind because of Windows permissions, JARVIS reports the issue and continues without the bridge.
+The Android companion app supports bridge address/port/token entry, connection checks, request submission, command history, and cancellation of unapproved requests. It refreshes the queue every 30 seconds while its screen is open. Once a request is approved and JARVIS finishes processing it, the assistant's response is saved with that command and appears in the phone's history (up to 12,000 characters). After a successful authenticated operation, the app stores the connection settings encrypted with an AES-256-GCM key held by Android Keystore; the bearer token is not stored in plaintext preferences. The app can restore the encrypted pairing after restart and provides a forget-connection action. Android backup is disabled for the app. Laptop-side approval remains mandatory. Background polling, remote completion notifications, richer result history, and wake-on-LAN are being implemented as later parts of the complete phone experience. If the HTTP listener cannot bind because of Windows permissions, JARVIS reports the issue and continues without the bridge.
 
 ## Deliberately not implemented in this slice
 
