@@ -71,7 +71,7 @@ The OmniRoute adapter rejects the `auto` alias and any model ID not present in t
 
 ## What JARVIS can do
 
-- **Conversation and memory:** optional local conversation history, deterministic keyword retrieval, and explicit long-term facts.
+- **Conversation and memory:** optional local conversation history, deterministic keyword retrieval, explicit long-term facts, and encrypted project-scoped learned practices with confidence/evidence tracking.
 - **Specialist skills:** discovers Markdown skills for development, engineering, research, Office, productivity, and other workflows.
 - **Workspace tools:** list, search, read and create files inside the configured project workspace.
 - **Office:** inspect Excel, Word, PowerPoint and selectable-text PDF files; create new Excel workbooks and simple Word documents. Existing files are never overwritten by Office creation tools.
@@ -91,7 +91,10 @@ The OmniRoute adapter rejects the `auto` alias and any model ID not present in t
 | `/remember <fact>` | Save an explicit long-term fact |
 | `/memories` | List saved facts |
 | `/forget <id>` | Remove one saved fact |
-| `/clear` | Clear conversation history and saved facts |
+| `/learn <trigger> => <action>` | Explicitly save a reusable practice for the current project |
+| `/instincts` | List project-scoped learned practices with confidence and evidence counts |
+| `/forget-instinct <id>` | Remove one learned practice |
+| `/clear` | Clear conversation history and saved facts; learned practices remain |
 | `/voice` | Capture one spoken request on demand |
 | `/speak on` / `/speak off` | Enable or disable speech output |
 | `/phone-queue` | List phone requests waiting for approval |
@@ -109,7 +112,7 @@ $env:JARVIS_MEMORY_ENABLED = "true"
 dotnet run --project .\src\Council.App\Council.App.csproj
 ```
 
-Conversation content and explicit facts are encrypted with Windows DPAPI for the current Windows user. The default conversation file is under `%LOCALAPPDATA%\JARVIS-Council\Memory`; override it with `JARVIS_MEMORY_PATH`. The default development task store is `%LOCALAPPDATA%\JARVIS\development-tasks.json`. Encrypted memory files are tied to the Windows user profile; do not expect them to decrypt under another account or on a non-Windows system.
+Conversation content, explicit facts, and user-approved learned practices are encrypted with Windows DPAPI for the current Windows user. Learned practices are scoped to the current workspace path, never auto-inferred, and only added through `/learn`; repeated reinforcement increases confidence. They remain separate from `/remember` facts. The default conversation file is under `%LOCALAPPDATA%\JARVIS-Council\Memory`; override it with `JARVIS_MEMORY_PATH`. The default development task store is `%LOCALAPPDATA%\JARVIS\development-tasks.json`. Encrypted memory files are tied to the Windows user profile; do not expect them to decrypt under another account or on a non-Windows system.
 
 ## Optional Android phone companion
 
