@@ -103,7 +103,7 @@ public sealed class ToolCallingAssistant
                 phoneBridge.Start();
                 Console.WriteLine("[Phone bridge] Listening on " + bridgeBind + ":" + bridgePort + "/ (Tailscale-only; queued commands require local approval).");
             }
-            catch (Exception ex) when (ex is ArgumentException or InvalidOperationException or System.Net.HttpListenerException)
+            catch (Exception ex) when (ex is ArgumentException or InvalidOperationException or System.Net.HttpListenerException or UnauthorizedAccessException)
             {
                 Console.WriteLine("[Phone bridge] Not started: " + ex.Message);
                 if (phoneBridge is not null) await phoneBridge.DisposeAsync();
