@@ -1,4 +1,5 @@
 using System.Text.Json;
+using System.Security.Cryptography;
 using Council.Core.Models;
 using Council.Security;
 
@@ -70,7 +71,7 @@ public sealed class ConversationMemoryStore
                     if (stored is not null && IsPersistableRole(stored.Role))
                         messages.Add(new AIMessage(stored.Role, SecretRedactor.Redact(LocalMemoryProtector.Unprotect(stored.Content))));
                 }
-                catch (JsonException)
+                catch (Exception ex) when (ex is JsonException or CryptographicException or FormatException)
                 {
                     // Ignore a damaged or partially written record and continue.
                 }
@@ -137,9 +138,9 @@ public sealed class ConversationMemoryStore
                         score,
                         stored.Timestamp));
                 }
-                catch (JsonException)
+                catch (Exception ex) when (ex is JsonException or CryptographicException or FormatException)
                 {
-                    // Ignore a damaged or partially written record and continue.
+                    // Ignore a damaged or unreadable record and continue.
                 }
             }
 
