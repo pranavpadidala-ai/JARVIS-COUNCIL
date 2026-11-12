@@ -38,7 +38,7 @@ Conversation persistence is opt-in. Set `$env:JARVIS_MEMORY_ENABLED = "true"` be
 
 `%LOCALAPPDATA%\JARVIS-Council\Memory\conversation.jsonl`
 
-You can override it with `JARVIS_MEMORY_PATH`. The `/clear` command clears the persisted history too. The store keeps user/assistant turns locally and can retrieve up to five older messages by deterministic keyword overlap for a new request. This is not embedding-based semantic search, document retrieval, or an autonomous learning loop. The file is plain text on the local machine, so do not use it to store passwords, API keys, or other secrets. Keep memory disabled on shared Windows accounts.
+You can override it with `JARVIS_MEMORY_PATH`. The `/clear` command clears the persisted history too. The store keeps user/assistant turns locally and can retrieve up to five older messages by deterministic keyword overlap for a new request. This is not embedding-based semantic search, document retrieval, or an autonomous learning loop. The file is plain text on the local machine. JARVIS now applies best-effort redaction to common key/value credentials, bearer tokens, and recognizable provider token formats before saving, and again when loading/searching old records. This is not encryption and cannot identify every possible secret format; do not intentionally store passwords, API keys, recovery codes, or other secrets. Keep memory disabled on shared Windows accounts.
 
 ## Windows voice and desktop controls
 
