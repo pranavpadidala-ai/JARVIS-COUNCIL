@@ -152,6 +152,11 @@ class MainActivity : Activity() {
                     row.addView(text(item.optString("text"), 15f, false))
                     row.addView(text("Status: $state", 13f, true))
                     row.addView(text(item.optString("createdAtUtc"), 11f, false))
+                    val resultText = item.optString("result")
+                    if (resultText.isNotBlank() && resultText != "null") {
+                        row.addView(text("JARVIS response", 13f, true))
+                        row.addView(text(resultText, 14f, false))
+                    }
                     if (state.equals("Queued", ignoreCase = true)) {
                         val cancel = Button(this).apply { text = "Cancel request" }
                         cancel.setOnClickListener { cancelCommand(item.optString("id")) }
