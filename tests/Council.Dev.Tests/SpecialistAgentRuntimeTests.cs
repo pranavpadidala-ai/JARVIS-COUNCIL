@@ -83,7 +83,7 @@ public sealed class SpecialistAgentRuntimeTests
 
         Assert.True(result.Success);
         Assert.Equal(0, write.Calls);
-        Assert.Contains("denied", provider.Requests[1].Messages.Last().Content, StringComparison.OrdinalIgnoreCase);
+        Assert.Contains("denied", provider.Requests[1].Messages.Last().Content.ToLowerInvariant());
     }
 
     [Fact]
@@ -97,9 +97,10 @@ public sealed class SpecialistAgentRuntimeTests
                 "Review a change."));
     }
 
-    private sealed class QueueProvider(params string[] responses) : IAIProvider
+    private sealed class QueueProvider : IAIProvider
     {
-        private readonly Queue<string> _responses = new(responses);
+        private readonly Queue<string> _responses;
+        public QueueProvider(params string[] responses) => _responses = new Queue<string>(responses);
         public string Name => "FakeProvider";
         public List<AIRequest> Requests { get; } = [];
 
@@ -113,9 +114,12 @@ public sealed class SpecialistAgentRuntimeTests
         }
     }
 
-    private sealed class RecordingTool(string name, ToolResult result) : ITool
+    private sealed class RecordingTool : ITool
     {
-        public string Name => name;
+        private readonly string _name;
+        private readonly ToolResult _result;
+        public RecordingTool(string name, ToolResult result) { _name = name; _result = result; }
+        public string Name => _name;
         public string Description => "Test tool";
         public int Calls { get; private set; }
         public Dictionary<string, string>? LastArguments { get; private set; }
@@ -126,7 +130,7 @@ public sealed class SpecialistAgentRuntimeTests
         {
             Calls++;
             LastArguments = new Dictionary<string, string>(arguments);
-            return Task.FromResult(result);
+            return Task.FromResult(_result);
         }
     }
 }
