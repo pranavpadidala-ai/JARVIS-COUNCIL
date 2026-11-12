@@ -46,6 +46,30 @@ public sealed class PhoneCommandInboxTests
     }
 
     [Fact]
+    public async Task RecentHistoryReturnsOnlyTheNewestRequestedCommands()
+    {
+        var path = Path.Combine(Path.GetTempPath(), "jarvis-phone-" + Guid.NewGuid().ToString("N") + ".json");
+        try
+        {
+            var inbox = new PhoneCommandInbox(path);
+            await inbox.EnqueueAsync("request-1001", "First request");
+            await inbox.EnqueueAsync("request-1002", "Second request");
+            await inbox.EnqueueAsync("request-1003", "Third request");
+
+            var recent = await inbox.ListRecentAsync(2);
+
+            Assert.Equal(2, recent.Count);
+            Assert.Equal("Second request", recent[0].Text);
+            Assert.Equal("Third request", recent[1].Text);
+            await Assert.ThrowsAsync<ArgumentOutOfRangeException>(() => inbox.ListRecentAsync(0));
+        }
+        finally
+        {
+            if (File.Exists(path)) File.Delete(path);
+        }
+    }
+
+    [Fact]
     public void BridgeRejectsNonTailscaleAddresses()
     {
         Assert.Throws<ArgumentException>(() =>
