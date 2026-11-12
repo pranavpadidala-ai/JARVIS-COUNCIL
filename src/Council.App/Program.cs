@@ -90,8 +90,12 @@ switch (selectedProvider?.Trim().ToLowerInvariant())
         break;
 
     case "ollama":
+        var localContextTokens = int.TryParse(
+            Environment.GetEnvironmentVariable("JARVIS_OLLAMA_CONTEXT_TOKENS"), out var configuredContext)
+            ? Math.Clamp(configuredContext, 2048, 8192)
+            : 4096;
         activeProvider = new OllamaProvider(
-            ollamaModel, ollamaBaseUrl, contextTokens: 4096);
+            ollamaModel, ollamaBaseUrl, contextTokens: localContextTokens);
         break;
 
     case "omniroute":
@@ -164,9 +168,11 @@ if (!args.Any(arg =>
         var visionModel = Environment.GetEnvironmentVariable("JARVIS_VISION_MODEL") ?? "moondream";
         localVisionProvider = new OllamaVisionProvider(
             visionModel, ollamaBaseUrl, contextTokens: 2048);
-        Console.WriteLine($"Local vision: Ollama / {visionModel} (install with scripts/Install-LocalVision.ps1).");
+        Console.WriteLine($"Local vision: Ollama / {visionModel} (install with scripts/Install-LocalModels.ps1).");
     }
 
+    Console.WriteLine("Local audio: Whisper small multilingual + Piper neural speech (on demand).");
+    Console.WriteLine("RAM profile: one Ollama model at a time; local specialist teams run sequentially.");
     var assistant = new ToolCallingAssistant(
         activeProvider, interactiveWorkspaceRoot, memoryStore, localVisionProvider);
     await assistant.RunAsync();

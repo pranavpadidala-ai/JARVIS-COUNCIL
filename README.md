@@ -36,7 +36,7 @@ dotnet run --project .\src\Council.App\Council.App.csproj
 
 ### Local Ollama
 
-Start Ollama and pull one model that fits available RAM. On an 8 GB machine, use a small quantized model and keep only one local model loaded at a time.
+The default local brain is Qwen 3.5 2B Q4_K_M (about 1.9 GB). JARVIS also has a separate Moondream vision model. The installer configures Ollama for one loaded model, one parallel request, a 30-second keep-alive, Flash Attention and an 8-bit KV cache to limit RAM use.
 
 ```powershell
 $env:JARVIS_AI_PROVIDER = "ollama"
@@ -45,18 +45,27 @@ $env:OLLAMA_MODEL = "YOUR_INSTALLED_MODEL_TAG"
 dotnet run --project .\src\Council.App\Council.App.csproj
 ```
 
-### Local vision (PDF figures and images)
+### Local eyes, ears and mouth
 
-JARVIS can use a separate local vision model even when its main chat provider is Gemini, OpenAI, or OmniRoute. It uses Ollama with Moondream 2 by default. The model runs on the laptop; PDF image bytes are sent to the local Ollama service, not to the cloud chat provider.
-
-Install Ollama and pull the model from PowerShell:
+Install the complete local model stack in PowerShell:
 
 ```powershell
 Set-ExecutionPolicy -Scope Process Bypass
-.\scripts\Install-LocalVision.ps1
+.\scripts\Install-LocalModels.ps1
 ```
 
-The default model download is approximately 1.7 GB. On an 8 GB RAM laptop, keep the context at 2,048 tokens and avoid loading another large local model at the same time. Set `JARVIS_VISION_MODEL` to use another installed Ollama vision model, or set `JARVIS_LOCAL_VISION_ENABLED=false` to disable local image analysis. If Ollama is unavailable, paper text extraction still works and JARVIS reports that visual analysis could not run.
+The installer downloads:
+- **Brain:** Qwen 3.5 2B Q4_K_M through Ollama (about 1.9 GB).
+- **Eyes:** Moondream 2 through Ollama (about 1.7 GB); PDF image analysis remains separate from the chat model.
+- **Ears:** Whisper small multilingual through Whisper.net (about 466 MB). It is loaded only when you use `/voice`, then disposed.
+- **Mouth:** Piper neural TTS with medium-quality English, Hindi and Telugu voices. Only the selected voice is loaded to synthesize each reply.
+
+The 8 GB profile keeps one Ollama model loaded at a time, serializes specialist teams on local Ollama, uses a 4,096-token context, one inference slot, Flash Attention and an 8-bit KV cache. Whisper and Piper are invoked only when needed; they are not kept resident. This trades some model reload latency for memory headroom. Do not run multiple local inference servers simultaneously.
+
+After installation, close and reopen Ollama so its new user-level memory settings take effect. Set `JARVIS_AI_PROVIDER=ollama` to use the local Qwen brain. The cloud provider remains available and is not replaced. You can disable local Whisper with `JARVIS_LOCAL_WHISPER_ENABLED=false`; Piper falls back to Windows speech if unavailable.
+
+Piper selects Telugu or Hindi voices automatically when the response contains those scripts; English is the default. The Piper runtime is GPL-3.0 and the downloaded voice models have their own model-card licensing; JARVIS downloads them locally and does not redistribute them.
+
 
 ### OpenAI
 

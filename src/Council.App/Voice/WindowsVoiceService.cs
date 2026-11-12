@@ -12,6 +12,8 @@ namespace Council.App.Voice;
 public sealed class WindowsVoiceService : IDisposable
 {
     private readonly SpeechSynthesizer _synthesizer = new();
+    private readonly LocalWhisperSpeechRecognizer _whisper = new();
+    private readonly PiperSpeechSynthesizer _piper = new();
     private readonly object _sync = new();
     private SpeechRecognitionEngine? _activeRecognizer;
     private bool _disposed;
@@ -21,6 +23,22 @@ public sealed class WindowsVoiceService : IDisposable
     {
         ObjectDisposedException.ThrowIf(_disposed, this);
         cancellationToken.ThrowIfCancellationRequested();
+
+        if (!string.Equals(Environment.GetEnvironmentVariable("JARVIS_LOCAL_WHISPER_ENABLED"), "false", StringComparison.OrdinalIgnoreCase))
+        {
+            try
+            {
+                return await _whisper.ListenOnceAsync(cancellationToken);
+            }
+            catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+            {
+                throw;
+            }
+            catch (Exception ex) when (ex is InvalidOperationException or IOException or UnauthorizedAccessException or DllNotFoundException or BadImageFormatException or TimeoutException or PlatformNotSupportedException)
+            {
+                Console.WriteLine("[Voice] Local Whisper unavailable; falling back to Windows speech recognition: " + ex.Message);
+            }
+        }
 
         using var recognizer = new SpeechRecognitionEngine();
         recognizer.LoadGrammar(new DictationGrammar());
@@ -85,6 +103,23 @@ public sealed class WindowsVoiceService : IDisposable
             return;
 
         cancellationToken.ThrowIfCancellationRequested();
+        if (_piper.IsAvailable)
+        {
+            try
+            {
+                await _piper.SpeakAsync(text, cancellationToken);
+                return;
+            }
+            catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+            {
+                throw;
+            }
+            catch (Exception ex) when (ex is InvalidOperationException or IOException or UnauthorizedAccessException or TimeoutException)
+            {
+                Console.WriteLine("[Voice] Piper neural speech unavailable; falling back to Windows speech synthesis: " + ex.Message);
+            }
+        }
+
         var completion = new TaskCompletionSource(
             TaskCreationOptions.RunContinuationsAsynchronously);
 

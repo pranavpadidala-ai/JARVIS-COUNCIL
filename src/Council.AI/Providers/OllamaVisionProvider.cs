@@ -75,7 +75,7 @@ public sealed class OllamaVisionProvider : IImageUnderstandingProvider
                 }
             },
             stream = false,
-            keep_alive = "2m",
+            keep_alive = Environment.GetEnvironmentVariable("JARVIS_OLLAMA_KEEP_ALIVE") ?? "30s",
             options = new
             {
                 temperature = 0.1,

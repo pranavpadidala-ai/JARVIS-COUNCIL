@@ -48,6 +48,7 @@ public sealed class OllamaProvider : IAIProvider
                 content = message.Content
             }).ToArray(),
             stream = false,
+            keep_alive = Environment.GetEnvironmentVariable("JARVIS_OLLAMA_KEEP_ALIVE") ?? "30s",
             options = new
             {
                 temperature = request.Temperature,

@@ -167,8 +167,20 @@ public sealed class SpecialistAgentRuntime
                 throw new ArgumentException($"Unknown specialist agent '{name}'. Use action=list to see available agents.", nameof(agentNames));
         }
 
-        // Independent specialists run concurrently with isolated message histories.
-        // A provider failure in one branch must not discard successful results from its peers.
+        // Local CPU inference is memory-bound on 8 GB laptops. Keep a single model
+        // request active rather than multiplying KV caches across concurrent agents.
+        if (_provider.Name.Contains("Ollama", StringComparison.OrdinalIgnoreCase))
+        {
+            var localResults = new List<SpecialistAgentResult>(names.Length);
+            foreach (var name in names)
+            {
+                cancellationToken.ThrowIfCancellationRequested();
+                localResults.Add(await RunTeamMemberAsync(name!, task, context, cancellationToken));
+            }
+            return localResults;
+        }
+
+        // Cloud providers can run independent specialists concurrently.
         return await Task.WhenAll(names.Select(name =>
             RunTeamMemberAsync(name!, task, context, cancellationToken)));
     }
