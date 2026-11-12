@@ -23,6 +23,7 @@ public sealed class ToolCallingAssistant
     private readonly IAIProvider _provider;
     private readonly IImageUnderstandingProvider? _imageProvider;
     private readonly GeminiCloudSpeechProvider? _cloudSpeechProvider;
+    private readonly IndianMarketTool _indianMarketTool;
     private WindowsVoiceService? _voice;
     private bool _voiceOutputEnabled;
     private readonly ConversationMemoryStore? _memory;
@@ -51,11 +52,12 @@ public sealed class ToolCallingAssistant
         Be clear and concise. Explain when a requested action is blocked.
         """;
 
-    public ToolCallingAssistant(IAIProvider provider, string workspaceRoot, ConversationMemoryStore? memory = null, IImageUnderstandingProvider? imageProvider = null, GeminiCloudSpeechProvider? cloudSpeechProvider = null)
+    public ToolCallingAssistant(IAIProvider provider, string workspaceRoot, ConversationMemoryStore? memory = null, IImageUnderstandingProvider? imageProvider = null, GeminiCloudSpeechProvider? cloudSpeechProvider = null, IndianMarketTool? indianMarketTool = null)
     {
         _provider = provider ?? throw new ArgumentNullException(nameof(provider));
         _imageProvider = imageProvider;
         _cloudSpeechProvider = cloudSpeechProvider;
+        _indianMarketTool = indianMarketTool ?? new IndianMarketTool();
         _memory = memory;
         _facts = memory is null ? null : new MemoryFactStore(memory.FilePath + ".facts.jsonl");
         _instincts = memory is null ? null : new InstinctStore(workspaceRoot);
@@ -65,7 +67,7 @@ public sealed class ToolCallingAssistant
         _tools.Register(new WorkspaceTool("create_file", "Create a new file without overwriting. Required arguments: path, content. Parent folder must exist.", workspaceRoot));
         _tools.Register(new WorkspaceTool("create_folder", "Create a folder in the workspace. Required argument: path.", workspaceRoot));
         _tools.Register(new AbaqusStatusTool());
-        _tools.Register(new IndianMarketTool());
+        _tools.Register(_indianMarketTool);
         _tools.Register(new OfficeWorkspaceTool(provider: _provider, imageProvider: _imageProvider));
         _tools.Register(new DesktopControlTool());
         _tools.Register(new WindowsComputerUseTool(_imageProvider));

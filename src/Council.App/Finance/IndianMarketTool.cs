@@ -49,7 +49,7 @@ public sealed class IndianMarketTool : ITool
         CancellationToken cancellationToken = default)
     {
         if (!arguments.TryGetValue("action", out var action) || string.IsNullOrWhiteSpace(action))
-            return new ToolResult(false, "indian_market requires an action: set_holding, add_watch, remove, list, quote, or portfolio.");
+            return new ToolResult(false, "indian_market requires an action: set_holding, add_watch, set_alert, alerts, remove_alert, check_alerts, remove, list, quote, or portfolio.");
 
         try
         {

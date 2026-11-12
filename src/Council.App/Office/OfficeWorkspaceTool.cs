@@ -473,10 +473,13 @@ public sealed class OfficeWorkspaceTool : ITool
         for (var i = 0; i < slideParts.Length && i < 100; i++)
         {
             cancellationToken.ThrowIfCancellationRequested();
-            var texts = slideParts[i].Slide.Descendants<A.Text>()
-                .Select(t => t.Text)
-                .Where(t => !string.IsNullOrWhiteSpace(t))
-                .ToArray();
+            var slide = slideParts[i].Slide;
+            var texts = slide is null
+                ? Array.Empty<string>()
+                : slide.Descendants<A.Text>()
+                    .Select(t => t.Text)
+                    .Where(t => !string.IsNullOrWhiteSpace(t))
+                    .ToArray();
             output.AppendLine();
             output.AppendLine("Slide " + (i + 1) + ": " + string.Join(" | ", texts));
         }

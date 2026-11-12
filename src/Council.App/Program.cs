@@ -2,6 +2,7 @@
 using Council.App.Abaqus;
 using Council.App;
 using Council.App.Voice;
+using Council.App.Finance;
 using Council.Core.Models;
 using Council.Core.Orchestration;
 using Council.Core.Providers;
@@ -210,8 +211,18 @@ if (!args.Any(arg =>
             throw new InvalidOperationException("JARVIS_AUDIO_PROVIDER must be local or gemini.");
     }
     Console.WriteLine("RAM profile: one Ollama model at a time; local specialist teams run sequentially.");
+    var marketTool = new IndianMarketTool();
+    var monitorEnabled = !bool.TryParse(Environment.GetEnvironmentVariable("JARVIS_MARKET_MONITOR_ENABLED"), out var marketMonitorFlag) || marketMonitorFlag;
+    var monitorTime = TimeOnly.TryParse(Environment.GetEnvironmentVariable("JARVIS_MARKET_MONITOR_TIME"), CultureInfo.InvariantCulture, out var parsedMonitorTime)
+        ? parsedMonitorTime : new TimeOnly(9, 0);
+    await using var marketMonitor = new IndianMarketMonitorService(marketTool, runAt: monitorTime);
+    if (monitorEnabled)
+    {
+        marketMonitor.Start();
+        Console.WriteLine($"Daily Indian EOD monitor enabled for {monitorTime:HH\\:mm} IST while JARVIS is running. Set JARVIS_MARKET_MONITOR_ENABLED=false to disable.");
+    }
     var assistant = new ToolCallingAssistant(
-        activeProvider, interactiveWorkspaceRoot, memoryStore, imageProvider, cloudSpeechProvider);
+        activeProvider, interactiveWorkspaceRoot, memoryStore, imageProvider, cloudSpeechProvider, marketTool);
     await assistant.RunAsync();
     return;
 }
