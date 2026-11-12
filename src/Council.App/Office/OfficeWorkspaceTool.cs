@@ -32,7 +32,7 @@ public sealed class OfficeWorkspaceTool : ITool
     public string Name => "office_workspace";
 
     public string Description =>
-        "Microsoft Office file tool. Actions: list_documents (no other arguments); inspect_document (required path for .xlsx/.docx/.pptx); create_workbook (required path and data JSON array-of-arrays, optional sheet). All paths are relative to the dedicated Office workspace. Creation never overwrites existing files.";
+        "Microsoft Office file tool. Actions: list_documents; inspect_document (path for .xlsx/.docx/.pptx); create_workbook (path, data JSON array-of-arrays, optional sheet); create_document (new .docx path, content JSON array of paragraphs, optional title). All paths are relative to the dedicated Office workspace. Creation never overwrites existing files.";
 
     public Task<ToolResult> ExecuteAsync(
         Dictionary<string, string> arguments,
@@ -50,7 +50,8 @@ public sealed class OfficeWorkspaceTool : ITool
                 "list_documents" => ListDocuments(arguments),
                 "inspect_document" => InspectDocument(arguments, cancellationToken),
                 "create_workbook" => CreateWorkbook(arguments, cancellationToken),
-                _ => new ToolResult(false, "Unknown Office action. Use list_documents, inspect_document, or create_workbook.")
+                "create_document" => CreateDocument(arguments, cancellationToken),
+                _ => new ToolResult(false, "Unknown Office action. Use list_documents, inspect_document, create_workbook, or create_document.")
             };
             return Task.FromResult(result);
         }
@@ -194,6 +195,90 @@ public sealed class OfficeWorkspaceTool : ITool
             output.AppendLine("[Preview limited to 100 slides.]");
 
         return new ToolResult(true, output.ToString().Trim());
+    }
+
+    private ToolResult CreateDocument(
+        Dictionary<string, string> args,
+        CancellationToken cancellationToken)
+    {
+        if (!HasOnly(args, "action", "path", "content", "title") ||
+            !args.TryGetValue("path", out var relativePath) ||
+            !args.TryGetValue("content", out var contentJson))
+            return new ToolResult(false, "create_document requires action, path, and content (JSON array of paragraph strings); title is optional.");
+
+        var path = ResolveNewFile(relativePath, ".docx");
+        using var json = JsonDocument.Parse(contentJson);
+        if (json.RootElement.ValueKind != JsonValueKind.Array ||
+            json.RootElement.GetArrayLength() is < 1 or > 1000)
+            return new ToolResult(false, "content must be an array containing 1 to 1000 paragraph strings.");
+
+        var paragraphs = new List<string>();
+        var totalCharacters = 0;
+        foreach (var item in json.RootElement.EnumerateArray())
+        {
+            if (item.ValueKind != JsonValueKind.String)
+                return new ToolResult(false, "Every content item must be a string.");
+            var value = item.GetString() ?? string.Empty;
+            totalCharacters += value.Length;
+            if (totalCharacters > 100_000)
+                return new ToolResult(false, "Document text is limited to 100,000 characters.");
+            paragraphs.Add(value);
+        }
+
+        var title = args.TryGetValue("title", out var requestedTitle)
+            ? requestedTitle.Trim()
+            : string.Empty;
+        if (title.Length > 300)
+            return new ToolResult(false, "Document title is limited to 300 characters.");
+
+        cancellationToken.ThrowIfCancellationRequested();
+        using (var document = WordprocessingDocument.Create(path, WordprocessingDocumentType.Document))
+        {
+            var mainPart = document.AddMainDocumentPart();
+            var body = new Body();
+
+            if (!string.IsNullOrWhiteSpace(title))
+            {
+                body.AppendChild(new Paragraph(
+                    new ParagraphProperties(new Justification { Val = JustificationValues.Center }),
+                    new Run(
+                        new RunProperties(
+                            new Bold(),
+                            new FontSize { Val = "32" }),
+                        new Text(title) { Space = SpaceProcessingModeValues.Preserve })));
+            }
+
+            foreach (var paragraphText in paragraphs)
+            {
+                cancellationToken.ThrowIfCancellationRequested();
+                var paragraph = new Paragraph();
+                if (paragraphText.Length > 0)
+                    paragraph.AppendChild(new Run(new Text(paragraphText)
+                    {
+                        Space = SpaceProcessingModeValues.Preserve
+                    }));
+                body.AppendChild(paragraph);
+            }
+
+            body.AppendChild(new SectionProperties(
+                new PageSize { Width = 12240, Height = 15840 },
+                new PageMargin
+                {
+                    Top = 1440,
+                    Right = 1440,
+                    Bottom = 1440,
+                    Left = 1440,
+                    Header = 720,
+                    Footer = 720,
+                    Gutter = 0
+                }));
+            mainPart.Document = new Document(body);
+            mainPart.Document.Save();
+        }
+
+        return new ToolResult(true,
+            "Created new Word document: " + Path.GetRelativePath(_root, path) +
+            " (" + paragraphs.Count + " paragraphs, " + totalCharacters + " text characters). Existing files were not overwritten.");
     }
 
     private ToolResult CreateWorkbook(
