@@ -65,6 +65,18 @@ public sealed class PhoneCommandInbox
         finally { _gate.Release(); }
     }
 
+    public async Task<IReadOnlyList<PhoneCommand>> ListRecentAsync(
+        int maxItems = 100,
+        CancellationToken cancellationToken = default)
+    {
+        if (maxItems is < 1 or > 500)
+            throw new ArgumentOutOfRangeException(nameof(maxItems), "Recent history limit must be between 1 and 500.");
+
+        await _gate.WaitAsync(cancellationToken);
+        try { return (await LoadCoreAsync(cancellationToken)).TakeLast(maxItems).ToArray(); }
+        finally { _gate.Release(); }
+    }
+
     public Task<bool> CompleteAsync(Guid id, CancellationToken cancellationToken = default) => UpdateStatusAsync(id, PhoneCommandStatus.Completed, cancellationToken);
 
     public Task<bool> CompleteAsync(Guid id, string result, CancellationToken cancellationToken = default)
