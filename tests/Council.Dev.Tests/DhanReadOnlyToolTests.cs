@@ -22,10 +22,18 @@ public sealed class DhanReadOnlyToolTests
     [Fact]
     public async Task QuoteUsesReadOnlyLtpEndpointAndFormatsSnapshot()
     {
-        HttpRequestMessage? captured = null;
+        HttpMethod? capturedMethod = null;
+        string? capturedUrl = null;
+        string? capturedToken = null;
+        string? capturedClientId = null;
+        string? capturedBody = null;
         var handler = new StubHandler((request, _) =>
         {
-            captured = request;
+            capturedMethod = request.Method;
+            capturedUrl = request.RequestUri!.ToString();
+            capturedToken = request.Headers.GetValues("access-token").Single();
+            capturedClientId = request.Headers.GetValues("client-id").Single();
+            capturedBody = request.Content!.ReadAsStringAsync().GetAwaiter().GetResult();
             return Task.FromResult(new HttpResponseMessage(HttpStatusCode.OK)
             {
                 Content = new StringContent(
@@ -47,13 +55,11 @@ public sealed class DhanReadOnlyToolTests
         Assert.True(result.Success);
         Assert.Contains("₹1,523.45", result.Message);
         Assert.Contains("snapshot", result.Message, StringComparison.OrdinalIgnoreCase);
-        Assert.Equal(HttpMethod.Post, captured!.Method);
-        Assert.Equal("https://api.dhan.co/v2/marketfeed/ltp", captured.RequestUri!.ToString());
-        Assert.Equal("test-token", captured.Headers.GetValues("access-token").Single());
-        Assert.Equal("1000000001", captured.Headers.GetValues("client-id").Single());
-        var body = await captured.Content!.ReadAsStringAsync();
-        Assert.Contains("\"NSE_EQ\":[1333]", body);
-        Assert.DoesNotContain("orders", captured.RequestUri.ToString(), StringComparison.OrdinalIgnoreCase);
+        Assert.Equal(HttpMethod.Post, capturedMethod);
+        Assert.Equal("https://api.dhan.co/v2/marketfeed/ltp", capturedUrl);
+        Assert.Equal("test-token", capturedToken);
+        Assert.Equal("1000000001", capturedClientId);
+        Assert.Contains("\"NSE_EQ\":[1333]", capturedBody);
     }
 
     [Fact]
