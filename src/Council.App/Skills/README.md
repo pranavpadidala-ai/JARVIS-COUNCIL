@@ -6,7 +6,7 @@ JARVIS uses the portable Agent Skills pattern: each Markdown skill has a small Y
 
 - **Engineering:** structural engineering, CAD/BIM, standards compliance, technical calculations, scientific computing.
 - **Research and learning:** literature review, web research, technical calculations, PDF research, research tutoring, paper writing, knowledge retrieval.
-- **Software development:** software engineering, systematic debugging, test-driven development, code review, Git workflows, API integration, agent evaluation.
+- **Software development:** software engineering, systematic debugging, test-driven development, code review, Git workflows, API integration, agent evaluation, iterative retrieval, agent orchestration, verification loops, harness audits, context optimization and continuous learning.
 - **Data and Office:** data analysis, Excel, Word, PowerPoint, PDF and general Office workflows.
 - **Productivity:** meeting intelligence, multilingual voice profile, audio processing, personal knowledge, email communication, scheduling, project management, phone companion.
 - **Automation and safety:** autonomous agents, browser workflows, local AI operations, cloud storage, safe agent operations.
@@ -28,3 +28,10 @@ Use `/skills` in the JARVIS console to list discovered skills. Add a new skill b
 - Scripts, binaries, macros, hooks, MCP servers and installers from public repositories are **not** automatically executed or installed. They require separate security and compatibility review.
 - Private user recordings, personal profiles, API keys and other secrets must stay out of this repository.
 - Review skill updates and test the runtime after adding new skills.
+
+
+## ECC-inspired workflow additions
+
+JARVIS includes native adaptations of selected Everything Claude Code practices: evidence-backed project learning, bounded iterative retrieval, explicit verification loops, context-budget discipline, role-based review passes, and harness self-audits. These are implemented as JARVIS skills and local workflows rather than importing Claude Code hooks, shell scripts, plugin manifests, or model-specific commands.
+
+Project practices are deliberately opt-in: use `/learn <trigger> => <action>` to save one, `/instincts` to inspect them, and `/forget-instinct <id>` to remove one. They are encrypted with the same Windows-user DPAPI protection as local memory and are isolated by workspace path.
