@@ -1,5 +1,6 @@
 using System.Text.Json;
 using Council.App.Abaqus;
+using Council.App.Agents;
 using Council.App.Office;
 using Council.App.Phone;
 using Council.App.Skills;
@@ -64,6 +65,7 @@ public sealed class ToolCallingAssistant
         _tools.Register(new AutonomousDevelopmentTool(_provider, workspaceRoot));
         _tools.Register(new WebSearchTool());
         _tools.Register(new WebPageFetchTool());
+        _tools.Register(new SpecialistAgentTool(_provider, _tools));
         _history.Add(new AIMessage("system", SystemPrompt + "\n\nAvailable tools:\n" +
             string.Join("\n", _tools.GetAll().Select(t => t.Name + ": " + t.Description))));
     }
@@ -77,8 +79,8 @@ public sealed class ToolCallingAssistant
         Console.WriteLine($"Provider : {_provider.Name}");
         Console.WriteLine("Memory   : " + (_memory is null ? "disabled" : "local conversation history enabled"));
         Console.WriteLine("Workspace: " + Path.GetFullPath(Directory.GetCurrentDirectory()));
-        Console.WriteLine("Tools    : workspace files, public web search and page reading, Abaqus status, Office workspace, allowlisted Windows app launcher, autonomous development tasks");
-        Console.WriteLine("Commands : /help, /skills, /remember <fact>, /memories, /forget <id>, /learn <trigger> => <action>, /instincts, /forget-instinct <id>, /clear, /voice, /speak on|off, Ctrl+C cancels active request");
+        Console.WriteLine("Tools    : workspace files, public web search and page reading, specialist agents, Abaqus status, Office workspace, allowlisted Windows app launcher, autonomous development tasks");
+        Console.WriteLine("Commands : /help, /skills, /agents, /remember <fact>, /memories, /forget <id>, /learn <trigger> => <action>, /instincts, /forget-instinct <id>, /clear, /voice, /speak on|off, Ctrl+C cancels active request");
         Console.WriteLine();
 
         if (!_memoryLoaded && _memory is not null)
@@ -241,6 +243,22 @@ public sealed class ToolCallingAssistant
                 Console.WriteLine("Ask JARVIS to inspect, search, or create project files, use Office workspace, or ask it to open Notepad, Calculator, File Explorer, or Task Manager. /remember <fact> explicitly saves a long-term fact; /memories lists saved facts; /forget <id> removes one fact. /learn <trigger> => <action> explicitly saves a project-scoped learned practice; /instincts lists practices; /forget-instinct <id> removes one. /phone-queue lists phone requests; /phone-next previews one and requires YES before execution. Ask JARVIS to create/list/run persistent development tasks; task execution requires a clean Git tree and validates before committing. On Windows, Ctrl+Alt+J restores/focuses this window; /voice captures one spoken request on demand; /speak on|off controls spoken replies; press Escape during voice capture or speech to stop it; press Ctrl+C during an active AI/tool request to cancel that request without closing JARVIS; /skills lists specialist skills; /clear removes conversation history and saved facts but leaves learned practices intact; /exit closes JARVIS.");
                 continue;
             }
+            if (input.Equals("/agents", StringComparison.OrdinalIgnoreCase))
+            {
+                var agentTool = _tools.GetAll().OfType<SpecialistAgentTool>().FirstOrDefault();
+                if (agentTool is null)
+                {
+                    Console.WriteLine("[Agents] Specialist runtime is unavailable.");
+                    continue;
+                }
+
+                var result = await agentTool.ExecuteAsync(
+                    new Dictionary<string, string> { ["action"] = "list" },
+                    cancellationToken);
+                Console.WriteLine(result.Message);
+                continue;
+            }
+
             if (input.Equals("/skills", StringComparison.OrdinalIgnoreCase))
             {
                 var discovered = _skills.ListSkills();
