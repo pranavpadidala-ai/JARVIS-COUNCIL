@@ -27,11 +27,14 @@ class MainActivity : Activity() {
     private lateinit var statusView: TextView
     private lateinit var queueContainer: LinearLayout
     private lateinit var executor: ExecutorService
+    private lateinit var configStore: BridgeConfigStore
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         executor = Executors.newSingleThreadExecutor()
+        configStore = BridgeConfigStore(this)
         buildScreen()
+        restoreSavedConfig()
     }
 
     private fun buildScreen() {
@@ -62,7 +65,7 @@ class MainActivity : Activity() {
         content.addView(addressInput)
         content.addView(label("Port"))
         content.addView(portInput)
-        content.addView(label("Bridge token (kept in memory only)"))
+        content.addView(label("Bridge token (encrypted on this device)"))
         content.addView(tokenInput)
 
         val connectButton = Button(this).apply { text = "Check connection" }
@@ -78,6 +81,10 @@ class MainActivity : Activity() {
         val refreshButton = Button(this).apply { text = "Refresh queue" }
         refreshButton.setOnClickListener { refreshQueue() }
         content.addView(refreshButton)
+
+        val forgetButton = Button(this).apply { text = "Forget saved connection" }
+        forgetButton.setOnClickListener { forgetConnection() }
+        content.addView(forgetButton)
 
         statusView = text("Not connected. The bridge must be enabled on the laptop.", 14f, false)
         content.addView(statusView)
@@ -174,6 +181,7 @@ class MainActivity : Activity() {
         executor.execute {
             try {
                 val message = action(host, port, token)
+                configStore.save(BridgeConfigStore.Config(host, port, token))
                 showStatus(message)
             } catch (ex: Exception) {
                 showStatus("Connection failed: " + (ex.message ?: ex.javaClass.simpleName))
@@ -223,6 +231,27 @@ class MainActivity : Activity() {
         val numbers = parts.map { it.toIntOrNull() ?: return false }
         if (numbers.any { it !in 0..255 }) return false
         return numbers[0] == 100 && numbers[1] in 64..127
+    }
+
+    private fun restoreSavedConfig() {
+        try {
+            val saved = configStore.load() ?: return
+            addressInput.setText(saved.host)
+            portInput.setText(saved.port.toString())
+            tokenInput.setText(saved.token)
+            statusView.text = "Saved encrypted connection restored. Check connection to verify the laptop is reachable."
+        } catch (ex: Exception) {
+            configStore.clear()
+            statusView.text = "Saved connection could not be decrypted and was cleared. Please pair again."
+        }
+    }
+
+    private fun forgetConnection() {
+        configStore.clear()
+        addressInput.setText("")
+        portInput.setText("47821")
+        tokenInput.setText("")
+        statusView.text = "Saved connection forgotten from this device."
     }
 
     private fun showStatus(message: String) {
