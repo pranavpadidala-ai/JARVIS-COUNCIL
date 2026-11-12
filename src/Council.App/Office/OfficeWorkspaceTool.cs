@@ -23,9 +23,9 @@ public sealed class OfficeWorkspaceTool : ITool
     private readonly string _root;
     private readonly IImageUnderstandingProvider? _imageProvider;
 
-    public OfficeWorkspaceTool(string? workspaceRoot = null, IAIProvider? provider = null)
+    public OfficeWorkspaceTool(string? workspaceRoot = null, IAIProvider? provider = null, IImageUnderstandingProvider? imageProvider = null)
     {
-        _imageProvider = provider as IImageUnderstandingProvider;
+        _imageProvider = imageProvider ?? provider as IImageUnderstandingProvider;
         var configured = workspaceRoot ??
             Environment.GetEnvironmentVariable("JARVIS_OFFICE_WORKSPACE");
 
