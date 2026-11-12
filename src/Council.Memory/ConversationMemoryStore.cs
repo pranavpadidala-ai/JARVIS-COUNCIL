@@ -225,7 +225,8 @@ public sealed class ConversationMemoryStore
             try
             {
                 var stored = JsonSerializer.Deserialize<StoredMessage>(line);
-                if (stored is null || stored.Content.StartsWith("dpapi:v1:", StringComparison.Ordinal))
+                if (stored is null || string.IsNullOrEmpty(stored.Content) ||
+                    stored.Content.StartsWith("dpapi:v1:", StringComparison.Ordinal))
                 {
                     migrated.Add(line);
                     continue;
