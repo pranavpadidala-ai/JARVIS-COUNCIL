@@ -151,9 +151,17 @@ public sealed class InstinctStore
                 if (item is not null && item.Confidence is >= 0.3 and <= 0.95 && item.EvidenceCount > 0)
                     items.Add(item);
             }
-            catch (Exception ex) when (ex is JsonException or CryptographicException or FormatException)
+            catch (JsonException ex)
             {
-                // Ignore damaged or unreadable records and continue.
+                throw new InvalidDataException("The project learning store contains a damaged record; refusing to overwrite it.", ex);
+            }
+            catch (CryptographicException ex)
+            {
+                throw new InvalidDataException("The project learning store cannot be decrypted for this Windows user; refusing to overwrite it.", ex);
+            }
+            catch (FormatException ex)
+            {
+                throw new InvalidDataException("The project learning store contains an invalid encrypted record; refusing to overwrite it.", ex);
             }
         }
         return items;
