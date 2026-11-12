@@ -1,5 +1,6 @@
 using System.Net;
 using System.Net.Sockets;
+using System.Net.Http;
 using System.Text;
 using System.Text.RegularExpressions;
 using Council.Execution.Tools;
@@ -199,6 +200,8 @@ public sealed class WebPageFetchTool : ITool
         var handler = new SocketsHttpHandler
         {
             AllowAutoRedirect = false,
+            UseCookies = false,
+            UseProxy = false,
             AutomaticDecompression = DecompressionMethods.GZip |
                                      DecompressionMethods.Deflate |
                                      DecompressionMethods.Brotli,
