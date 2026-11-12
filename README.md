@@ -182,3 +182,18 @@ Enter the same address, port and token in the Android companion. The app stores 
 ## Current validation
 
 GitHub Actions runs Windows .NET 8 restore/build/tests and an Android debug-APK build. Check the latest commit's workflow results before relying on a new feature. The integration work is kept on a draft pull request and is not merged into the default branch.
+
+
+## Cloud engineering vision and visible desktop control
+
+The default vision provider remains local Ollama/Moondream. To opt into Gemini for higher-quality engineering PDF, figure and screen understanding, set the following in PowerShell before starting JARVIS:
+
+```powershell
+$env:JARVIS_VISION_PROVIDER = "gemini"
+$env:GEMINI_VISION_MODEL = "gemini-3.8-flash"
+# GEMINI_API_KEY must already be configured
+```
+
+With Gemini selected, JARVIS can analyse complete PDFs up to 14 MB inline (in addition to local selectable-text extraction) and can inspect the visible Windows desktop. Screen captures and PDFs are sent to Google's API and may consume quota or incur charges. Set `JARVIS_VISION_PROVIDER=ollama` to keep image analysis local; local Moondream analyses embedded images but does not provide full-PDF OCR. Set it to `none` to disable vision.
+
+The `computer_use` tool operates the visible primary Windows screen only. It requires an explicit user-directed session, an observe-before-act cycle, bounded mouse/keyboard sequences and post-action screenshot verification. It does not run shell commands or interact with hidden windows. Destructive actions, saving over existing files, solver submission and other irreversible actions require user confirmation.

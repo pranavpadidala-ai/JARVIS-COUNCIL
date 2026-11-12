@@ -26,6 +26,8 @@ public sealed class WindowsComputerUseToolTests
         var tool = new WindowsComputerUseTool(vision, desktop);
         var begin = await tool.ExecuteAsync(new Dictionary<string, string> { ["action"] = "begin", ["purpose"] = "Change the visible Abaqus section thickness as requested" });
         Assert.True(begin.Success, begin.Message);
+        var observed = await tool.ExecuteAsync(new Dictionary<string, string> { ["action"] = "observe", ["task"] = "Identify the Abaqus property dialog." });
+        Assert.True(observed.Success, observed.Message);
         var result = await tool.ExecuteAsync(new Dictionary<string, string>
         {
             ["action"] = "execute", ["task"] = "Verify the section-property dialog reflects the entered value.",
@@ -35,7 +37,7 @@ public sealed class WindowsComputerUseToolTests
         Assert.Contains("Executed 3 desktop action(s)", result.Message);
         Assert.Contains("Abaqus property dialog visible", result.Message);
         Assert.Equal(3, desktop.Actions.Count);
-        Assert.Equal(1, vision.CallCount);
+        Assert.Equal(2, vision.CallCount);
         Assert.Equal("3.0", desktop.TypedText);
     }
 
@@ -46,6 +48,8 @@ public sealed class WindowsComputerUseToolTests
         var tool = new WindowsComputerUseTool(new FakeVision(), desktop);
         var begin = await tool.ExecuteAsync(new Dictionary<string, string> { ["action"] = "begin", ["purpose"] = "Inspect an Abaqus model" });
         Assert.True(begin.Success);
+        var observed = await tool.ExecuteAsync(new Dictionary<string, string> { ["action"] = "observe" });
+        Assert.True(observed.Success);
         var unsafeKey = await tool.ExecuteAsync(new Dictionary<string, string> { ["action"] = "execute", ["steps"] = """[{"type":"key","key":"ALT+F4"}]""" });
         var outside = await tool.ExecuteAsync(new Dictionary<string, string> { ["action"] = "execute", ["steps"] = """[{"type":"click","x":4000,"y":10}]""" });
         Assert.False(unsafeKey.Success);

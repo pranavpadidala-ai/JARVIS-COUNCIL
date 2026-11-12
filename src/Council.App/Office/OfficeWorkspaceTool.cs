@@ -177,8 +177,8 @@ public sealed class OfficeWorkspaceTool : ITool
 
             if (_documentProvider is not null)
             {
-                if (info.Length > 18L * 1024 * 1024)
-                    output.AppendLine("[Cloud full-PDF review skipped: file exceeds the 18 MB inline-analysis limit. Local selectable-text extraction continues.]");
+                if (info.Length > 14L * 1024 * 1024)
+                    output.AppendLine("[Cloud full-PDF review skipped: file exceeds the 14 MB inline-analysis limit. Local selectable-text extraction continues.]");
                 else
                 {
                     try

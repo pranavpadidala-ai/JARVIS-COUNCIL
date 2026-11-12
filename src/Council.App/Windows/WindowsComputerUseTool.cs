@@ -35,6 +35,7 @@ public sealed class WindowsComputerUseTool : ITool
     private readonly IImageUnderstandingProvider? _vision;
     private readonly IWindowsDesktopAdapter _desktop;
     private DateTime _sessionExpiresUtc;
+    private DateTime _lastObservedUtc;
     private string? _purpose;
 
     public WindowsComputerUseTool(IImageUnderstandingProvider? visionProvider, IWindowsDesktopAdapter? desktopAdapter = null)
@@ -65,7 +66,7 @@ public sealed class WindowsComputerUseTool : ITool
             };
         }
         catch (OperationCanceledException) { throw; }
-        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or InvalidOperationException or ArgumentException or JsonException or Win32Exception)
+        catch (Exception ex) when (ex is not OperationCanceledException and not OutOfMemoryException)
         {
             return new ToolResult(false, "Desktop operation failed safely: " + ex.Message);
         }
@@ -77,6 +78,7 @@ public sealed class WindowsComputerUseTool : ITool
             return new ToolResult(false, "begin requires purpose (3 to 240 characters).");
         if (_vision is null) return new ToolResult(false, "No vision provider is configured. Set JARVIS_VISION_PROVIDER=gemini or install/start Ollama with the vision model.");
         _purpose = purpose.Trim();
+        _lastObservedUtc = DateTime.MinValue;
         TouchSession();
         return new ToolResult(true, "Visible desktop session armed for: " + _purpose + ". It expires after five minutes of inactivity. Call observe before clicking.");
     }
@@ -84,7 +86,7 @@ public sealed class WindowsComputerUseTool : ITool
     private ToolResult End(Dictionary<string, string> args)
     {
         if (!HasOnly(args, "action")) return new ToolResult(false, "end accepts only action.");
-        _purpose = null; _sessionExpiresUtc = DateTime.MinValue;
+        _purpose = null; _sessionExpiresUtc = DateTime.MinValue; _lastObservedUtc = DateTime.MinValue;
         return new ToolResult(true, "Desktop-control session ended.");
     }
 
@@ -119,6 +121,8 @@ public sealed class WindowsComputerUseTool : ITool
         var error = SessionError();
         if (error is not null) return new ToolResult(false, error);
         if (_vision is null) return new ToolResult(false, "No vision provider is configured; actions cannot run without screenshot verification.");
+        if (_lastObservedUtc == DateTime.MinValue || DateTime.UtcNow - _lastObservedUtc > TimeSpan.FromSeconds(60))
+            return new ToolResult(false, "Observe the screen immediately before acting; coordinates older than 60 seconds are not accepted.");
         using var document = JsonDocument.Parse(json);
         if (document.RootElement.ValueKind != JsonValueKind.Array || document.RootElement.GetArrayLength() is < 1 or > MaxSteps)
             return new ToolResult(false, $"steps must be a JSON array containing 1 to {MaxSteps} actions.");
@@ -177,7 +181,7 @@ public sealed class WindowsComputerUseTool : ITool
                 executed++; TouchSession();
             }
         }
-        catch (Exception ex) when (ex is ArgumentException or InvalidOperationException or Win32Exception)
+        catch (Exception ex) when (ex is not OperationCanceledException and not OutOfMemoryException)
         {
             return new ToolResult(false, $"Executed {executed} action(s) before stopping: {ex.Message}. The desktop may be partially changed; observe it before continuing.");
         }

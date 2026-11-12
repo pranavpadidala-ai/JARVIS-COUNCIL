@@ -192,7 +192,7 @@ public sealed class GeminiProvider : IAIProvider, IImageUnderstandingProvider, I
         ArgumentNullException.ThrowIfNull(document);
         if (document.MimeType != "application/pdf") throw new ArgumentException("Only PDF documents are supported.", nameof(document));
         if (document.Data is null || document.Data.Length == 0) throw new ArgumentException("PDF data cannot be empty.", nameof(document));
-        if (document.Data.Length > 18 * 1024 * 1024) throw new ArgumentException("PDF exceeds the 18 MB inline-analysis limit.", nameof(document));
+        if (document.Data.Length > 14 * 1024 * 1024) throw new ArgumentException("PDF exceeds the 14 MB inline-analysis limit.", nameof(document));
         var parts = new List<Part>
         {
             new Part { Text = prompt + Environment.NewLine + "Document name: " + document.Name },
