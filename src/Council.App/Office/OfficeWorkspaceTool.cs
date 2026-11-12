@@ -126,10 +126,12 @@ public sealed class OfficeWorkspaceTool : ITool
             return new ToolResult(false, "mode must be quick or deep.");
 
         var startPage = 1;
-        var endPage = mode == "quick" ? 30 : 100;
         if (args.TryGetValue("start_page", out var startText) &&
             (!int.TryParse(startText, out startPage) || startPage < 1 || startPage > 100))
             return new ToolResult(false, "start_page must be an integer from 1 to 100.");
+
+        var maxPages = mode == "quick" ? 30 : 100;
+        var endPage = Math.Min(100, startPage + maxPages - 1);
         if (args.TryGetValue("end_page", out var endText) &&
             (!int.TryParse(endText, out endPage) || endPage < 1 || endPage > 100))
             return new ToolResult(false, "end_page must be an integer from 1 to 100.");
@@ -144,11 +146,14 @@ public sealed class OfficeWorkspaceTool : ITool
         if (info.Length > MaxDocumentBytes)
             return new ToolResult(false, "Paper exceeds the 50 MB analysis limit.");
 
-        var maxPages = mode == "quick" ? 30 : 100;
         if (endPage - startPage + 1 > maxPages)
             return new ToolResult(false, $"The {mode} mode is limited to {maxPages} pages per extraction. Narrow the page range or use a different mode.");
 
         using var document = PdfDocument.Open(path);
+        if (startPage > document.NumberOfPages)
+            return new ToolResult(false, $"start_page {startPage} exceeds this PDF's {document.NumberOfPages} pages.");
+        endPage = Math.Min(endPage, document.NumberOfPages);
+
         var output = new StringBuilder();
         output.AppendLine("RESEARCH PAPER TEXT EXTRACTION");
         output.AppendLine("File: " + Path.GetFileName(path));
