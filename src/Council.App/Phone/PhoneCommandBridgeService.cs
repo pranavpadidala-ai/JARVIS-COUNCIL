@@ -70,7 +70,7 @@ public sealed class PhoneCommandBridgeService : IAsyncDisposable
 
             if (context.Request.HttpMethod == "POST" && path == "/api/commands")
             {
-                if (context.Request.ContentLength64 > 8192)
+                if (context.Request.ContentLength64 is < 0 or > 8192)
                 {
                     await WriteJsonAsync(context.Response, 413, new { error = "Request body is too large." }, cancellationToken);
                     return;
@@ -108,7 +108,7 @@ public sealed class PhoneCommandBridgeService : IAsyncDisposable
 
             if (context.Request.HttpMethod == "GET" && path == "/api/commands")
             {
-                var commands = await _inbox.ListAsync(cancellationToken);
+                var commands = await _inbox.ListRecentAsync(100, cancellationToken);
                 await WriteJsonAsync(context.Response, 200, commands, cancellationToken);
                 return;
             }
