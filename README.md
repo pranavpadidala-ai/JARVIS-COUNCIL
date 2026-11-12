@@ -72,6 +72,7 @@ The OmniRoute adapter rejects the `auto` alias and any model ID not present in t
 ## What JARVIS can do
 
 - **Conversation and memory:** optional local conversation history, deterministic keyword retrieval, explicit long-term facts, and encrypted project-scoped learned practices with confidence/evidence tracking.
+- **Specialist agents:** native delegated agents for planning, architecture, TDD, code review, security review, build-error diagnosis, research, documentation, and structural engineering. Each invocation has an isolated context and role-specific read-only tool allowlist; up to four independent agents can run in parallel.
 - **Specialist skills:** discovers Markdown skills for development, engineering, research, Office, productivity, and other workflows.
 - **Workspace tools:** list, search, read and create files inside the configured project workspace.
 - **Office:** inspect Excel, Word, PowerPoint and selectable-text PDF files; create new Excel workbooks and simple Word documents. Existing files are never overwritten by Office creation tools.
@@ -88,6 +89,7 @@ The OmniRoute adapter rejects the `auto` alias and any model ID not present in t
 |---|---|
 | `/help` | Show available commands and workflows |
 | `/skills` | List discovered specialist skills |
+| `/agents` | List available specialist agents and their read-only tool permissions |
 | `/remember <fact>` | Save an explicit long-term fact |
 | `/memories` | List saved facts |
 | `/forget <id>` | Remove one saved fact |
@@ -100,6 +102,8 @@ The OmniRoute adapter rejects the `auto` alias and any model ID not present in t
 | `/phone-queue` | List phone requests waiting for approval |
 | `/phone-next` | Preview a phone request and require exact `YES` approval |
 | `/exit` | Close JARVIS |
+
+You can also ask naturally to delegate work to a specialist agent or team (for example, ask the code-reviewer and security-reviewer to review a supplied change). Agents can inspect only their explicitly permitted read-only tools; they cannot edit files or execute commands. All agents currently use the configured JARVIS provider and its default model, with isolated contexts but no per-agent model routing yet. The main assistant remains responsible for coordinating implementation through the guarded development-task workflow.
 
 You can also ask naturally to create/list/run a development task. Creating a task does not execute it. Running a task requires an explicit request and a clean Git working tree. Ctrl+C cancels the active request; during an autonomous task, the task is marked paused and can be resumed by running it again.
 
@@ -147,6 +151,7 @@ Enter the same address, port and token in the Android companion. The app stores 
 ## Safety model
 
 - Direct workspace file tools are confined to the configured workspace and do not overwrite or delete existing files.
+- Specialist agents receive fresh isolated model contexts and can invoke only their per-role read-only tool allowlists. They cannot write files, run shell commands, commit, or approve their own changes.
 - Autonomous development can modify/delete workspace files only after an explicit task-run request and clean-Git preflight. Failed attempts are rolled back; successful validated changes are committed.
 - Phone commands never execute at the HTTP endpoint and always require local laptop approval.
 - Public page reading permits only HTTP/HTTPS on ports 80/443, validates DNS destinations and redirects, blocks private/reserved IP ranges, disables cookies/proxies, and caps response size.
