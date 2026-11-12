@@ -40,6 +40,19 @@ Conversation persistence is opt-in. Set `$env:JARVIS_MEMORY_ENABLED = "true"` be
 
 You can override it with `JARVIS_MEMORY_PATH`. The `/clear` command clears the persisted history too. The store keeps user/assistant turns locally and can retrieve up to five older messages by deterministic keyword overlap for a new request. This is not embedding-based semantic search, document retrieval, or an autonomous learning loop. Explicit long-term facts are stored separately in `conversation.jsonl.facts.jsonl`, encrypted with the same DPAPI protection. Use `/remember <fact>` to save a fact, `/memories` to list saved facts, and `/forget <id>` to remove one. Facts are never inferred or saved automatically; JARVIS includes saved facts as context on subsequent requests. The store is capped at 100 facts and each fact at 2,000 characters. `/clear` clears both conversation history and saved facts. The message content is encrypted at rest with Windows DPAPI using the current Windows user scope; timestamps and role labels remain visible in the JSONL file. Older plaintext records remain readable and are migrated to DPAPI-protected content on the next append. The memory file is tied to the Windows user profile and cannot be decrypted under another Windows account or on a non-Windows system. JARVIS also applies best-effort redaction to common key/value credentials, bearer tokens, and recognizable provider token formats before saving and when loading/searching records. Redaction cannot identify every possible secret format; do not intentionally store passwords, API keys, recovery codes, or other secrets. Keep memory disabled on shared Windows accounts.
 
+## Interactive autonomous software-development tasks
+
+The interactive assistant now exposes a `development_tasks` tool, so the persistent developer is part of normal JARVIS conversations rather than only a separate smoke-test mode. Ask JARVIS to create a development task, list saved tasks, or explicitly run a task by its ID.
+
+- Tasks persist at `%LOCALAPPDATA%\\JARVIS\\development-tasks.json`.
+- Creating a task only queues it; it does not execute code.
+- Running a task is serialized (one autonomous task at a time) and requires a clean Git working tree.
+- Each attempt creates a Git checkpoint, uses the existing safe workspace executor and fixed build/test commands, and runs `dotnet build` plus `dotnet test`.
+- A successful validated attempt is committed by the orchestrator. A failed attempt is rolled back before retrying. The interactive tool defaults to two attempts and allows a maximum of five.
+- Existing uncommitted user changes are never included in an autonomous checkpoint: a dirty working tree blocks execution.
+
+This is a guarded coding-agent loop, not permission for arbitrary shell commands. The direct workspace tools remain create-only and cannot overwrite or delete files; modify/delete operations are available only inside an explicitly requested autonomous development task and its Git checkpoint/rollback workflow.
+
 ## Windows voice and desktop controls
 
 The current Windows-native voice slice uses the System.Speech APIs:
@@ -80,8 +93,8 @@ The Android companion app supports bridge address/port/token entry, connection c
 
 ## Deliberately not implemented in this slice
 
-Always-on wake-word listening, screen capture/vision, general window manipulation, app closing/process termination, a native Android companion app, automatic phone polling/notifications, watch support, and home-network control remain future work. The global shortcut only focuses the console; it is not a voice wake word and does not unlock Windows. They need separate native modules, explicit permissions, stop/cancel handling, and device-specific tests. OpenJarvis's Python agents and Ultron/Altron's machine-specific scripts are not installed by this change.
+Always-on wake-word listening, screen capture/vision, general window manipulation, app closing/process termination, background Android polling/notifications, watch support, and home-network control remain future work. The current Android companion is a foreground queue client, not a background always-on agent. The global shortcut only focuses the console; it is not a voice wake word and does not unlock Windows. They need separate native modules, explicit permissions, stop/cancel handling, and device-specific tests. OpenJarvis's Python agents and Ultron/Altron's machine-specific scripts are not installed by this change.
 
 ## Validation status
 
-The GitHub Actions workflow runs Windows .NET 8 restore, build, and the existing xUnit test suite. The memory retrieval change passed 168 tests. The voice, desktop-control, and Ctrl+C turn-cancellation changes passed Windows .NET 8 CI. The global activation shortcut, encrypted Android pairing, and companion APK must pass the latest branch CI run before they are treated as verified. No merge into the default branch is performed.
+The GitHub Actions workflows run Windows .NET 8 restore/build/xUnit tests and Android debug-APK builds. Treat the latest checks on the current branch head as authoritative; earlier passing runs do not validate later commits. No merge into the default branch is performed.
