@@ -360,6 +360,7 @@ public sealed class ToolCallingAssistant
             Console.CancelKeyPress -= cancelHandler;
             activeTurnCancellation = null;
             activationHotkey?.Dispose();
+            if (phoneBridge is not null) await phoneBridge.DisposeAsync();
         }
         Console.WriteLine();
         Console.WriteLine("JARVIS session ended.");
