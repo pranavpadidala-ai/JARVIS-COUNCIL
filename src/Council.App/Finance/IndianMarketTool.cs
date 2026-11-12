@@ -62,8 +62,12 @@ public sealed class IndianMarketTool : ITool
                 _ => new ToolResult(false, "Unknown action. Use set_holding, add_watch, remove, list, quote, or portfolio.")
             };
         }
-        catch (OperationCanceledException) { throw; }
-        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or JsonException or HttpRequestException or TaskCanceledException or InvalidOperationException)
+        catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested) { throw; }
+        catch (OperationCanceledException ex)
+        {
+            return new ToolResult(false, "Indian market data request timed out: " + ex.Message);
+        }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or JsonException or HttpRequestException or InvalidOperationException)
         {
             return new ToolResult(false, "Indian market monitor failed safely: " + ex.Message);
         }
@@ -129,7 +133,8 @@ public sealed class IndianMarketTool : ITool
     {
         if (!HasOnly(args, "action", "symbol", "exchange"))
             return new ToolResult(false, "remove accepts action, symbol and optional exchange.");
-        if (!TrySymbol(args, out var symbol, out var exchange, out var error)) return new ToolResult(false, error);
+        var defaultExchange = args.ContainsKey("exchange") ? "NSE" : "ANY";
+        if (!TrySymbol(args, out var symbol, out var exchange, out var error, defaultExchange)) return new ToolResult(false, error);
         await _storeGate.WaitAsync(token);
         try
         {
@@ -240,6 +245,8 @@ public sealed class IndianMarketTool : ITool
         var to = DateOnly.FromDateTime(DateTime.UtcNow);
         var from = to.AddDays(-14);
         var url = $"{ApiBase}/v1/ohlcv/{exchange.ToLowerInvariant()}/{Uri.EscapeDataString(symbol)}?from={from:yyyy-MM-dd}&to={to:yyyy-MM-dd}";
+        try
+        {
         using var request = new HttpRequestMessage(HttpMethod.Get, url);
         request.Headers.UserAgent.ParseAdd("JARVIS-Council/1.0 (personal EOD portfolio monitor)");
         request.Headers.Accept.Add(new MediaTypeWithQualityHeaderValue("application/json"));
@@ -266,6 +273,12 @@ public sealed class IndianMarketTool : ITool
         if (latest is null) return (null, "no recent EOD rows were returned for this symbol.");
         var previousClose = latest.PreviousClose ?? bars.Where(x => x.Date < latest.Date).OrderByDescending(x => x.Date).Select(x => (decimal?)x.Close).FirstOrDefault();
         return (new MarketQuote(latest.Date, latest.Close, previousClose, latest.Volume), null);
+        }
+        catch (OperationCanceledException) when (token.IsCancellationRequested) { throw; }
+        catch (Exception ex) when (ex is HttpRequestException or TaskCanceledException or JsonException)
+        {
+            return (null, ex is TaskCanceledException ? "market-data request timed out." : "market-data request failed: " + ex.Message);
+        }
     }
 
     private static string FormatQuote(string symbol, string exchange, MarketQuote quote)
@@ -302,13 +315,13 @@ public sealed class IndianMarketTool : ITool
         }
     }
 
-    private static bool TrySymbol(Dictionary<string, string> args, out string symbol, out string exchange, out string error)
+    private static bool TrySymbol(Dictionary<string, string> args, out string symbol, out string exchange, out string error, string defaultExchange = "NSE")
     {
         symbol = args.TryGetValue("symbol", out var raw) ? raw.Trim().ToUpperInvariant() : "";
-        exchange = args.TryGetValue("exchange", out var exchangeRaw) ? exchangeRaw.Trim().ToUpperInvariant() : "NSE";
+        exchange = args.TryGetValue("exchange", out var exchangeRaw) ? exchangeRaw.Trim().ToUpperInvariant() : defaultExchange;
         error = "";
         if (!SymbolPattern.IsMatch(symbol)) { error = "symbol must be a valid NSE/BSE trading symbol (1–30 letters, digits, hyphen or ampersand)."; return false; }
-        if (exchange is not ("NSE" or "BSE")) { error = "exchange must be NSE or BSE."; return false; }
+        if (exchange is not ("NSE" or "BSE" or "ANY")) { error = "exchange must be NSE or BSE."; return false; }
         return true;
     }
 
