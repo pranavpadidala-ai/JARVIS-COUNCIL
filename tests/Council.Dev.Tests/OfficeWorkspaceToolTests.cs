@@ -159,7 +159,9 @@ public sealed class OfficeWorkspaceToolTests
 
             Assert.True(result.Success, result.Message);
             using var document = WordprocessingDocument.Open(Path.Combine(root, "reports", "summary.docx"), false);
-            var text = string.Join(" ", document.MainDocumentPart!.Document.Body!.Descendants<Text>().Select(x => x.Text));
+            var body = document.MainDocumentPart?.Document?.Body;
+            Assert.NotNull(body);
+            var text = string.Join(" ", body!.Descendants<Text>().Select(x => x.Text));
             Assert.Contains("Structural Analysis Summary", text);
             Assert.Contains("Introduction", text);
             Assert.Contains("wind and seismic loading", text);
