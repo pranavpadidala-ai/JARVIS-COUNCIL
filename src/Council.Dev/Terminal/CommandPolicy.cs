@@ -51,6 +51,13 @@ public sealed class CommandPolicy
 
         var trimmed = command.Trim();
 
+        // PowerShell treats newlines and other control characters as
+        // command separators even when semicolons and pipes are blocked.
+        if (trimmed.Any(char.IsControl))
+        {
+            return false;
+        }
+
         if (ContainsBlockedOperator(trimmed))
         {
             return false;
