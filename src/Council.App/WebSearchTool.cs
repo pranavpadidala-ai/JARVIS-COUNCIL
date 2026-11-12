@@ -100,6 +100,10 @@ public sealed class WebSearchTool : ITool
 
             return new ToolResult(true, output.ToString().Trim());
         }
+        catch (TaskCanceledException) when (!cancellationToken.IsCancellationRequested)
+        {
+            return new ToolResult(false, "Public web search timed out.");
+        }
         catch (OperationCanceledException)
         {
             throw;
@@ -107,10 +111,6 @@ public sealed class WebSearchTool : ITool
         catch (HttpRequestException ex)
         {
             return new ToolResult(false, "Public web search is unavailable: " + ex.Message);
-        }
-        catch (TaskCanceledException)
-        {
-            return new ToolResult(false, "Public web search timed out.");
         }
         finally
         {
