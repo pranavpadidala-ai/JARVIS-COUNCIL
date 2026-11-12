@@ -69,6 +69,16 @@ public sealed class PhoneCommandBridgeService : IAsyncDisposable
 
             if (context.Request.HttpMethod == "POST" && path == "/api/commands")
             {
+                if (context.Request.ContentLength64 > 8192)
+                {
+                    await WriteJsonAsync(context.Response, 413, new { error = "Request body is too large." }, cancellationToken);
+                    return;
+                }
+                if (!string.Equals(context.Request.ContentType?.Split(';')[0].Trim(), "application/json", StringComparison.OrdinalIgnoreCase))
+                {
+                    await WriteJsonAsync(context.Response, 415, new { error = "Content-Type must be application/json." }, cancellationToken);
+                    return;
+                }
                 using var document = await JsonDocument.ParseAsync(context.Request.InputStream, cancellationToken: cancellationToken);
                 var root = document.RootElement;
                 if (root.ValueKind != JsonValueKind.Object ||
