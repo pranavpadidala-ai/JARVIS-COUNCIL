@@ -89,6 +89,7 @@ public sealed class AutonomousDevelopmentTool : ITool
         }
         catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or
                                    InvalidOperationException or ArgumentException or
+                                   System.Text.Json.JsonException or InvalidDataException or
                                    System.Security.Cryptography.CryptographicException)
         {
             return new ToolResult(false, "Development task operation failed safely: " + ex.Message);
