@@ -85,7 +85,7 @@ public sealed class ToolCallingAssistant
                 TrimHistory();
                 Console.WriteLine($"[Memory] Restored {restored.Count} local conversation messages.");
             }
-            catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+            catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or System.Security.Cryptography.CryptographicException or PlatformNotSupportedException)
             {
                 Console.WriteLine("[Memory] Could not restore local history: " + ex.Message);
             }
