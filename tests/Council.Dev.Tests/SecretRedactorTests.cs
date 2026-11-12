@@ -20,6 +20,27 @@ public sealed class SecretRedactorTests
     }
 
     [Fact]
+    public void LocalMemoryProtector_RoundTripsEncryptedContentOnWindows()
+    {
+        if (!OperatingSystem.IsWindows())
+            return;
+
+        const string secretConversation = "remember this private research note";
+        var protectedValue = LocalMemoryProtector.Protect(secretConversation);
+
+        Assert.StartsWith("dpapi:v1:", protectedValue);
+        Assert.DoesNotContain(secretConversation, protectedValue);
+        Assert.Equal(secretConversation, LocalMemoryProtector.Unprotect(protectedValue));
+    }
+
+    [Fact]
+    public void LocalMemoryProtector_ReadsLegacyPlaintextRecords()
+    {
+        const string legacy = "older unencrypted conversation";
+        Assert.Equal(legacy, LocalMemoryProtector.Unprotect(legacy));
+    }
+
+    [Fact]
     public void Redact_LeavesOrdinaryConversationTextUnchanged()
     {
         const string input = "Please summarize the structural analysis report.";
