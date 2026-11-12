@@ -529,12 +529,16 @@ public sealed class ToolCallingAssistant
         }
         Console.WriteLine();
         Console.WriteLine("JARVIS session ended.");
-        _voice?.Dispose();
+        if (OperatingSystem.IsWindows())
+            _voice?.Dispose();
     }
 
 
     private async Task<string?> ListenOnceWithEscapeAsync(CancellationToken cancellationToken)
     {
+        if (!OperatingSystem.IsWindows())
+            throw new PlatformNotSupportedException("Voice input is supported on Windows only.");
+
         using var voiceCancellation = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
         var escapeMonitor = MonitorEscapeAsync(voiceCancellation, voiceCancellation.Token);
         try
@@ -550,6 +554,9 @@ public sealed class ToolCallingAssistant
 
     private async Task SpeakWithEscapeAsync(string text, CancellationToken cancellationToken)
     {
+        if (!OperatingSystem.IsWindows())
+            throw new PlatformNotSupportedException("Voice output is supported on Windows only.");
+
         using var voiceCancellation = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
         var escapeMonitor = MonitorEscapeAsync(voiceCancellation, voiceCancellation.Token);
         try
