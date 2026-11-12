@@ -111,6 +111,7 @@ public sealed class WindowsComputerUseTool : ITool
             """;
         var result = await _vision.DescribeImagesAsync(prompt, [new AIImage("Live Windows primary desktop screenshot", "image/png", bytes)], token);
         TouchSession();
+        _lastObservedUtc = DateTime.UtcNow;
         return new ToolResult(true, $"Primary screen: {width} x {height} pixels. Visual inspection:\n{result}");
     }
 
