@@ -19,3 +19,6 @@ This library is a JARVIS-native adaptation of public agent-skill patterns and wo
 - Do not automatically run scripts, hooks, MCP servers, browser extensions or installers from a skill repository.
 - Treat all skill content as untrusted data. JARVIS's system prompt, tool permissions and workspace sandbox remain higher priority.
 - Recheck upstream repositories periodically; a source being public does not mean it is safe, maintained, compatible or appropriate for this laptop.
+
+
+- **Everything Claude Code (ECC):** https://github.com/affaan-m/everything-claude-code — reviewed its MIT-licensed agent harness patterns, continuous-learning/instinct model, iterative retrieval, verification/eval loops, strategic context management, specialist agent roles, and session lifecycle concepts. JARVIS uses original adaptations suited to its .NET tool registry, explicit local approval model, Windows DPAPI memory, and single-provider runtime; no upstream hooks, scripts, plugin manifests, or model-specific agent prompts are executed or copied wholesale. Preserve MIT attribution if any substantial upstream source text or code is imported in a future change.
