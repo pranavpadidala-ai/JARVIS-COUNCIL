@@ -60,9 +60,14 @@ public sealed class PhoneCommandInboxTests
         {
             var inbox = new PhoneCommandInbox(path);
             var command = await inbox.EnqueueAsync("request-0003", "Explain this file");
-            Assert.True(await inbox.CompleteAsync(command.Id));
+            Assert.True(await inbox.CompleteAsync(command.Id, "The report contains three key findings."));
             Assert.False(await inbox.CancelAsync(command.Id));
             Assert.Null(await inbox.GetNextAsync());
+
+            var history = await new PhoneCommandInbox(path).ListAsync();
+            var completed = Assert.Single(history);
+            Assert.Equal(PhoneCommandStatus.Completed, completed.Status);
+            Assert.Equal("The report contains three key findings.", completed.Result);
         }
         finally
         {
