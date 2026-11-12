@@ -5,7 +5,7 @@ triggers: my shares, my stocks, stock portfolio, equity portfolio, portfolio val
 ---
 # Indian equity portfolio monitor
 
-Use the registered `indian_market` tool; do not invent portfolio positions.
+Use the registered `indian_market` tool for the local EOD ledger. When Dhan credentials are configured and the user asks for broker-held positions or current broker data, use `dhan_readonly`; do not invent portfolio positions.
 
 ## Actions
 - `set_holding`: save or update one holding with the exact symbol, whole-share quantity and average buy price supplied by the user. Default exchange is NSE; accept NSE or BSE.
@@ -27,4 +27,7 @@ Use the registered `indian_market` tool; do not invent portfolio positions.
 - Missing symbols or unavailable quotes must be marked unavailable; never estimate them or silently exclude them from coverage counts.
 - Portfolio totals are indicative and exclude brokerage, taxes, dividends, cash, pledged shares, unsettled trades and corporate-action reconciliation unless the user supplies those details.
 - For live account balances or current prices, ask which broker and use an explicitly authorized broker integration if available. Never ask for passwords, OTPs, API secrets or TOTP seeds in chat.
-- Never place, modify or cancel trades. This tool is read-only with respect to market data.
+- The optional `dhan_readonly` tool can verify the Dhan profile, read demat holdings/open positions, and request an LTP snapshot by Dhan security ID. It is strictly read-only and does not submit, modify, cancel, convert or exit orders.
+- Dhan access tokens are typically valid for 24 hours. Read `DHAN_CLIENT_ID` and `DHAN_ACCESS_TOKEN` only from local environment configuration; never ask the user to paste credentials into chat or echo them.
+- Dhan LTP snapshots and WebSocket streaming are Data API services; Dhan currently lists its Data API subscription at ₹499 + applicable taxes/month. Do not assume a live-data subscription is active. The current JARVIS connector does not yet implement WebSocket streaming or automatic symbol-to-security-ID lookup.
+- Never place, modify or cancel trades. The Dhan connector is read-only with respect to the broker account.
