@@ -155,7 +155,7 @@ public sealed class PhoneCommandBridgeService : IAsyncDisposable
         response.StatusCode = status;
         response.ContentType = "application/json; charset=utf-8";
         response.Headers["Cache-Control"] = "no-store";
-        var bytes = JsonSerializer.SerializeToUtf8Bytes(payload, new JsonSerializerOptions { Converters = { new JsonStringEnumConverter() } });
+        var bytes = JsonSerializer.SerializeToUtf8Bytes(payload, new JsonSerializerOptions { PropertyNamingPolicy = JsonNamingPolicy.CamelCase, Converters = { new JsonStringEnumConverter() } });
         response.ContentLength64 = bytes.Length;
         await response.OutputStream.WriteAsync(bytes, cancellationToken);
         response.Close();
