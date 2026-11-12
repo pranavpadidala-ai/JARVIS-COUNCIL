@@ -1,4 +1,6 @@
 using ClosedXML.Excel;
+using DocumentFormat.OpenXml.Packaging;
+using DocumentFormat.OpenXml.Wordprocessing;
 using Council.App.Office;
 using Council.Execution.Tools;
 
@@ -83,6 +85,71 @@ public sealed class OfficeWorkspaceToolTests
                 ["action"] = "create_workbook",
                 ["path"] = "existing.xlsx",
                 ["data"] = "[[\"New\"]]"
+            });
+
+            Assert.False(result.Success);
+            Assert.Equal("keep this file", await File.ReadAllTextAsync(path));
+        }
+        finally
+        {
+            Directory.Delete(root, recursive: true);
+        }
+    }
+
+    [Fact]
+    public async Task CreateDocument_CreatesReadableWordDocument()
+    {
+        var root = CreateTemporaryDirectory();
+        try
+        {
+            var tool = new OfficeWorkspaceTool(root);
+            var result = await tool.ExecuteAsync(new Dictionary<string, string>
+            {
+                ["action"] = "create_document",
+                ["path"] = "reports/summary.docx",
+                ["title"] = "Structural Analysis Summary",
+                ["content"] = "[\"Introduction\",\"The model was analysed under wind and seismic loading.\",\"The results were reviewed against the design criteria.\"]"
+            });
+
+            Assert.False(result.Success);
+            Assert.Contains("folder must already exist", result.Message);
+            Assert.False(File.Exists(Path.Combine(root, "reports", "summary.docx")));
+
+            Directory.CreateDirectory(Path.Combine(root, "reports"));
+            result = await tool.ExecuteAsync(new Dictionary<string, string>
+            {
+                ["action"] = "create_document",
+                ["path"] = "reports/summary.docx",
+                ["title"] = "Structural Analysis Summary",
+                ["content"] = "[\"Introduction\",\"The model was analysed under wind and seismic loading.\",\"The results were reviewed against the design criteria.\"]"
+            });
+
+            Assert.True(result.Success, result.Message);
+            using var document = WordprocessingDocument.Open(Path.Combine(root, "reports", "summary.docx"), false);
+            var text = string.Join(" ", document.MainDocumentPart!.Document.Body!.Descendants<Text>().Select(x => x.Text));
+            Assert.Contains("Structural Analysis Summary", text);
+            Assert.Contains("Introduction", text);
+            Assert.Contains("wind and seismic loading", text);
+        }
+        finally
+        {
+            Directory.Delete(root, recursive: true);
+        }
+    }
+
+    [Fact]
+    public async Task CreateDocument_DoesNotOverwriteExistingFile()
+    {
+        var root = CreateTemporaryDirectory();
+        try
+        {
+            var path = Path.Combine(root, "existing.docx");
+            await File.WriteAllTextAsync(path, "keep this file");
+            var result = await new OfficeWorkspaceTool(root).ExecuteAsync(new Dictionary<string, string>
+            {
+                ["action"] = "create_document",
+                ["path"] = "existing.docx",
+                ["content"] = "[\"replacement\"]"
             });
 
             Assert.False(result.Success);
