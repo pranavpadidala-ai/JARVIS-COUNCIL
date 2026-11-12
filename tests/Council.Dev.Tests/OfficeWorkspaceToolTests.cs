@@ -76,6 +76,91 @@ public sealed class OfficeWorkspaceToolTests
     }
 
     [Fact]
+    public async Task AnalyzePaper_ExtractsPageLabelledTextInQuickMode()
+    {
+        var root = CreateTemporaryDirectory();
+        try
+        {
+            WriteMinimalPdf(Path.Combine(root, "paper.pdf"));
+            var result = await new OfficeWorkspaceTool(root).ExecuteAsync(new Dictionary<string, string>
+            {
+                ["action"] = "analyze_paper",
+                ["path"] = "paper.pdf"
+            });
+
+            Assert.True(result.Success, result.Message);
+            Assert.Contains("Mode: quick", result.Message);
+            Assert.Contains("PDF page count: 1", result.Message);
+            Assert.Contains("[PDF page 1]", result.Message);
+            Assert.Contains("JARVIS PDF extraction test", result.Message);
+            Assert.Contains("cite extracted claims", result.Message);
+        }
+        finally
+        {
+            Directory.Delete(root, recursive: true);
+        }
+    }
+
+    [Fact]
+    public async Task AnalyzePaper_RejectsInvalidModeAndPageRanges()
+    {
+        var root = CreateTemporaryDirectory();
+        try
+        {
+            WriteMinimalPdf(Path.Combine(root, "paper.pdf"));
+            var tool = new OfficeWorkspaceTool(root);
+
+            var invalidMode = await tool.ExecuteAsync(new Dictionary<string, string>
+            {
+                ["action"] = "analyze_paper",
+                ["path"] = "paper.pdf",
+                ["mode"] = "instant"
+            });
+            Assert.False(invalidMode.Success);
+            Assert.Contains("quick or deep", invalidMode.Message);
+
+            var invalidRange = await tool.ExecuteAsync(new Dictionary<string, string>
+            {
+                ["action"] = "analyze_paper",
+                ["path"] = "paper.pdf",
+                ["start_page"] = "8",
+                ["end_page"] = "3"
+            });
+            Assert.False(invalidRange.Success);
+            Assert.Contains("greater than or equal", invalidRange.Message);
+        }
+        finally
+        {
+            Directory.Delete(root, recursive: true);
+        }
+    }
+
+    [Fact]
+    public async Task AnalyzePaper_RejectsPageRangesLargerThanModeBudget()
+    {
+        var root = CreateTemporaryDirectory();
+        try
+        {
+            WriteMinimalPdf(Path.Combine(root, "paper.pdf"));
+            var result = await new OfficeWorkspaceTool(root).ExecuteAsync(new Dictionary<string, string>
+            {
+                ["action"] = "analyze_paper",
+                ["path"] = "paper.pdf",
+                ["mode"] = "quick",
+                ["start_page"] = "1",
+                ["end_page"] = "31"
+            });
+
+            Assert.False(result.Success);
+            Assert.Contains("limited to 30 pages", result.Message);
+        }
+        finally
+        {
+            Directory.Delete(root, recursive: true);
+        }
+    }
+
+    [Fact]
     public async Task CreateWorkbook_CreatesNewWorkbook()
     {
         var root = CreateTemporaryDirectory();
