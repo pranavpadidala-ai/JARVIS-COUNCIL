@@ -14,7 +14,8 @@ public sealed record PhoneCommand(
     string RequestId,
     string Text,
     PhoneCommandStatus Status,
-    DateTime CreatedAtUtc);
+    DateTime CreatedAtUtc,
+    string? Result = null);
 
 public sealed class PhoneCommandInbox
 {
@@ -66,6 +67,13 @@ public sealed class PhoneCommandInbox
 
     public Task<bool> CompleteAsync(Guid id, CancellationToken cancellationToken = default) => UpdateStatusAsync(id, PhoneCommandStatus.Completed, cancellationToken);
 
+    public Task<bool> CompleteAsync(Guid id, string result, CancellationToken cancellationToken = default)
+    {
+        result = result?.Trim() ?? string.Empty;
+        if (result.Length > 12_000) result = result[..12_000] + Environment.NewLine + "[Result truncated by JARVIS phone bridge.]";
+        return UpdateStatusAsync(id, PhoneCommandStatus.Completed, cancellationToken, result);
+    }
+
     public Task<bool> CancelAsync(Guid id, CancellationToken cancellationToken = default) => UpdateStatusAsync(id, PhoneCommandStatus.Cancelled, cancellationToken);
 
     public async Task<PhoneCommand?> GetNextAsync(CancellationToken cancellationToken = default)
@@ -75,7 +83,7 @@ public sealed class PhoneCommandInbox
         finally { _gate.Release(); }
     }
 
-    private async Task<bool> UpdateStatusAsync(Guid id, PhoneCommandStatus status, CancellationToken cancellationToken)
+    private async Task<bool> UpdateStatusAsync(Guid id, PhoneCommandStatus status, CancellationToken cancellationToken, string? result = null)
     {
         await _gate.WaitAsync(cancellationToken);
         try
@@ -83,7 +91,7 @@ public sealed class PhoneCommandInbox
             var items = await LoadCoreAsync(cancellationToken);
             var index = items.FindIndex(x => x.Id == id && x.Status == PhoneCommandStatus.Queued);
             if (index < 0) return false;
-            items[index] = items[index] with { Status = status };
+            items[index] = items[index] with { Status = status, Result = result };
             await SaveCoreAsync(items, cancellationToken);
             return true;
         }
