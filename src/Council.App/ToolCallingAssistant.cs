@@ -260,6 +260,7 @@ public sealed class ToolCallingAssistant
             TrimHistory();
             Console.WriteLine();
 
+            var phoneCommandSucceeded = false;
             using var turnCancellation = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
             activeTurnCancellation = turnCancellation;
             var turnToken = turnCancellation.Token;
@@ -320,6 +321,7 @@ public sealed class ToolCallingAssistant
                 }
                 if (!completed)
                     Console.WriteLine("JARVIS: Request ended without a final response.");
+                phoneCommandSucceeded = completed;
             }
             catch (OperationCanceledException) when (turnToken.IsCancellationRequested && !cancellationToken.IsCancellationRequested)
             {
@@ -338,7 +340,7 @@ public sealed class ToolCallingAssistant
             {
                 activeTurnCancellation = null;
             }
-            if (phoneCommandId.HasValue)
+            if (phoneCommandId.HasValue && phoneCommandSucceeded)
             {
                 try
                 {
