@@ -74,6 +74,32 @@ public sealed class AutonomousDevelopmentToolTests
     }
 
     [Fact]
+    public async Task CorruptTaskStoreIsReportedWithoutBeingOverwritten()
+    {
+        var root = Path.Combine(Path.GetTempPath(), "JarvisDevToolTests", Guid.NewGuid().ToString("N"));
+        Directory.CreateDirectory(root);
+        var taskPath = Path.Combine(root, "tasks.json");
+        const string corruptContent = "{ this is not valid JSON";
+        try
+        {
+            await File.WriteAllTextAsync(taskPath, corruptContent);
+            var tool = new AutonomousDevelopmentTool(new MockAIProvider(), root, taskPath);
+            var result = await tool.ExecuteAsync(new Dictionary<string, string>
+            {
+                ["action"] = "list_tasks"
+            });
+
+            Assert.False(result.Success);
+            Assert.Contains("Development task operation failed safely", result.Message);
+            Assert.Equal(corruptContent, await File.ReadAllTextAsync(taskPath));
+        }
+        finally
+        {
+            Directory.Delete(root, recursive: true);
+        }
+    }
+
+    [Fact]
     public async Task RunTaskRequiresValidTaskId()
     {
         var root = Path.Combine(Path.GetTempPath(), "JarvisDevToolTests", Guid.NewGuid().ToString("N"));
