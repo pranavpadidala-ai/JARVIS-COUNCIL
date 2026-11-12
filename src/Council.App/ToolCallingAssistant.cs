@@ -22,6 +22,7 @@ public sealed class ToolCallingAssistant
     private WindowsVoiceService? _voice;
     private bool _voiceOutputEnabled;
     private readonly ConversationMemoryStore? _memory;
+    private readonly MemoryFactStore? _facts;
     private bool _memoryLoaded;
     private readonly ToolRegistry _tools = new();
     private readonly AgentSkillLibrary _skills = new();
@@ -49,6 +50,7 @@ public sealed class ToolCallingAssistant
     {
         _provider = provider ?? throw new ArgumentNullException(nameof(provider));
         _memory = memory;
+        _facts = memory is null ? null : new MemoryFactStore(memory.FilePath + ".facts.jsonl");
         _tools.Register(new WorkspaceTool("list_files", "Recursively list visible files and folders. Required argument: path (use empty string for workspace root).", workspaceRoot));
         _tools.Register(new WorkspaceTool("read_file", "Read a text file. Required argument: path.", workspaceRoot));
         _tools.Register(new WorkspaceTool("search_files", "Search supported project text files. Required argument: query.", workspaceRoot));
@@ -71,7 +73,7 @@ public sealed class ToolCallingAssistant
         Console.WriteLine("Memory   : " + (_memory is null ? "disabled" : "local conversation history enabled"));
         Console.WriteLine("Workspace: " + Path.GetFullPath(Directory.GetCurrentDirectory()));
         Console.WriteLine("Tools    : workspace files, Abaqus status, Office workspace, allowlisted Windows app launcher");
-        Console.WriteLine("Commands : /help, /skills, /clear, /voice, /speak on|off, Ctrl+C cancels active request");
+        Console.WriteLine("Commands : /help, /skills, /remember <fact>, /memories, /forget <id>, /clear, /voice, /speak on|off, Ctrl+C cancels active request");
         Console.WriteLine();
 
         if (!_memoryLoaded && _memory is not null)
@@ -231,7 +233,7 @@ public sealed class ToolCallingAssistant
             }
             if (input.Equals("/help", StringComparison.OrdinalIgnoreCase))
             {
-                Console.WriteLine("Ask JARVIS to inspect, search, or create project files, use Office workspace, or ask it to open Notepad, Calculator, File Explorer, or Task Manager. /phone-queue lists phone requests; /phone-next previews one and requires YES before execution. On Windows, Ctrl+Alt+J restores/focuses this window; /voice captures one spoken request on demand; /speak on|off controls spoken replies; press Escape during voice capture or speech to stop it; press Ctrl+C during an active AI/tool request to cancel that request without closing JARVIS; /skills lists specialist skills; /clear resets memory; /exit closes JARVIS.");
+                Console.WriteLine("Ask JARVIS to inspect, search, or create project files, use Office workspace, or ask it to open Notepad, Calculator, File Explorer, or Task Manager. /remember <fact> explicitly saves a long-term fact; /memories lists saved facts; /forget <id> removes one fact; /phone-queue lists phone requests; /phone-next previews one and requires YES before execution. On Windows, Ctrl+Alt+J restores/focuses this window; /voice captures one spoken request on demand; /speak on|off controls spoken replies; press Escape during voice capture or speech to stop it; press Ctrl+C during an active AI/tool request to cancel that request without closing JARVIS; /skills lists specialist skills; /clear removes conversation history and saved facts; /exit closes JARVIS.");
                 continue;
             }
             if (input.Equals("/skills", StringComparison.OrdinalIgnoreCase))
@@ -243,14 +245,74 @@ public sealed class ToolCallingAssistant
                 Console.WriteLine();
                 continue;
             }
+            if (input.StartsWith("/remember ", StringComparison.OrdinalIgnoreCase))
+            {
+                if (_facts is null)
+                {
+                    Console.WriteLine("[Memory] Enable JARVIS_MEMORY_ENABLED=true to save long-term facts.");
+                    continue;
+                }
+                try
+                {
+                    var id = await _facts.AddAsync(input["/remember ".Length..], cancellationToken);
+                    Console.WriteLine($"[Memory] Saved fact ({id}).");
+                }
+                catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or PlatformNotSupportedException or ArgumentException)
+                {
+                    Console.WriteLine("[Memory] Could not save fact: " + ex.Message);
+                }
+                continue;
+            }
+            if (input.Equals("/memories", StringComparison.OrdinalIgnoreCase))
+            {
+                if (_facts is null)
+                    Console.WriteLine("[Memory] Enable JARVIS_MEMORY_ENABLED=true to use long-term facts.");
+                else
+                {
+                    try
+                    {
+                        var facts = await _facts.ListAsync(cancellationToken);
+                        if (facts.Count == 0) Console.WriteLine("[Memory] No saved facts.");
+                        foreach (var fact in facts)
+                            Console.WriteLine($"[{fact.Id}] {fact.Fact}");
+                    }
+                    catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or PlatformNotSupportedException)
+                    {
+                        Console.WriteLine("[Memory] Could not list facts: " + ex.Message);
+                    }
+                }
+                continue;
+            }
+            if (input.StartsWith("/forget ", StringComparison.OrdinalIgnoreCase))
+            {
+                if (_facts is null)
+                    Console.WriteLine("[Memory] Long-term memory is disabled.");
+                else
+                {
+                    try
+                    {
+                        var removed = await _facts.RemoveAsync(input["/forget ".Length..].Trim(), cancellationToken);
+                        Console.WriteLine(removed ? "[Memory] Fact removed." : "[Memory] No fact found with that ID.");
+                    }
+                    catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+                    {
+                        Console.WriteLine("[Memory] Could not remove fact: " + ex.Message);
+                    }
+                }
+                continue;
+            }
             if (input.Equals("/clear", StringComparison.OrdinalIgnoreCase))
             {
                 _history.RemoveRange(1, _history.Count - 1);
                 if (_memory is not null)
                 {
-                    try { await _memory.ClearAsync(cancellationToken); }
+                    try
+                    {
+                        await _memory.ClearAsync(cancellationToken);
+                        if (_facts is not null) await _facts.ClearAsync(cancellationToken);
+                    }
                     catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
-                    { Console.WriteLine("[Memory] Could not clear persisted history: " + ex.Message); }
+                    { Console.WriteLine("[Memory] Could not clear persisted memory: " + ex.Message); }
                 }
                 Console.WriteLine("Conversation cleared.");
                 continue;
