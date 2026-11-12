@@ -323,6 +323,7 @@ public sealed class ToolCallingAssistant
             Console.WriteLine();
 
             var phoneCommandSucceeded = false;
+            string? phoneCommandResult = null;
             using var turnCancellation = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
             activeTurnCancellation = turnCancellation;
             var turnToken = turnCancellation.Token;
@@ -335,13 +336,15 @@ public sealed class ToolCallingAssistant
                     var response = await _provider.AskAsync(new AIRequest(await BuildMessagesForTurnAsync(input, turnToken), Temperature: 0.2), turnToken);
                     if (string.IsNullOrWhiteSpace(response.Content))
                     {
-                        Console.WriteLine("JARVIS: The AI provider returned an empty response. Please try again." + Environment.NewLine);
+                        phoneCommandResult = "The AI provider returned an empty response. Please try again.";
+                        Console.WriteLine("JARVIS: " + phoneCommandResult + Environment.NewLine);
                         completed = true;
                         break;
                     }
                     if (!TryParseEnvelope(response.Content, out var type, out var calls, out var message))
                     {
                         var cleanText = response.Content.Trim();
+                        phoneCommandResult = cleanText;
                         Console.WriteLine("JARVIS: " + cleanText + Environment.NewLine);
                         await AddHistoryAsync(new AIMessage("assistant", cleanText), cancellationToken);
                         await SpeakIfEnabledAsync(cleanText, turnToken);
@@ -350,6 +353,7 @@ public sealed class ToolCallingAssistant
                     }
                     if (type == "message")
                     {
+                        phoneCommandResult = message;
                         Console.WriteLine("JARVIS: " + message + Environment.NewLine);
                         await AddHistoryAsync(new AIMessage("assistant", message), cancellationToken);
                         await SpeakIfEnabledAsync(message, turnToken);
@@ -358,7 +362,8 @@ public sealed class ToolCallingAssistant
                     }
                     if (calls.Count == 0 || toolExecutions + calls.Count > MaxToolExecutionsPerTurn)
                     {
-                        Console.WriteLine("JARVIS: This request needs too many workspace operations. Please split it into smaller steps." + Environment.NewLine);
+                        phoneCommandResult = "This request needs too many workspace operations. Please split it into smaller steps.";
+                        Console.WriteLine("JARVIS: " + phoneCommandResult + Environment.NewLine);
                         completed = true;
                         break;
                     }
@@ -382,8 +387,12 @@ public sealed class ToolCallingAssistant
                     }
                 }
                 if (!completed)
-                    Console.WriteLine("JARVIS: Request ended without a final response.");
-                phoneCommandSucceeded = completed;
+                {
+                    phoneCommandResult = "JARVIS did not produce a final response. Please retry the request.";
+                    Console.WriteLine("JARVIS: " + phoneCommandResult);
+                    completed = true;
+                }
+                phoneCommandSucceeded = completed && !string.IsNullOrWhiteSpace(phoneCommandResult);
             }
             catch (OperationCanceledException) when (turnToken.IsCancellationRequested && !cancellationToken.IsCancellationRequested)
             {
@@ -406,7 +415,7 @@ public sealed class ToolCallingAssistant
             {
                 try
                 {
-                    await phoneInbox.CompleteAsync(phoneCommandId.Value, cancellationToken);
+                    await phoneInbox.CompleteAsync(phoneCommandId.Value, phoneCommandResult!, cancellationToken);
                     Console.WriteLine("[Phone bridge] Approved request marked completed.");
                 }
                 catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
