@@ -195,7 +195,7 @@ public sealed class GeminiProvider : IAIProvider, IImageUnderstandingProvider, I
         if (document.Data.Length > 14 * 1024 * 1024) throw new ArgumentException("PDF exceeds the 14 MB inline-analysis limit.", nameof(document));
         var parts = new List<Part>
         {
-            new Part { Text = prompt + Environment.NewLine + "Document name: " + document.Name },
+            new Part { Text = prompt + System.Environment.NewLine + "Document name: " + document.Name },
             new Part { InlineData = new Blob { Data = document.Data, MimeType = "application/pdf" } }
         };
         var response = await _client.Models.GenerateContentAsync(_defaultModel,
