@@ -29,6 +29,9 @@ public sealed class SpecialistAgentRuntime
 {
     private const int MaxRounds = 4;
     private const int MaxToolCalls = 6;
+    private const int MaxToolArgumentCount = 8;
+    private const int MaxToolArgumentValueCharacters = 4_000;
+    private const int MaxTotalToolArgumentCharacters = 8_000;
     private const int MaxTaskCharacters = 4_000;
     private const int MaxContextCharacters = 12_000;
     private readonly IAIProvider _provider;
@@ -115,6 +118,13 @@ public sealed class SpecialistAgentRuntime
                     continue;
                 }
 
+                if (!TryValidateToolArguments(call.Arguments, out var argumentError))
+                {
+                    messages.Add(new AIMessage("user",
+                        $"Tool result for {call.Name}: denied. {argumentError}"));
+                    continue;
+                }
+
                 try
                 {
                     var result = await tool.ExecuteAsync(call.Arguments, cancellationToken);
@@ -158,8 +168,71 @@ public sealed class SpecialistAgentRuntime
         }
 
         // Independent specialists run concurrently with isolated message histories.
+        // A provider failure in one branch must not discard successful results from its peers.
         return await Task.WhenAll(names.Select(name =>
-            RunAsync(name!, task, context, cancellationToken)));
+            RunTeamMemberAsync(name!, task, context, cancellationToken)));
+    }
+
+    private async Task<SpecialistAgentResult> RunTeamMemberAsync(
+        string agentName,
+        string task,
+        string? context,
+        CancellationToken cancellationToken)
+    {
+        var timer = Stopwatch.StartNew();
+        try
+        {
+            return await RunAsync(agentName, task, context, cancellationToken);
+        }
+        catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+        {
+            throw;
+        }
+        catch (Exception ex)
+        {
+            timer.Stop();
+            return new SpecialistAgentResult(
+                agentName, false,
+                $"Agent failed independently: {ex.GetType().Name}: {ex.Message}",
+                _provider.Name, null, timer.Elapsed);
+        }
+    }
+
+    private static bool TryValidateToolArguments(
+        IReadOnlyDictionary<string, string> arguments,
+        out string error)
+    {
+        if (arguments.Count > MaxToolArgumentCount)
+        {
+            error = $"Tool argument count exceeds the limit of {MaxToolArgumentCount}.";
+            return false;
+        }
+
+        var totalCharacters = 0;
+        foreach (var (key, value) in arguments)
+        {
+            if (string.IsNullOrWhiteSpace(key) || key.Length > 80)
+            {
+                error = "Tool argument names must contain 1 to 80 characters.";
+                return false;
+            }
+
+            if (value.Length > MaxToolArgumentValueCharacters)
+            {
+                error = $"A tool argument exceeds the {MaxToolArgumentValueCharacters}-character per-value limit.";
+                return false;
+            }
+
+            totalCharacters += key.Length + value.Length;
+            if (totalCharacters > MaxTotalToolArgumentCharacters)
+            {
+                error = $"Combined tool arguments exceed the {MaxTotalToolArgumentCharacters}-character limit.";
+                return false;
+            }
+        }
+
+        error = string.Empty;
+        return true;
     }
 
     private string BuildSystemPrompt(SpecialistAgentDefinition agent)
