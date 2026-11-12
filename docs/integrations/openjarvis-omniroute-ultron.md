@@ -44,7 +44,7 @@ You can override it with `JARVIS_MEMORY_PATH`. The `/clear` command clears the p
 
 The interactive assistant now exposes a `development_tasks` tool, so the persistent developer is part of normal JARVIS conversations rather than only a separate smoke-test mode. Ask JARVIS to create a development task, list saved tasks, or explicitly run a task by its ID.
 
-- Tasks persist at `%LOCALAPPDATA%\\JARVIS\\development-tasks.json`.
+- Tasks persist at `%LOCALAPPDATA%\\JARVIS\\development-tasks.json` using atomic replacement; the store is limited to 500 tasks and 5 MB, and malformed stores are reported without being overwritten.
 - Creating a task only queues it; it does not execute code.
 - Running a task is serialized (one autonomous task at a time) and requires a clean Git working tree.
 - Each attempt creates a Git checkpoint, uses the existing safe workspace executor and fixed build/test commands, and runs `dotnet build` plus `dotnet test`.
