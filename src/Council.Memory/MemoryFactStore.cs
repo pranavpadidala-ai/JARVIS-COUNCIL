@@ -11,6 +11,7 @@ public sealed class MemoryFactStore
 {
     private readonly string _filePath;
     private readonly SemaphoreSlim _gate = new(1, 1);
+    private const int MaxFacts = 100;
 
     public MemoryFactStore(string filePath)
     {
@@ -29,6 +30,12 @@ public sealed class MemoryFactStore
         try
         {
             Directory.CreateDirectory(Path.GetDirectoryName(_filePath)!);
+            if (File.Exists(_filePath))
+            {
+                var current = await ListCountAsync(cancellationToken);
+                if (current >= MaxFacts)
+                    throw new InvalidOperationException($"Long-term memory is limited to {MaxFacts} facts. Remove an old fact first.");
+            }
             var entry = new StoredFact(Guid.NewGuid().ToString("N")[..8],
                 DateTimeOffset.UtcNow, LocalMemoryProtector.Protect(normalized));
             await File.AppendAllTextAsync(_filePath,
@@ -107,6 +114,20 @@ public sealed class MemoryFactStore
         await _gate.WaitAsync(cancellationToken);
         try { if (File.Exists(_filePath)) File.Delete(_filePath); }
         finally { _gate.Release(); }
+    }
+
+    private async Task<int> ListCountAsync(CancellationToken cancellationToken)
+    {
+        var count = 0;
+        foreach (var line in await File.ReadAllLinesAsync(_filePath, cancellationToken))
+        {
+            try
+            {
+                if (JsonSerializer.Deserialize<StoredFact>(line) is not null) count++;
+            }
+            catch (JsonException) { }
+        }
+        return count;
     }
 
     private sealed record StoredFact(string Id, DateTimeOffset CreatedAt, string Fact);
