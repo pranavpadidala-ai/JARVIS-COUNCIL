@@ -69,7 +69,7 @@ dotnet run --project src/Council.App/Council.App.csproj
 The protocol currently supports:
 - `GET /api/health` — authenticated health check.
 - `POST /api/commands` — authenticated JSON body: `{"requestId":"unique-id-0001","text":"Summarize my report"}`. Request IDs make retries idempotent.
-- `GET /api/commands` — list queued and historical commands, including the assistant response for completed requests.
+- `GET /api/commands` — list the 100 most recent queued and historical commands, including the assistant response for completed requests. Chunked/unknown-length command POST bodies are rejected; request bodies are limited to 8 KB.
 - `POST /api/commands/{guid}/cancel` — cancel a command that has not been approved.
 
 Every request must include `Authorization: Bearer <token>`. POST bodies are limited to 8 KB; command text is limited to 2,000 characters; the pending queue is limited to 100 items. Queue data is stored locally at `%LOCALAPPDATA%\JARVIS-Council\PhoneBridge\inbox.json` using atomic file replacement.
