@@ -5,7 +5,8 @@ namespace Council.App.Phone;
 public enum PhoneCommandStatus
 {
     Queued,
-    Cancelled
+    Cancelled,
+    Completed
 }
 
 public sealed record PhoneCommand(
@@ -63,7 +64,18 @@ public sealed class PhoneCommandInbox
         finally { _gate.Release(); }
     }
 
-    public async Task<bool> CancelAsync(Guid id, CancellationToken cancellationToken = default)
+    public Task<bool> CompleteAsync(Guid id, CancellationToken cancellationToken = default) => UpdateStatusAsync(id, PhoneCommandStatus.Completed, cancellationToken);
+
+    public Task<bool> CancelAsync(Guid id, CancellationToken cancellationToken = default) => UpdateStatusAsync(id, PhoneCommandStatus.Cancelled, cancellationToken);
+
+    public async Task<PhoneCommand?> GetNextAsync(CancellationToken cancellationToken = default)
+    {
+        await _gate.WaitAsync(cancellationToken);
+        try { return (await LoadCoreAsync(cancellationToken)).FirstOrDefault(x => x.Status == PhoneCommandStatus.Queued); }
+        finally { _gate.Release(); }
+    }
+
+    private async Task<bool> UpdateStatusAsync(Guid id, PhoneCommandStatus status, CancellationToken cancellationToken)
     {
         await _gate.WaitAsync(cancellationToken);
         try
@@ -71,7 +83,7 @@ public sealed class PhoneCommandInbox
             var items = await LoadCoreAsync(cancellationToken);
             var index = items.FindIndex(x => x.Id == id && x.Status == PhoneCommandStatus.Queued);
             if (index < 0) return false;
-            items[index] = items[index] with { Status = PhoneCommandStatus.Cancelled };
+            items[index] = items[index] with { Status = status };
             await SaveCoreAsync(items, cancellationToken);
             return true;
         }
