@@ -5,6 +5,7 @@ JARVIS uses the portable Agent Skills pattern: each Markdown skill has a small Y
 ## Current skill areas
 
 - **Engineering:** structural engineering, CAD/BIM, standards compliance, technical calculations, scientific computing.
+- **Finance and Indian markets:** day-trading workflows, NSE/BSE equity research, portfolio monitoring, market breadth, FII/DII flows, India market news, technical analysis, options education, backtest review and macro scenarios.
 - **Research and learning:** literature review, web research, technical calculations, PDF research, research tutoring, paper writing, knowledge retrieval.
 - **Software development:** software engineering, systematic debugging, test-driven development, code review, Git workflows, API integration, agent evaluation, iterative retrieval, agent orchestration, verification loops, harness audits, context optimization and continuous learning.
 - **Data and Office:** data analysis, Excel, Word, PowerPoint, PDF and general Office workflows.
@@ -49,3 +50,8 @@ The app exposes a `specialist_agents` tool to the main assistant and a `/agents`
 Use `specialist_agents` with `action=list`, `action=run` plus `agent` and `task`, or `action=team` plus comma-separated `agents` and a shared `task`. A team runs up to four independent agents concurrently. Each agent starts with a fresh context, sees only task/context explicitly supplied to it, and can call only its registered read-only tool allowlist. The main assistant retains write/execute permissions through the separate guarded workflow.
 
 All agents currently use the configured provider and default model. Per-agent model routing, persistent agent-to-agent memory, background agent jobs, and write-capable delegated agents are not enabled. Do not describe those as implemented.
+
+
+## Indian market monitoring
+
+The `Finance/PortfolioMonitor` skill uses the registered `indian_market` tool. It stores only the user's manually supplied holdings/watchlist in the local application-data folder and fetches the latest available daily close from TejHQ. This is an end-of-day monitor, not a real-time feed or broker integration. The `Finance/DayTrading` and related skills are JARVIS-native adaptations of selected public workflows; they do not add an intraday feed, broker connection, or order execution. See `SOURCES.md` for upstream attribution.

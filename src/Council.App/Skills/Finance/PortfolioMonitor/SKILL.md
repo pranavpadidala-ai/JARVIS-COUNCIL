@@ -1,0 +1,25 @@
+---
+name: indian-portfolio-monitor
+description: "Monitor the user's Indian equity holdings and NSE/BSE watchlist using stored share quantities, average cost, latest daily close and indicative unrealized P&L."
+triggers: my shares, my stocks, stock portfolio, equity portfolio, portfolio value, monitor my holdings, monitor my stocks, share market, watchlist, stock P&L, holdings P&L
+---
+# Indian equity portfolio monitor
+
+Use the registered `indian_market` tool; do not invent portfolio positions.
+
+## Actions
+- `set_holding`: save or update one holding with the exact symbol, whole-share quantity and average buy price supplied by the user. Default exchange is NSE; accept NSE or BSE.
+- `add_watch`: add a symbol without a quantity or cost basis.
+- `remove`: remove a saved holding/watch item.
+- `list`: show the locally saved list without network access.
+- `quote`: retrieve the latest available daily EOD close for one symbol.
+- `portfolio`: retrieve prices for saved symbols and calculate indicative market value and unrealized P&L for priced holdings.
+
+## Interpretation
+- The watchlist is stored on this device under the user's local application data. It is not synced to a broker or cloud account.
+- The TejHQ source provides end-of-day bhavcopy data, normally ready the next morning IST. It is not real-time, intraday or tick data. Always report the data date.
+- Average buy price must be expressed per current share unit after any split/bonus. Ask the user to correct it if corporate actions changed the share count.
+- Missing symbols or unavailable quotes must be marked unavailable; never estimate them or silently exclude them from coverage counts.
+- Portfolio totals are indicative and exclude brokerage, taxes, dividends, cash, pledged shares, unsettled trades and corporate-action reconciliation unless the user supplies those details.
+- For live account balances or current prices, ask which broker and use an explicitly authorized broker integration if available. Never ask for passwords, OTPs, API secrets or TOTP seeds in chat.
+- Never place, modify or cancel trades. This tool is read-only with respect to market data.
