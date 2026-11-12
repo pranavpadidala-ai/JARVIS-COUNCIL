@@ -249,10 +249,10 @@ public sealed class WebPageFetchTool : ITool
     {
         uri = null;
         error = null;
-        if (string.IsNullOrWhiteSpace(value) ||
+        if (string.IsNullOrWhiteSpace(value) || value.Length > 2048 ||
             !Uri.TryCreate(value.Trim(), UriKind.Absolute, out var parsed))
         {
-            error = "A valid absolute public URL is required.";
+            error = "A valid absolute public URL up to 2,048 characters is required.";
             return false;
         }
 
