@@ -96,6 +96,8 @@ public sealed class OfficeWorkspaceToolTests
             Assert.Contains("cite extracted claims", result.Message);
             Assert.Contains("layout-aware text extractor", result.Message);
             Assert.Contains("Layout cues:", result.Message);
+            Assert.Contains("Page layout:", result.Message);
+            Assert.Contains("embedded raster image objects:", result.Message);
         }
         finally
         {
