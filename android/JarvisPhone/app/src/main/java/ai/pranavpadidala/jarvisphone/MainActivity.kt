@@ -3,6 +3,8 @@ package ai.pranavpadidala.jarvisphone
 import android.app.Activity
 import android.graphics.Typeface
 import android.os.Bundle
+import android.os.Handler
+import android.os.Looper
 import android.text.InputType
 import android.view.View
 import android.widget.Button
@@ -28,6 +30,13 @@ class MainActivity : Activity() {
     private lateinit var queueContainer: LinearLayout
     private lateinit var executor: ExecutorService
     private lateinit var configStore: BridgeConfigStore
+    private val refreshHandler = Handler(Looper.getMainLooper())
+    private val autoRefresh = object : Runnable {
+        override fun run() {
+            if (::tokenInput.isInitialized && tokenInput.text.isNotEmpty()) refreshQueue()
+            refreshHandler.postDelayed(this, 30_000L)
+        }
+    }
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -88,7 +97,7 @@ class MainActivity : Activity() {
 
         statusView = text("Not connected. The bridge must be enabled on the laptop.", 14f, false)
         content.addView(statusView)
-        content.addView(text("Pending requests", 19f, true))
+        content.addView(text("Command history (auto-refreshes while this screen is open)", 19f, true))
         queueContainer = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL }
         content.addView(queueContainer)
 
@@ -130,24 +139,28 @@ class MainActivity : Activity() {
             runOnUiThread {
                 queueContainer.removeAllViews()
                 var pending = 0
+                var displayed = 0
                 for (index in 0 until items.length()) {
                     val item = items.getJSONObject(index)
-                    if (item.optString("status") != "Queued") continue
-                    pending++
-                    val id = item.getString("id")
+                    val state = item.optString("status", "Unknown")
+                    if (state.equals("Queued", ignoreCase = true)) pending++
+                    displayed++
                     val row = LinearLayout(this).apply {
                         orientation = LinearLayout.VERTICAL
                         setPadding(dp(8), dp(8), dp(8), dp(8))
                     }
                     row.addView(text(item.optString("text"), 15f, false))
+                    row.addView(text("Status: $state", 13f, true))
                     row.addView(text(item.optString("createdAtUtc"), 11f, false))
-                    val cancel = Button(this).apply { text = "Cancel request" }
-                    cancel.setOnClickListener { cancelCommand(id) }
-                    row.addView(cancel)
+                    if (state.equals("Queued", ignoreCase = true)) {
+                        val cancel = Button(this).apply { text = "Cancel request" }
+                        cancel.setOnClickListener { cancelCommand(item.optString("id")) }
+                        row.addView(cancel)
+                    }
                     queueContainer.addView(row)
                 }
-                if (pending == 0) queueContainer.addView(text("No pending requests.", 14f, false))
-                statusView.text = "Queue refreshed. Pending requests: $pending"
+                if (displayed == 0) queueContainer.addView(text("No commands yet. Send a request to get started.", 14f, false))
+                statusView.text = "Queue refreshed. Pending: $pending · History: $displayed"
             }
             "Queue refreshed."
         }
@@ -276,7 +289,22 @@ class MainActivity : Activity() {
 
     private fun dp(value: Int): Int = (value * resources.displayMetrics.density).toInt()
 
+    override fun onResume() {
+        super.onResume()
+        refreshHandler.removeCallbacks(autoRefresh)
+        if (::tokenInput.isInitialized && tokenInput.text.isNotEmpty()) {
+            refreshQueue()
+            refreshHandler.postDelayed(autoRefresh, 30_000L)
+        }
+    }
+
+    override fun onPause() {
+        refreshHandler.removeCallbacks(autoRefresh)
+        super.onPause()
+    }
+
     override fun onDestroy() {
+        refreshHandler.removeCallbacks(autoRefresh)
         if (::executor.isInitialized) executor.shutdownNow()
         super.onDestroy()
     }
