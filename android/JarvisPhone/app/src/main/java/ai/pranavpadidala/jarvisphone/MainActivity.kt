@@ -233,7 +233,7 @@ class MainActivity : Activity() {
         hint = hintText
         setText(initial)
         textSize = 15f
-        singleLine = hintText != "Type a request for JARVIS"
+        setSingleLine(hintText != "Type a request for JARVIS")
     }
 
     private fun label(value: String) = text(value, 13f, true)
