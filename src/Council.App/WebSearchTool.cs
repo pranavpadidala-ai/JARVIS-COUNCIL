@@ -171,11 +171,13 @@ public sealed class WebSearchTool : ITool
     private static string CleanText(string html)
     {
         var withoutTags = Regex.Replace(html, "<[^>]+>", " ");
-        return WebUtility.HtmlDecode(withoutTags)
-            .Replace('\r', ' ')
-            .Replace('\n', ' ')
-            .Replace('\t', ' ')
-            .Trim();
+        return Regex.Replace(
+            WebUtility.HtmlDecode(withoutTags)
+                .Replace('\r', ' ')
+                .Replace('\n', ' ')
+                .Replace('\t', ' '),
+            @"\s+",
+            " ").Trim();
     }
 
     private static string? ResolveResultUrl(string rawUrl)
