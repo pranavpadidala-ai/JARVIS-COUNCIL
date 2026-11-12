@@ -33,6 +33,9 @@ public sealed class TaskManager
                 nameof(title));
         }
 
+        if (_tasks.Count >= 500)
+            throw new InvalidOperationException("JARVIS can retain at most 500 development tasks.");
+
         var task = new DevelopmentTask
         {
             Title = title.Trim(),
