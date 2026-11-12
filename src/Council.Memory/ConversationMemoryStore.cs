@@ -1,5 +1,6 @@
 using System.Text.Json;
 using Council.Core.Models;
+using Council.Security;
 
 namespace Council.Memory;
 
@@ -67,7 +68,7 @@ public sealed class ConversationMemoryStore
                 {
                     var stored = JsonSerializer.Deserialize<StoredMessage>(line);
                     if (stored is not null && IsPersistableRole(stored.Role))
-                        messages.Add(new AIMessage(stored.Role, stored.Content ?? string.Empty));
+                        messages.Add(new AIMessage(stored.Role, SecretRedactor.Redact(stored.Content)));
                 }
                 catch (JsonException)
                 {
@@ -131,7 +132,7 @@ public sealed class ConversationMemoryStore
                     var occurrences = contentTokens.Count(token => queryTokens.Contains(token));
                     var score = matchedTokens * 10 + Math.Min(occurrences, 20);
                     matches.Add((
-                        new AIMessage(stored.Role, stored.Content),
+                        new AIMessage(stored.Role, SecretRedactor.Redact(stored.Content)),
                         score,
                         stored.Timestamp));
                 }
@@ -170,7 +171,7 @@ public sealed class ConversationMemoryStore
             var record = new StoredMessage(
                 DateTimeOffset.UtcNow,
                 message.Role.Trim().ToLowerInvariant(),
-                message.Content);
+                SecretRedactor.Redact(message.Content));
 
             await File.AppendAllTextAsync(
                 _filePath,
