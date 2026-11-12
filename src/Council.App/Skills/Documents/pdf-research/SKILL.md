@@ -11,4 +11,4 @@ triggers: pdf, scanned pdf, extract pdf, summarize paper, read pdf, OCR, tables 
 - Do not reconstruct missing equations or tables by guessing.
 - Summarize methods, inputs, results, limitations and conclusions separately.
 - For large files, process relevant sections in logical order and maintain a source-to-claim trail.
-- Current JARVIS PDF processing may be unavailable; never claim to have read a PDF unless a supported parser/OCR tool has actually extracted it.
+- Use office_workspace action inspect_document for selectable PDF text. The current parser previews at most 100 pages and 50,000 characters. Scanned/image-only PDFs are not OCR'd; ask for a text-based PDF or state that OCR is unavailable. Never claim visual verification or OCR has occurred.
