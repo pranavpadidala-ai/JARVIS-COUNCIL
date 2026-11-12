@@ -94,6 +94,30 @@ public sealed class OfficeWorkspaceToolTests
             Assert.Contains("[PDF page 1]", result.Message);
             Assert.Contains("JARVIS PDF extraction test", result.Message);
             Assert.Contains("cite extracted claims", result.Message);
+            Assert.Contains("layout-aware text extractor", result.Message);
+            Assert.Contains("Layout cues:", result.Message);
+        }
+        finally
+        {
+            Directory.Delete(root, recursive: true);
+        }
+    }
+
+    [Fact]
+    public async Task AnalyzePaper_ReturnsSafeFailureForMalformedPdf()
+    {
+        var root = CreateTemporaryDirectory();
+        try
+        {
+            await File.WriteAllTextAsync(Path.Combine(root, "broken.pdf"), "not a valid PDF");
+            var result = await new OfficeWorkspaceTool(root).ExecuteAsync(new Dictionary<string, string>
+            {
+                ["action"] = "analyze_paper",
+                ["path"] = "broken.pdf"
+            });
+
+            Assert.False(result.Success);
+            Assert.Contains("could not be analysed safely", result.Message);
         }
         finally
         {
