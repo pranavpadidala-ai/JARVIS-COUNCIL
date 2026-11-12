@@ -177,13 +177,14 @@ public sealed class OfficeWorkspaceTool : ITool
     private ToolResult InspectPowerPoint(string path, CancellationToken cancellationToken)
     {
         using var document = PresentationDocument.Open(path, false);
-        var presentation = document.PresentationPart?.Presentation;
+        var presentationPart = document.PresentationPart;
+        var presentation = presentationPart?.Presentation;
         var slideIds = presentation?.SlideIdList?.ChildElements;
-        if (slideIds is null)
+        if (presentationPart is null || slideIds is null)
             return new ToolResult(false, "PowerPoint presentation has no readable slides.");
 
         var output = new StringBuilder("PowerPoint: " + Path.GetFileName(path));
-        var slideParts = document.PresentationPart!.SlideParts.ToArray();
+        var slideParts = presentationPart.SlideParts.ToArray();
         for (var i = 0; i < slideParts.Length && i < 100; i++)
         {
             cancellationToken.ThrowIfCancellationRequested();
