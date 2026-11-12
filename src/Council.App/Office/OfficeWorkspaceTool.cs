@@ -258,8 +258,11 @@ public sealed class OfficeWorkspaceTool : ITool
                     break;
             }
 
+            if (includedPages == 0 && visualCandidates.Count == 0)
+                return new ToolResult(false, "No selectable text or supported embedded raster images were found in the requested page range. The PDF may be scanned or contain vector-only graphics.");
+
             if (includedPages == 0)
-                return new ToolResult(false, "No selectable text was found in the requested page range. The PDF may be scanned; OCR is not available.");
+                output.AppendLine("[No selectable text was found; continuing with visual-only analysis of extracted embedded images.]");
 
             if (visualCandidates.Count > 0)
             {
