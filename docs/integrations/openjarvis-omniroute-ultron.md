@@ -40,6 +40,18 @@ Conversation persistence is opt-in. Set `$env:JARVIS_MEMORY_ENABLED = "true"` be
 
 You can override it with `JARVIS_MEMORY_PATH`. The `/clear` command clears the persisted history too. The store keeps user/assistant turns locally and can retrieve up to five older messages by deterministic keyword overlap for a new request. This is not embedding-based semantic search, document retrieval, or an autonomous learning loop. Explicit long-term facts are stored separately in `conversation.jsonl.facts.jsonl`, encrypted with the same DPAPI protection. Use `/remember <fact>` to save a fact, `/memories` to list saved facts, and `/forget <id>` to remove one. Facts are never inferred or saved automatically; JARVIS includes saved facts as context on subsequent requests. The store is capped at 100 facts and each fact at 2,000 characters. `/clear` clears both conversation history and saved facts. The message content is encrypted at rest with Windows DPAPI using the current Windows user scope; timestamps and role labels remain visible in the JSONL file. Older plaintext records remain readable and are migrated to DPAPI-protected content on the next append. The memory file is tied to the Windows user profile and cannot be decrypted under another Windows account or on a non-Windows system. JARVIS also applies best-effort redaction to common key/value credentials, bearer tokens, and recognizable provider token formats before saving and when loading/searching records. Redaction cannot identify every possible secret format; do not intentionally store passwords, API keys, recovery codes, or other secrets. Keep memory disabled on shared Windows accounts.
 
+## On-demand public web search
+
+The interactive assistant includes a `web_search` tool backed by DuckDuckGo's public HTML search endpoint. It requires no paid search API key and is called only when the user asks for research or current information.
+
+- Search queries are limited to 300 characters and results to eight entries.
+- Requests are serialized and rate-limited; responses are capped at 1.5 MB and have a 15-second timeout.
+- JARVIS receives result titles, public URLs, and short snippets. It does not claim to have opened or verified the full source page.
+- Search results are untrusted data. JARVIS is instructed not to follow instructions embedded in snippets and to include source URLs in its response.
+- Only the search query is sent to the search provider. Do not search for credentials, private user data, or confidential workspace content.
+
+The HTML parser is isolated and tested. If the provider changes its markup or rate-limits requests, JARVIS reports that search is unavailable rather than inventing results. Full-page retrieval, PDF download/reading, DOI resolution, and citation verification are separate capabilities to be integrated into the research workflow.
+
 ## Interactive autonomous software-development tasks
 
 The interactive assistant now exposes a `development_tasks` tool, so the persistent developer is part of normal JARVIS conversations rather than only a separate smoke-test mode. Ask JARVIS to create a development task, list saved tasks, or explicitly run a task by its ID.
