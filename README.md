@@ -45,6 +45,19 @@ $env:OLLAMA_MODEL = "YOUR_INSTALLED_MODEL_TAG"
 dotnet run --project .\src\Council.App\Council.App.csproj
 ```
 
+### Local vision (PDF figures and images)
+
+JARVIS can use a separate local vision model even when its main chat provider is Gemini, OpenAI, or OmniRoute. It uses Ollama with Moondream 2 by default. The model runs on the laptop; PDF image bytes are sent to the local Ollama service, not to the cloud chat provider.
+
+Install Ollama and pull the model from PowerShell:
+
+```powershell
+Set-ExecutionPolicy -Scope Process Bypass
+.\scripts\Install-LocalVision.ps1
+```
+
+The default model download is approximately 1.7 GB. On an 8 GB RAM laptop, keep the context at 2,048 tokens and avoid loading another large local model at the same time. Set `JARVIS_VISION_MODEL` to use another installed Ollama vision model, or set `JARVIS_LOCAL_VISION_ENABLED=false` to disable local image analysis. If Ollama is unavailable, paper text extraction still works and JARVIS reports that visual analysis could not run.
+
 ### OpenAI
 
 ```powershell

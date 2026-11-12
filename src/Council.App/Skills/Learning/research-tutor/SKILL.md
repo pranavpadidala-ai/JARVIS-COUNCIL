@@ -25,3 +25,8 @@ triggers: explain this paper, summarize this paper, summarise this paper, paper 
 - For engineering papers, connect theory to physical behaviour, design standards and numerical modelling while clearly distinguishing paper statements from code requirements and independent calculations.
 - When the user asks to save notes, create a new Word document with `office_workspace` action `create_document`; use a new filename and never overwrite an existing file. Include a concise abstract, section-wise notes, equation/symbol glossary, key results, limitations, and cited page references.
 - Check understanding with one focused question only when it helps learning.
+
+
+## Local image analysis
+
+JARVIS can use Ollama's local `moondream` vision model independently of the main chat provider. Install it with `scripts/Install-LocalVision.ps1`. It analyses up to four supported embedded PNG/JPEG images (8 MB total) per paper request. The image data is sent to the local Ollama endpoint only. It does not render vector-only plots or full PDF pages; those require a future PDF page-rendering capability. Treat model interpretations as fallible and verify numerical readings against the source.

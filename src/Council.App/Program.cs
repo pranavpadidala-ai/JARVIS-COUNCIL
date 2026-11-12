@@ -155,7 +155,20 @@ if (!args.Any(arg =>
     var memoryEnabled = bool.TryParse(
         Environment.GetEnvironmentVariable("JARVIS_MEMORY_ENABLED"), out var enableMemory) && enableMemory;
     var memoryStore = memoryEnabled ? new ConversationMemoryStore() : null;
-    var assistant = new ToolCallingAssistant(activeProvider, interactiveWorkspaceRoot, memoryStore);
+    IImageUnderstandingProvider? localVisionProvider = null;
+    var localVisionEnabled =
+        !bool.TryParse(Environment.GetEnvironmentVariable("JARVIS_LOCAL_VISION_ENABLED"), out var visionEnabled) ||
+        visionEnabled;
+    if (localVisionEnabled)
+    {
+        var visionModel = Environment.GetEnvironmentVariable("JARVIS_VISION_MODEL") ?? "moondream";
+        localVisionProvider = new OllamaVisionProvider(
+            visionModel, ollamaBaseUrl, contextTokens: 2048);
+        Console.WriteLine($"Local vision: Ollama / {visionModel} (install with scripts/Install-LocalVision.ps1).");
+    }
+
+    var assistant = new ToolCallingAssistant(
+        activeProvider, interactiveWorkspaceRoot, memoryStore, localVisionProvider);
     await assistant.RunAsync();
     return;
 }

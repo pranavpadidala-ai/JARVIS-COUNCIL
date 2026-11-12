@@ -41,7 +41,7 @@ public sealed class OfficeWorkspaceTool : ITool
     public string Description =>
         "Microsoft Office file tool. Actions: list_documents; inspect_document (path for .xlsx/.docx/.pptx/.pdf); analyze_paper (path, optional mode=quick|deep, start_page, end_page for selectable-text PDF extraction with page citations); create_workbook (path, data JSON array-of-arrays, optional sheet); create_document (new .docx path, content JSON array of paragraphs, optional title). All paths are relative to the dedicated Office workspace. Creation never overwrites existing files.";
 
-    public Task<ToolResult> ExecuteAsync(
+    public async Task<ToolResult> ExecuteAsync(
         Dictionary<string, string> arguments,
         CancellationToken cancellationToken = default)
     {
@@ -56,18 +56,18 @@ public sealed class OfficeWorkspaceTool : ITool
             {
                 "list_documents" => ListDocuments(arguments),
                 "inspect_document" => InspectDocument(arguments, cancellationToken),
-                "analyze_paper" => AnalyzePaper(arguments, cancellationToken),
+                "analyze_paper" => await AnalyzePaperAsync(arguments, cancellationToken),
                 "create_workbook" => CreateWorkbook(arguments, cancellationToken),
                 "create_document" => CreateDocument(arguments, cancellationToken),
                 _ => new ToolResult(false, "Unknown Office action. Use list_documents, inspect_document, analyze_paper, create_workbook, or create_document.")
             };
-            return Task.FromResult(result);
+            return result;
         }
         catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or
                                    InvalidDataException or ArgumentException or
                                    JsonException or OpenXmlPackageException)
         {
-            return Task.FromResult(new ToolResult(false, "Office operation failed safely: " + ex.Message));
+            return new ToolResult(false, "Office operation failed safely: " + ex.Message);
         }
     }
 
@@ -116,7 +116,7 @@ public sealed class OfficeWorkspaceTool : ITool
         };
     }
 
-    private ToolResult AnalyzePaper(
+    private async Task<ToolResult> AnalyzePaperAsync(
         Dictionary<string, string> args,
         CancellationToken cancellationToken)
     {
@@ -232,7 +232,7 @@ public sealed class OfficeWorkspaceTool : ITool
                     visualImageIndex++;
                     visualBytes += imageBytes.Length;
                     visualCandidates.Add(new AIImage(
-                        $"PDF page {page.Number}, embedded image {visualImageIndex} ({pdfImage.WidthInSamples} x {pdfImage.HeightInSamples} px; placed at {pdfImage.Bounds})",
+                        $"PDF page {page.Number}, embedded image {visualImageIndex} ({pdfImage.WidthInSamples} x {pdfImage.HeightInSamples} px; placed at {pdfImage.BoundingBox})",
                         mimeType,
                         imageBytes));
                 }
