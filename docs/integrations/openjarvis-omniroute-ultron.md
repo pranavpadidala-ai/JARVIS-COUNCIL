@@ -46,7 +46,7 @@ The interactive assistant now exposes a `development_tasks` tool, so the persist
 
 - Tasks persist at `%LOCALAPPDATA%\\JARVIS\\development-tasks.json` using atomic replacement; the store is limited to 500 tasks and 5 MB, and malformed stores are reported without being overwritten.
 - Creating a task only queues it; it does not execute code.
-- Running a task is serialized (one autonomous task at a time) and requires a clean Git working tree.
+- Running a task is serialized (one autonomous task at a time) and performs a clean-Git preflight before starting; dirty or non-Git workspaces are blocked before any planned changes.
 - Each attempt creates a Git checkpoint, uses the existing safe workspace executor and fixed build/test commands, and runs `dotnet build` plus `dotnet test`.
 - A successful validated attempt is committed by the orchestrator. A failed attempt is rolled back before retrying. The interactive tool defaults to two attempts and allows a maximum of five.
 - Existing uncommitted user changes are never included in an autonomous checkpoint: a dirty working tree blocks execution.
