@@ -61,6 +61,33 @@ public sealed class InstinctStoreTests
     }
 
     [Fact]
+    public async Task DamagedStoreFailsClosedInsteadOfOverwritingExistingData()
+    {
+        if (!OperatingSystem.IsWindows()) return;
+
+        var root = Path.Combine(Path.GetTempPath(), "jarvis-instinct-corrupt-" + Guid.NewGuid().ToString("N"));
+        Directory.CreateDirectory(root);
+        try
+        {
+            var workspace = Path.Combine(root, "project");
+            Directory.CreateDirectory(workspace);
+            var storage = Path.Combine(root, "store");
+            var store = new InstinctStore(workspace, storage);
+            await store.AddOrReinforceAsync("when debugging", "Reproduce before changing code");
+            var dataFile = Directory.GetFiles(storage, "*.jsonl").Single();
+            await File.AppendAllTextAsync(dataFile, "not-json" + Environment.NewLine);
+
+            await Assert.ThrowsAsync<InvalidDataException>(
+                () => store.AddOrReinforceAsync("when testing", "Add a regression test"));
+            Assert.Contains("not-json", await File.ReadAllTextAsync(dataFile));
+        }
+        finally
+        {
+            if (Directory.Exists(root)) Directory.Delete(root, recursive: true);
+        }
+    }
+
+    [Fact]
     public async Task AddRejectsOversizedPractice()
     {
         var root = Path.Combine(Path.GetTempPath(), "jarvis-instinct-validation-" + Guid.NewGuid().ToString("N"));
