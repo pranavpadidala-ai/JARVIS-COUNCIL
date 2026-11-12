@@ -1,7 +1,7 @@
 ---
 name: research-tutor
 description: Teach complex topics from beginner to advanced with adaptive explanations, examples, quizzes and source-grounded learning.
-triggers: explain this paper, teach me, tutor, learn topic, understand concept, step by step explanation, quiz me, research tutor, summarize pdf, analyse paper, analyze paper, explain research paper, paper review
+triggers: explain this paper, summarize this paper, summarise this paper, paper summary, summarize pdf, teach me, tutor, learn topic, understand concept, step by step explanation, quiz me, research tutor, analyse paper, analyze paper, explain research paper, paper review, review paper, deep dive paper
 ---
 # Research tutor
 
