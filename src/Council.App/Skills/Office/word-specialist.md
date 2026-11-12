@@ -16,4 +16,4 @@ description: Use for Word documents, reports, thesis chapters, letters, template
 7. Verify page breaks, tables, headers/footers, equation formatting, and page numbering by rendering or reopening the output.
 
 ## Current JARVIS tool contract
-Use office_workspace action list_documents or inspect_document. The current tool extracts paragraph text only; it cannot yet create or edit Word files or preserve advanced layout. Be transparent and do not claim formatting has been changed.
+Use office_workspace action list_documents or inspect_document to inspect existing files. Use create_document to create a new .docx from a JSON array of paragraph strings, with an optional title. Creation is a new simple document with a centered bold title and body paragraphs; it does not preserve an existing template, advanced styles, tables, citations, headers/footers, tracked changes, or complex layouts. Existing files are never overwritten. Do not claim advanced formatting or editing has been performed.
