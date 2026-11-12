@@ -139,12 +139,15 @@ public sealed class PhoneCommandBridgeService : IAsyncDisposable
         return supplied.Length == _tokenBytes.Length && CryptographicOperations.FixedTimeEquals(supplied, _tokenBytes);
     }
 
-    private static Task WriteJsonAsync(HttpListenerResponse response, int status, object payload, CancellationToken cancellationToken)
+    private static async Task WriteJsonAsync(HttpListenerResponse response, int status, object payload, CancellationToken cancellationToken)
     {
         response.StatusCode = status;
         response.ContentType = "application/json; charset=utf-8";
         response.Headers["Cache-Control"] = "no-store";
-        return response.WriteAsJsonAsync(payload, cancellationToken);
+        var bytes = JsonSerializer.SerializeToUtf8Bytes(payload);
+        response.ContentLength64 = bytes.Length;
+        await response.OutputStream.WriteAsync(bytes, cancellationToken);
+        response.Close();
     }
 
     private static bool IsTailscaleAddress(IPAddress address)
