@@ -155,6 +155,24 @@ public sealed class ToolCallingAssistant
             input = input.Trim();
             if (input.Length == 0) continue;
             if (input.Equals("/exit", StringComparison.OrdinalIgnoreCase)) break;
+            if (input.Equals("/phone-queue", StringComparison.OrdinalIgnoreCase))
+            {
+                var queued = (await phoneInbox.ListAsync(cancellationToken)).Where(item => item.Status == PhoneCommandStatus.Queued).ToArray();
+                Console.WriteLine("Phone commands waiting: " + queued.Length);
+                foreach (var item in queued) Console.WriteLine(" - " + item.Id + " | " + item.CreatedAtUtc.ToString("u") + " | " + item.Text);
+                continue;
+            }
+            Guid? phoneCommandId = null;
+            if (input.Equals("/phone-next", StringComparison.OrdinalIgnoreCase))
+            {
+                var next = await phoneInbox.GetNextAsync(cancellationToken);
+                if (next is null) { Console.WriteLine("[Phone bridge] No queued commands."); continue; }
+                Console.WriteLine("[Phone bridge] Request: " + next.Text);
+                Console.Write("Run this request now? Type YES to approve: ");
+                if (!string.Equals(Console.ReadLine()?.Trim(), "YES", StringComparison.Ordinal)) { Console.WriteLine("[Phone bridge] Left in queue."); continue; }
+                input = next.Text;
+                phoneCommandId = next.Id;
+            }
             if (input.Equals("/voice", StringComparison.OrdinalIgnoreCase))
             {
                 if (!OperatingSystem.IsWindows())
@@ -213,7 +231,7 @@ public sealed class ToolCallingAssistant
             }
             if (input.Equals("/help", StringComparison.OrdinalIgnoreCase))
             {
-                Console.WriteLine("Ask JARVIS to inspect, search, or create project files, use Office workspace, or ask it to open Notepad, Calculator, File Explorer, or Task Manager. On Windows, Ctrl+Alt+J restores/focuses this window (set JARVIS_HOTKEY_ENABLED=false to disable it); /voice captures one spoken request on demand; /speak on|off controls spoken replies; press Escape during voice capture or speech to stop it; press Ctrl+C during an active AI/tool request to cancel that request without closing JARVIS; /skills lists specialist skills; /clear resets memory; /exit closes JARVIS.");
+                Console.WriteLine("Ask JARVIS to inspect, search, or create project files, use Office workspace, or ask it to open Notepad, Calculator, File Explorer, or Task Manager. /phone-queue lists phone requests; /phone-next previews one and requires YES before execution. On Windows, Ctrl+Alt+J restores/focuses this window; /voice captures one spoken request on demand; /speak on|off controls spoken replies; press Escape during voice capture or speech to stop it; press Ctrl+C during an active AI/tool request to cancel that request without closing JARVIS; /skills lists specialist skills; /clear resets memory; /exit closes JARVIS.");
                 continue;
             }
             if (input.Equals("/skills", StringComparison.OrdinalIgnoreCase))
@@ -319,6 +337,18 @@ public sealed class ToolCallingAssistant
             finally
             {
                 activeTurnCancellation = null;
+            }
+            if (phoneCommandId.HasValue)
+            {
+                try
+                {
+                    await phoneInbox.CompleteAsync(phoneCommandId.Value, cancellationToken);
+                    Console.WriteLine("[Phone bridge] Approved request marked completed.");
+                }
+                catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+                {
+                    Console.WriteLine("[Phone bridge] Could not update queue status: " + ex.Message);
+                }
             }
             Console.WriteLine();
         }
