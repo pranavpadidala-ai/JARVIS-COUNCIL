@@ -19,6 +19,7 @@ JARVIS uses the portable Agent Skills pattern: each Markdown skill has a small Y
 3. It loads the two highest-scoring relevant skills into the current model request.
 4. The skills guide reasoning; actual actions still require a registered tool.
 5. Skills are not model weights and do not grant new computer, browser, Office or cloud permissions.
+6. Specialist agents are separate model invocations with isolated message histories. Their tool access is enforced by the runtime using per-agent allowlists; skills alone do not create agents.
 
 Use `/skills` in the JARVIS console to list discovered skills. Add a new skill by creating a folder and a `SKILL.md` file with `name`, `description` and `triggers` metadata. The project copies all Markdown files under `Skills` to the application output directory.
 
@@ -35,3 +36,16 @@ Use `/skills` in the JARVIS console to list discovered skills. Add a new skill b
 JARVIS includes native adaptations of selected Everything Claude Code practices: evidence-backed project learning, bounded iterative retrieval, explicit verification loops, context-budget discipline, role-based review passes, and harness self-audits. These are implemented as JARVIS skills and local workflows rather than importing Claude Code hooks, shell scripts, plugin manifests, or model-specific commands.
 
 Project practices are deliberately opt-in: use `/learn <trigger> => <action>` to save one, `/instincts` to inspect them, and `/forget-instinct <id>` to remove one. They are encrypted with the same Windows-user DPAPI protection as local memory and are isolated by workspace path.
+
+
+## Native specialist-agent runtime
+
+The app exposes a `specialist_agents` tool to the main assistant and a `/agents` console command. Current agents:
+
+- `planner`, `architect`, `tdd-guide`
+- `code-reviewer`, `security-reviewer`, `build-error-resolver`
+- `researcher`, `doc-updater`, `structural-engineering`
+
+Use `specialist_agents` with `action=list`, `action=run` plus `agent` and `task`, or `action=team` plus comma-separated `agents` and a shared `task`. A team runs up to four independent agents concurrently. Each agent starts with a fresh context, sees only task/context explicitly supplied to it, and can call only its registered read-only tool allowlist. The main assistant retains write/execute permissions through the separate guarded workflow.
+
+All agents currently use the configured provider and default model. Per-agent model routing, persistent agent-to-agent memory, background agent jobs, and write-capable delegated agents are not enabled. Do not describe those as implemented.
