@@ -98,6 +98,7 @@ public sealed class OfficeWorkspaceToolTests
             Assert.Contains("Layout cues:", result.Message);
             Assert.Contains("Page layout:", result.Message);
             Assert.Contains("embedded raster image objects:", result.Message);
+            Assert.Contains("No supported embedded raster images", result.Message);
         }
         finally
         {
