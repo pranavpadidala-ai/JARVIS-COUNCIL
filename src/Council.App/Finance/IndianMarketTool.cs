@@ -16,6 +16,7 @@ public sealed class IndianMarketTool : ITool
 {
     private const string ApiBase = "https://api.tejhq.dev";
     private const int MaxTrackedSymbols = 30;
+    private const int MaxPriceAlerts = 30;
     private const int MaxResponseCharacters = 1_000_000;
     private static readonly Regex SymbolPattern = new("^[A-Z0-9][A-Z0-9&-]{0,29}$", RegexOptions.Compiled | RegexOptions.CultureInvariant);
     private static readonly HttpClient SharedClient = new() { Timeout = TimeSpan.FromSeconds(12) };
@@ -38,7 +39,8 @@ public sealed class IndianMarketTool : ITool
     public string Description =>
         "Private Indian NSE/BSE equity watchlist and holdings monitor using TejHQ daily end-of-day (EOD) OHLCV. " +
         "Actions: set_holding (symbol, quantity, average_buy_price, optional exchange), add_watch (symbol, optional exchange), " +
-        "remove (symbol, optional exchange), list, quote (symbol, optional exchange), portfolio. " +
+        "set_alert (symbol, condition=above|below, price, optional exchange), alerts, remove_alert (alert_id), check_alerts, " +
+        "remove (symbol, optional exchange), list, quote, portfolio. " +
         "EOD data is normally ready the next morning IST, not live/intraday. No broker login, no order placement, no trading. " +
         "Only save holdings values explicitly supplied by the user. All arguments are strings.";
 
@@ -59,7 +61,11 @@ public sealed class IndianMarketTool : ITool
                 "list" => await ListAsync(arguments, cancellationToken),
                 "quote" => await QuoteAsync(arguments, cancellationToken),
                 "portfolio" => await PortfolioAsync(arguments, cancellationToken),
-                _ => new ToolResult(false, "Unknown action. Use set_holding, add_watch, remove, list, quote, or portfolio.")
+                "set_alert" => await SetAlertAsync(arguments, cancellationToken),
+                "alerts" => await AlertsAsync(arguments, cancellationToken),
+                "remove_alert" => await RemoveAlertAsync(arguments, cancellationToken),
+                "check_alerts" => await CheckAlertsAsync(arguments, cancellationToken),
+                _ => new ToolResult(false, "Unknown action. Use set_holding, add_watch, set_alert, alerts, remove_alert, check_alerts, remove, list, quote, or portfolio.")
             };
         }
         catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested) { throw; }
@@ -161,6 +167,10 @@ public sealed class IndianMarketTool : ITool
         if (store.Watchlist.Count == 0) output.AppendLine("  (none)");
         foreach (var item in store.Watchlist.OrderBy(x => x.Symbol))
             output.AppendLine($"  {item.Symbol} ({item.Exchange})");
+        output.AppendLine("EOD price alerts:");
+        if (store.Alerts.Count == 0) output.AppendLine("  (none)");
+        foreach (var alert in store.Alerts.OrderBy(x => x.Symbol))
+            output.AppendLine($"  {alert.Id} | {alert.Symbol} ({alert.Exchange}) | close {alert.Condition} {Money(alert.ThresholdPrice)} | {(alert.Enabled ? "ACTIVE" : $"TRIGGERED on {alert.TriggeredDate:yyyy-MM-dd} at {Money(alert.TriggeredClose ?? 0m)}")}");
         output.AppendLine("No broker account is connected.");
         return new ToolResult(true, output.ToString().Trim());
     }
@@ -237,6 +247,164 @@ public sealed class IndianMarketTool : ITool
             output.AppendLine().AppendLine("No holdings could be priced; portfolio totals are omitted rather than guessed.");
         }
         output.AppendLine().AppendLine("Important: average buy prices must reflect your current share units after any split/bonus. Verify prices and corporate actions with your broker before acting.");
+        return new ToolResult(true, output.ToString().Trim());
+    }
+
+
+    public async Task<bool> HasMonitorItemsAsync(CancellationToken cancellationToken = default)
+    {
+        await _storeGate.WaitAsync(cancellationToken);
+        try
+        {
+            var store = await LoadStoreAsync(cancellationToken);
+            return store.Holdings.Count > 0 || store.Watchlist.Count > 0 || store.Alerts.Any(alert => alert.Enabled);
+        }
+        finally { _storeGate.Release(); }
+    }
+
+    private async Task<ToolResult> SetAlertAsync(Dictionary<string, string> args, CancellationToken token)
+    {
+        if (!HasOnly(args, "action", "symbol", "condition", "price", "exchange"))
+            return new ToolResult(false, "set_alert accepts action, symbol, condition=above|below, price and optional exchange.");
+        if (!TrySymbol(args, out var symbol, out var exchange, out var error)) return new ToolResult(false, error);
+        if (exchange == "ANY") return new ToolResult(false, "set_alert requires one exchange: NSE or BSE.");
+        var condition = args.TryGetValue("condition", out var conditionText) ? conditionText.Trim().ToLowerInvariant() : "";
+        if (condition is not ("above" or "below")) return new ToolResult(false, "condition must be above or below.");
+        if (!args.TryGetValue("price", out var priceText) ||
+            !decimal.TryParse(priceText, NumberStyles.Number, CultureInfo.InvariantCulture, out var threshold) ||
+            threshold <= 0 || threshold > 1_000_000_000m)
+            return new ToolResult(false, "price must be a positive rupee amount using a dot decimal separator.");
+
+        await _storeGate.WaitAsync(token);
+        try
+        {
+            var store = await LoadStoreAsync(token);
+            var existing = store.Alerts.FirstOrDefault(alert =>
+                alert.Symbol == symbol && alert.Exchange == exchange &&
+                alert.Condition == condition && alert.ThresholdPrice == threshold);
+            if (existing is not null)
+            {
+                existing.Enabled = true;
+                existing.TriggeredDate = null;
+                existing.TriggeredClose = null;
+                existing.TriggeredAtUtc = null;
+                await SaveStoreAsync(store, token);
+                return new ToolResult(true, $"Re-armed EOD alert {existing.Id}: {symbol} ({exchange}) close {condition} ₹{threshold:N2}.");
+            }
+            if (store.Alerts.Count >= MaxPriceAlerts)
+                return new ToolResult(false, $"You can save up to {MaxPriceAlerts} price alerts.");
+            var alert = new PriceAlert
+            {
+                Id = Guid.NewGuid().ToString("N")[..8].ToUpperInvariant(),
+                Symbol = symbol,
+                Exchange = exchange,
+                Condition = condition,
+                ThresholdPrice = threshold
+            };
+            store.Alerts.Add(alert);
+            await SaveStoreAsync(store, token);
+            return new ToolResult(true, $"Saved EOD price alert {alert.Id}: {symbol} ({exchange}) close {condition} ₹{threshold:N2}. It triggers only on a fresh daily close, not intraday ticks.");
+        }
+        finally { _storeGate.Release(); }
+    }
+
+    private async Task<ToolResult> AlertsAsync(Dictionary<string, string> args, CancellationToken token)
+    {
+        if (!HasOnly(args, "action")) return new ToolResult(false, "alerts accepts only action.");
+        var store = await LoadStoreAsync(token);
+        if (store.Alerts.Count == 0) return new ToolResult(true, "No saved Indian-equity price alerts.");
+        var output = new StringBuilder("Saved EOD price alerts (local):");
+        foreach (var alert in store.Alerts.OrderBy(x => x.Symbol))
+            output.AppendLine().AppendLine($"{alert.Id} | {alert.Symbol} ({alert.Exchange}) | close {alert.Condition} ₹{alert.ThresholdPrice:N2} | {(alert.Enabled ? "ACTIVE" : $"TRIGGERED {alert.TriggeredDate:yyyy-MM-dd} at ₹{alert.TriggeredClose:N2}")}");
+        return new ToolResult(true, output.ToString().Trim());
+    }
+
+    private async Task<ToolResult> RemoveAlertAsync(Dictionary<string, string> args, CancellationToken token)
+    {
+        if (!HasOnly(args, "action", "alert_id") || !args.TryGetValue("alert_id", out var id) || string.IsNullOrWhiteSpace(id))
+            return new ToolResult(false, "remove_alert requires alert_id from the alerts list.");
+        await _storeGate.WaitAsync(token);
+        try
+        {
+            var store = await LoadStoreAsync(token);
+            var removed = store.Alerts.RemoveAll(alert => string.Equals(alert.Id, id.Trim(), StringComparison.OrdinalIgnoreCase));
+            if (removed == 0) return new ToolResult(false, $"No price alert found with ID {id}.");
+            await SaveStoreAsync(store, token);
+            return new ToolResult(true, $"Removed price alert {id}.");
+        }
+        finally { _storeGate.Release(); }
+    }
+
+    private async Task<ToolResult> CheckAlertsAsync(Dictionary<string, string> args, CancellationToken token)
+    {
+        if (!HasOnly(args, "action")) return new ToolResult(false, "check_alerts accepts only action.");
+        var store = await LoadStoreAsync(token);
+        var active = store.Alerts.Where(alert => alert.Enabled).Select(alert => new PriceAlert
+        {
+            Id = alert.Id, Symbol = alert.Symbol, Exchange = alert.Exchange, Condition = alert.Condition,
+            ThresholdPrice = alert.ThresholdPrice, Enabled = true
+        }).ToArray();
+        if (active.Length == 0) return new ToolResult(true, "No active EOD price alerts.");
+
+        using var gate = new SemaphoreSlim(4, 4);
+        var checks = await Task.WhenAll(active.Select(async alert =>
+        {
+            await gate.WaitAsync(token);
+            try
+            {
+                var result = await FetchQuoteAsync(alert.Symbol, alert.Exchange, token);
+                return new AlertCheck(alert, result.Quote, result.Error);
+            }
+            finally { gate.Release(); }
+        }));
+
+        var triggeredIds = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        var output = new StringBuilder("EOD PRICE-ALERT CHECK — daily close only, not live/intraday");
+        foreach (var check in checks)
+        {
+            if (check.Quote is null)
+            {
+                output.AppendLine().AppendLine($"{check.Alert.Id} {check.Alert.Symbol}: unavailable — {check.Error}");
+                continue;
+            }
+            var age = DateOnly.FromDateTime(DateTime.Now).DayNumber - check.Quote.Date.DayNumber;
+            if (age > 4)
+            {
+                output.AppendLine().AppendLine($"{check.Alert.Id} {check.Alert.Symbol}: stale EOD data dated {check.Quote.Date:yyyy-MM-dd}; alert not evaluated.");
+                continue;
+            }
+            var crossed = check.Alert.Condition == "above"
+                ? check.Quote.Close >= check.Alert.ThresholdPrice
+                : check.Quote.Close <= check.Alert.ThresholdPrice;
+            if (crossed)
+            {
+                triggeredIds.Add(check.Alert.Id);
+                output.AppendLine().AppendLine($"TRIGGERED {check.Alert.Id}: {check.Alert.Symbol} ({check.Alert.Exchange}) latest close ₹{check.Quote.Close:N2} on {check.Quote.Date:yyyy-MM-dd} is {check.Alert.Condition} ₹{check.Alert.ThresholdPrice:N2}.");
+            }
+            else
+            {
+                output.AppendLine().AppendLine($"{check.Alert.Id}: {check.Alert.Symbol} latest close ₹{check.Quote.Close:N2} on {check.Quote.Date:yyyy-MM-dd}; threshold ₹{check.Alert.ThresholdPrice:N2} not crossed.");
+            }
+        }
+
+        if (triggeredIds.Count > 0)
+        {
+            await _storeGate.WaitAsync(token);
+            try
+            {
+                var latestStore = await LoadStoreAsync(token);
+                foreach (var alert in latestStore.Alerts.Where(alert => triggeredIds.Contains(alert.Id) && alert.Enabled))
+                {
+                    var check = checks.First(item => item.Alert.Id == alert.Id);
+                    alert.Enabled = false;
+                    alert.TriggeredDate = check.Quote!.Date;
+                    alert.TriggeredClose = check.Quote.Close;
+                    alert.TriggeredAtUtc = DateTimeOffset.UtcNow;
+                }
+                await SaveStoreAsync(latestStore, token);
+            }
+            finally { _storeGate.Release(); }
+        }
         return new ToolResult(true, output.ToString().Trim());
     }
 
@@ -357,6 +525,7 @@ public sealed class IndianMarketTool : ITool
     {
         [JsonPropertyName("holdings")] public List<Holding> Holdings { get; set; } = [];
         [JsonPropertyName("watchlist")] public List<WatchItem> Watchlist { get; set; } = [];
+        [JsonPropertyName("alerts")] public List<PriceAlert> Alerts { get; set; } = [];
     }
     private sealed class Holding
     {
@@ -370,6 +539,19 @@ public sealed class IndianMarketTool : ITool
         public string Symbol { get; set; } = "";
         public string Exchange { get; set; } = "NSE";
     }
+    private sealed class PriceAlert
+    {
+        public string Id { get; set; } = "";
+        public string Symbol { get; set; } = "";
+        public string Exchange { get; set; } = "NSE";
+        public string Condition { get; set; } = "above";
+        public decimal ThresholdPrice { get; set; }
+        public bool Enabled { get; set; } = true;
+        public DateOnly? TriggeredDate { get; set; }
+        public decimal? TriggeredClose { get; set; }
+        public DateTimeOffset? TriggeredAtUtc { get; set; }
+    }
+    private sealed record AlertCheck(PriceAlert Alert, MarketQuote? Quote, string? Error);
     private sealed record TrackedSymbol(string Symbol, string Exchange, long? Quantity, decimal? AverageBuyPrice);
     private sealed record PortfolioQuote(TrackedSymbol Item, MarketQuote? Quote, string? Error);
     private sealed record MarketBar(DateOnly Date, decimal Close, decimal? PreviousClose, long? Volume);

@@ -98,6 +98,60 @@ public sealed class IndianMarketToolTests
         }
     }
 
+
+    [Fact]
+    public async Task EodPriceAlertTriggersOnceAndCanBeListed()
+    {
+        var today = DateOnly.FromDateTime(DateTime.UtcNow);
+        var json = $"""
+        {
+          "data": [
+            { "date": "{{today:yyyy-MM-dd}}", "close": 110.0, "prev_close": 105.0, "volume": 1500 }
+          ]
+        }
+        """;
+        var handler = new StubHandler((_, _) => Task.FromResult(new HttpResponseMessage(HttpStatusCode.OK)
+        {
+            Content = new StringContent(json, Encoding.UTF8, "application/json")
+        }));
+        using var client = new HttpClient(handler);
+        var folder = Path.Combine(Path.GetTempPath(), "JarvisMarketTests", Guid.NewGuid().ToString("N"));
+        var path = Path.Combine(folder, "watchlist.json");
+        try
+        {
+            var tool = new IndianMarketTool(client, path);
+            var saved = await tool.ExecuteAsync(new Dictionary<string, string>
+            {
+                ["action"] = "set_alert", ["symbol"] = "RELIANCE", ["condition"] = "above", ["price"] = "108"
+            });
+            Assert.True(saved.Success, saved.Message);
+            var check = await tool.ExecuteAsync(new Dictionary<string, string> { ["action"] = "check_alerts" });
+            Assert.True(check.Success, check.Message);
+            Assert.Contains("TRIGGERED", check.Message);
+            Assert.Contains("₹110.00", check.Message);
+            var secondCheck = await tool.ExecuteAsync(new Dictionary<string, string> { ["action"] = "check_alerts" });
+            Assert.Contains("No active EOD price alerts", secondCheck.Message);
+            var listed = await tool.ExecuteAsync(new Dictionary<string, string> { ["action"] = "alerts" });
+            Assert.Contains("TRIGGERED", listed.Message);
+        }
+        finally
+        {
+            if (Directory.Exists(folder)) Directory.Delete(folder, true);
+        }
+    }
+
+    [Fact]
+    public void DailyMonitorSchedulesAtNineIstAndSkipsWeekends()
+    {
+        var offset = TimeSpan.FromMinutes(330);
+        var beforeOpen = new DateTimeOffset(2026, 11, 13, 8, 0, 0, offset);
+        Assert.Equal(new DateTimeOffset(2026, 11, 13, 9, 0, 0, offset),
+            IndianMarketMonitorService.GetNextScheduledRun(beforeOpen, new TimeOnly(9, 0)));
+        var afterOpen = new DateTimeOffset(2026, 11, 13, 10, 0, 0, offset);
+        Assert.Equal(new DateTimeOffset(2026, 11, 16, 9, 0, 0, offset),
+            IndianMarketMonitorService.GetNextScheduledRun(afterOpen, new TimeOnly(9, 0)));
+    }
+
     private sealed class StubHandler(Func<HttpRequestMessage, CancellationToken, Task<HttpResponseMessage>> send) : HttpMessageHandler
     {
         protected override Task<HttpResponseMessage> SendAsync(HttpRequestMessage request, CancellationToken cancellationToken) =>
