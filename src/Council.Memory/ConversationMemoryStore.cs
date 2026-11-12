@@ -68,7 +68,7 @@ public sealed class ConversationMemoryStore
                 {
                     var stored = JsonSerializer.Deserialize<StoredMessage>(line);
                     if (stored is not null && IsPersistableRole(stored.Role))
-                        messages.Add(new AIMessage(stored.Role, SecretRedactor.Redact(stored.Content)));
+                        messages.Add(new AIMessage(stored.Role, SecretRedactor.Redact(LocalMemoryProtector.Unprotect(stored.Content))));
                 }
                 catch (JsonException)
                 {
@@ -123,7 +123,8 @@ public sealed class ConversationMemoryStore
                         string.IsNullOrWhiteSpace(stored.Content))
                         continue;
 
-                    var contentTokens = Tokenize(stored.Content);
+                    var content = LocalMemoryProtector.Unprotect(stored.Content);
+                    var contentTokens = Tokenize(content);
                     var distinctContentTokens = contentTokens.ToHashSet(StringComparer.OrdinalIgnoreCase);
                     var matchedTokens = queryTokens.Count(token => distinctContentTokens.Contains(token));
                     if (matchedTokens == 0)
@@ -132,7 +133,7 @@ public sealed class ConversationMemoryStore
                     var occurrences = contentTokens.Count(token => queryTokens.Contains(token));
                     var score = matchedTokens * 10 + Math.Min(occurrences, 20);
                     matches.Add((
-                        new AIMessage(stored.Role, SecretRedactor.Redact(stored.Content)),
+                        new AIMessage(stored.Role, SecretRedactor.Redact(content)),
                         score,
                         stored.Timestamp));
                 }
@@ -171,7 +172,7 @@ public sealed class ConversationMemoryStore
             var record = new StoredMessage(
                 DateTimeOffset.UtcNow,
                 message.Role.Trim().ToLowerInvariant(),
-                SecretRedactor.Redact(message.Content));
+                LocalMemoryProtector.Protect(SecretRedactor.Redact(message.Content)));
 
             await File.AppendAllTextAsync(
                 _filePath,
