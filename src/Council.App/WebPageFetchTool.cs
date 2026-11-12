@@ -169,10 +169,16 @@ public sealed class WebPageFetchTool : ITool
 
         if (address.AddressFamily == AddressFamily.InterNetworkV6)
         {
+            // IPv4-compatible IPv6 addresses embed an IPv4 address in the final 32 bits.
+            if (bytes.Take(12).All(value => value == 0))
+                return IsPublicAddress(new IPAddress(bytes[12..]));
+
             // IPv6 unique-local addresses (fc00::/7) are private.
             if ((bytes[0] & 0xFE) == 0xFC) return false;
-            // IPv6 documentation prefix 2001:db8::/32 is not routable.
-            if (bytes[0] == 0x20 && bytes[1] == 0x01 && bytes[2] == 0x0D && bytes[3] == 0xB8) return false;
+            // Block transition/documentation ranges that can encapsulate non-public IPv4 endpoints.
+            if (bytes[0] == 0x20 && bytes[1] == 0x02) return false; // 6to4
+            if (bytes[0] == 0x20 && bytes[1] == 0x01 && bytes[2] == 0 && bytes[3] == 0) return false; // Teredo
+            if (bytes[0] == 0x20 && bytes[1] == 0x01 && bytes[2] == 0x0D && bytes[3] == 0xB8) return false; // Documentation
             return true;
         }
 
