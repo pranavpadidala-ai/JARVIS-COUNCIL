@@ -1,4 +1,5 @@
 using System.Text.Json;
+using System.Security.Cryptography;
 using Council.Security;
 
 namespace Council.Memory;
@@ -66,7 +67,7 @@ public sealed class MemoryFactStore
                     result.Add((entry.Id, entry.CreatedAt,
                         SecretRedactor.Redact(LocalMemoryProtector.Unprotect(entry.Fact))));
                 }
-                catch (JsonException) { /* Skip damaged records. */ }
+                catch (Exception ex) when (ex is JsonException or CryptographicException or FormatException) { /* Skip damaged or unreadable records. */ }
             }
             return result;
         }
@@ -95,7 +96,7 @@ public sealed class MemoryFactStore
                         continue;
                     }
                 }
-                catch (JsonException) { }
+                catch (Exception ex) when (ex is JsonException or CryptographicException or FormatException) { }
                 retained.Add(line);
             }
             if (removed)
