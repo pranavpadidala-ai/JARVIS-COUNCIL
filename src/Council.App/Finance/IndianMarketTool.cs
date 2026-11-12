@@ -17,7 +17,7 @@ public sealed class IndianMarketTool : ITool
     private const string ApiBase = "https://api.tejhq.dev";
     private const int MaxTrackedSymbols = 30;
     private const int MaxResponseCharacters = 1_000_000;
-    private static readonly Regex SymbolPattern = new("^[A-Z0-9][A-Z0-9\\-&]{0,29}$", RegexOptions.Compiled | RegexOptions.CultureInvariant);
+    private static readonly Regex SymbolPattern = new("^[A-Z0-9][A-Z0-9&-]{0,29}$", RegexOptions.Compiled | RegexOptions.CultureInvariant);
     private static readonly HttpClient SharedClient = new() { Timeout = TimeSpan.FromSeconds(12) };
     private static readonly JsonSerializerOptions JsonOptions = new() { PropertyNameCaseInsensitive = true, WriteIndented = true };
     private readonly HttpClient _http;
