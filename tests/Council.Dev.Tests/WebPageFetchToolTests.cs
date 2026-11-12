@@ -19,6 +19,9 @@ public sealed class WebPageFetchToolTests
     [InlineData("fc00::1", false)]
     [InlineData("fe80::1", false)]
     [InlineData("2001:db8::1", false)]
+    [InlineData("::192.168.1.1", false)]
+    [InlineData("2002:7f00:1::", false)]
+    [InlineData("2606:4700:4700::1111", true)]
     public void PublicAddressFilterBlocksPrivateAndReservedRanges(string value, bool expected)
     {
         Assert.Equal(expected, WebPageFetchTool.IsPublicAddress(IPAddress.Parse(value)));
