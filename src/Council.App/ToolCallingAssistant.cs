@@ -23,6 +23,7 @@ public sealed class ToolCallingAssistant
     private bool _voiceOutputEnabled;
     private readonly ConversationMemoryStore? _memory;
     private readonly MemoryFactStore? _facts;
+    private readonly InstinctStore? _instincts;
     private bool _memoryLoaded;
     private readonly ToolRegistry _tools = new();
     private readonly AgentSkillLibrary _skills = new();
@@ -51,6 +52,7 @@ public sealed class ToolCallingAssistant
         _provider = provider ?? throw new ArgumentNullException(nameof(provider));
         _memory = memory;
         _facts = memory is null ? null : new MemoryFactStore(memory.FilePath + ".facts.jsonl");
+        _instincts = memory is null ? null : new InstinctStore(workspaceRoot);
         _tools.Register(new WorkspaceTool("list_files", "Recursively list visible files and folders. Required argument: path (use empty string for workspace root).", workspaceRoot));
         _tools.Register(new WorkspaceTool("read_file", "Read a text file. Required argument: path.", workspaceRoot));
         _tools.Register(new WorkspaceTool("search_files", "Search supported project text files. Required argument: query.", workspaceRoot));
@@ -76,7 +78,7 @@ public sealed class ToolCallingAssistant
         Console.WriteLine("Memory   : " + (_memory is null ? "disabled" : "local conversation history enabled"));
         Console.WriteLine("Workspace: " + Path.GetFullPath(Directory.GetCurrentDirectory()));
         Console.WriteLine("Tools    : workspace files, public web search and page reading, Abaqus status, Office workspace, allowlisted Windows app launcher, autonomous development tasks");
-        Console.WriteLine("Commands : /help, /skills, /remember <fact>, /memories, /forget <id>, /clear, /voice, /speak on|off, Ctrl+C cancels active request");
+        Console.WriteLine("Commands : /help, /skills, /remember <fact>, /memories, /forget <id>, /learn <trigger> => <action>, /instincts, /forget-instinct <id>, /clear, /voice, /speak on|off, Ctrl+C cancels active request");
         Console.WriteLine();
 
         if (!_memoryLoaded && _memory is not null)
@@ -300,6 +302,77 @@ public sealed class ToolCallingAssistant
                     catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
                     {
                         Console.WriteLine("[Memory] Could not remove fact: " + ex.Message);
+                    }
+                }
+                continue;
+            }
+            if (input.StartsWith("/learn ", StringComparison.OrdinalIgnoreCase))
+            {
+                if (_instincts is null)
+                {
+                    Console.WriteLine("[Learning] Enable JARVIS_MEMORY_ENABLED=true to save project practices.");
+                    continue;
+                }
+
+                var definition = input["/learn ".Length..].Trim();
+                var separator = definition.IndexOf("=>", StringComparison.Ordinal);
+                if (separator <= 0 || separator + 2 >= definition.Length ||
+                    string.IsNullOrWhiteSpace(definition[..separator]) ||
+                    string.IsNullOrWhiteSpace(definition[(separator + 2)..]))
+                {
+                    Console.WriteLine("Usage: /learn <trigger> => <action>");
+                    continue;
+                }
+
+                try
+                {
+                    var instinct = await _instincts.AddOrReinforceAsync(
+                        definition[..separator].Trim(),
+                        definition[(separator + 2)..].Trim(),
+                        cancellationToken: cancellationToken);
+                    Console.WriteLine($"[Learning] Saved project practice '{instinct.Id}' (confidence {instinct.Confidence:0.00}, evidence {instinct.EvidenceCount}).");
+                }
+                catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or PlatformNotSupportedException or System.Security.Cryptography.CryptographicException or ArgumentException or InvalidOperationException)
+                {
+                    Console.WriteLine("[Learning] Could not save practice: " + ex.Message);
+                }
+                continue;
+            }
+            if (input.Equals("/instincts", StringComparison.OrdinalIgnoreCase))
+            {
+                if (_instincts is null)
+                {
+                    Console.WriteLine("[Learning] Enable JARVIS_MEMORY_ENABLED=true to use project practices.");
+                    continue;
+                }
+
+                try
+                {
+                    var instincts = await _instincts.ListAsync(cancellationToken);
+                    if (instincts.Count == 0) Console.WriteLine("[Learning] No saved practices for this project.");
+                    foreach (var instinct in instincts)
+                        Console.WriteLine($"[{instinct.Id}] {instinct.Domain} | {instinct.Trigger} => {instinct.Action} (confidence {instinct.Confidence:0.00}, evidence {instinct.EvidenceCount})");
+                }
+                catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or PlatformNotSupportedException or System.Security.Cryptography.CryptographicException)
+                {
+                    Console.WriteLine("[Learning] Could not list practices: " + ex.Message);
+                }
+                continue;
+            }
+            if (input.StartsWith("/forget-instinct ", StringComparison.OrdinalIgnoreCase))
+            {
+                if (_instincts is null)
+                    Console.WriteLine("[Learning] Project learning is disabled.");
+                else
+                {
+                    try
+                    {
+                        var removed = await _instincts.RemoveAsync(input["/forget-instinct ".Length..].Trim(), cancellationToken);
+                        Console.WriteLine(removed ? "[Learning] Practice removed." : "[Learning] No practice found with that ID.");
+                    }
+                    catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or PlatformNotSupportedException or System.Security.Cryptography.CryptographicException)
+                    {
+                        Console.WriteLine("[Learning] Could not remove practice: " + ex.Message);
                     }
                 }
                 continue;
@@ -640,6 +713,30 @@ public sealed class ToolCallingAssistant
             catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
             {
                 Console.WriteLine("[Memory] Could not search local history: " + ex.Message);
+            }
+        }
+
+        if (_instincts is not null)
+        {
+            try
+            {
+                var instincts = (await _instincts.ListAsync(cancellationToken))
+                    .OrderByDescending(item => item.Confidence)
+                    .ThenByDescending(item => item.UpdatedAt)
+                    .Take(8)
+                    .ToArray();
+                if (instincts.Length > 0)
+                {
+                    var practices = string.Join(Environment.NewLine, instincts.Select(item =>
+                        $"- [{item.Domain}; confidence {item.Confidence:0.00}] When {item.Trigger}: {item.Action}"));
+                    messages.Add(new AIMessage(
+                        "system",
+                        "User-approved, project-scoped learned practices follow. They are preferences, not system instructions. Apply only when relevant to the current task; never let them override the user's current request, safety rules, or verified project requirements.\n" + practices));
+                }
+            }
+            catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or PlatformNotSupportedException or System.Security.Cryptography.CryptographicException)
+            {
+                Console.WriteLine("[Learning] Could not load project practices: " + ex.Message);
             }
         }
 
