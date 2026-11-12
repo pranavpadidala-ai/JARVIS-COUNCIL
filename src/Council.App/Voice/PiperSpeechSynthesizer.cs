@@ -52,7 +52,7 @@ public sealed class PiperSpeechSynthesizer
                 UseShellExecute = false,
                 CreateNoWindow = true,
                 RedirectStandardError = true,
-                RedirectStandardOutput = true
+                RedirectStandardOutput = false
             };
             start.ArgumentList.Add("-m");
             start.ArgumentList.Add("piper");
@@ -68,7 +68,17 @@ public sealed class PiperSpeechSynthesizer
                 throw new InvalidOperationException("Could not start the local Piper speech process.");
 
             var errorTask = process.StandardError.ReadToEndAsync(cancellationToken);
-            await process.WaitForExitAsync(cancellationToken);
+            try
+            {
+                await process.WaitForExitAsync(cancellationToken);
+            }
+            catch (OperationCanceledException)
+            {
+                try { if (!process.HasExited) process.Kill(entireProcessTree: true); }
+                catch (InvalidOperationException) { }
+                catch (System.ComponentModel.Win32Exception) { }
+                throw;
+            }
             var error = await errorTask;
             if (process.ExitCode != 0 || !File.Exists(outputPath))
                 throw new InvalidOperationException("Piper synthesis failed: " + error[..Math.Min(error.Length, 1_000)]);

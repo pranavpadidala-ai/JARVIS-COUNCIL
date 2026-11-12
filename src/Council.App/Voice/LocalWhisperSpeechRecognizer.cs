@@ -26,6 +26,9 @@ public sealed class LocalWhisperSpeechRecognizer
     {
         if (!OperatingSystem.IsWindows())
             throw new PlatformNotSupportedException("Local microphone capture is currently supported on Windows only.");
+        if (Environment.OSVersion.Version.Build < 22000)
+            throw new PlatformNotSupportedException(
+                "The Whisper.net CPU runtime requires Windows 11. Windows speech recognition remains available as a fallback.");
 
         await EnsureModelAsync(cancellationToken);
         var audioPath = Path.Combine(Path.GetTempPath(), "jarvis-voice-" + Guid.NewGuid().ToString("N") + ".wav");
