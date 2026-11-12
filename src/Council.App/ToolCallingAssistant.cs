@@ -1,6 +1,7 @@
 using System.Text.Json;
 using Council.App.Abaqus;
 using Council.App.Office;
+using Council.App.Phone;
 using Council.App.Skills;
 using Council.App.Voice;
 using Council.App.Windows;
@@ -88,6 +89,31 @@ public sealed class ToolCallingAssistant
             }
         }
         _memoryLoaded = true;
+
+        var phoneInbox = new PhoneCommandInbox();
+        PhoneCommandBridgeService? phoneBridge = null;
+        var bridgeBind = Environment.GetEnvironmentVariable("JARVIS_BRIDGE_BIND");
+        var bridgeToken = Environment.GetEnvironmentVariable("JARVIS_BRIDGE_TOKEN");
+        if (!string.IsNullOrWhiteSpace(bridgeBind) && !string.IsNullOrWhiteSpace(bridgeToken))
+        {
+            try
+            {
+                var bridgePort = int.TryParse(Environment.GetEnvironmentVariable("JARVIS_BRIDGE_PORT"), out var configuredPort) ? configuredPort : 47821;
+                phoneBridge = new PhoneCommandBridgeService(bridgeBind, bridgePort, bridgeToken, phoneInbox);
+                phoneBridge.Start();
+                Console.WriteLine("[Phone bridge] Listening on " + bridgeBind + ":" + bridgePort + "/ (Tailscale-only; queued commands require local approval).");
+            }
+            catch (Exception ex) when (ex is ArgumentException or InvalidOperationException or System.Net.HttpListenerException)
+            {
+                Console.WriteLine("[Phone bridge] Not started: " + ex.Message);
+                if (phoneBridge is not null) await phoneBridge.DisposeAsync();
+                phoneBridge = null;
+            }
+        }
+        else
+        {
+            Console.WriteLine("[Phone bridge] Disabled. Configure JARVIS_BRIDGE_BIND (Tailscale IPv4) and JARVIS_BRIDGE_TOKEN to enable.");
+        }
 
         WindowsGlobalHotkeyService? activationHotkey = null;
         if (OperatingSystem.IsWindows() &&
