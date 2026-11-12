@@ -53,9 +53,34 @@ The current Windows-native voice slice uses the System.Speech APIs:
 
 The desktop_control tool can launch only Notepad, Calculator, File Explorer, and Task Manager. It rejects arbitrary executable paths, extra command arguments, scripts, shell commands, and unsupported actions. It cannot unlock Windows or bypass Windows Hello/PIN. These restrictions are intentional.
 
+## Optional Android-to-laptop command inbox (first protocol slice)
+
+The first phone bridge slice is a **private, queue-only HTTP endpoint**, not a complete Android app and not remote desktop control. It is disabled unless both `JARVIS_BRIDGE_BIND` and `JARVIS_BRIDGE_TOKEN` are set. The bind address must be the laptop's Tailscale IPv4 address in `100.64.0.0/10`; ordinary LAN/public addresses are rejected. The HTTP traffic is intended to travel only inside Tailscale's encrypted private network. Do not port-forward this endpoint or expose it to the public internet.
+
+The bearer token must be at least 32 UTF-8 bytes. Keep it private and do not commit it. Configure the laptop's Tailscale address and token in the current PowerShell session before starting JARVIS:
+
+```powershell
+$env:JARVIS_BRIDGE_BIND = "100.x.y.z" # replace with the laptop's Tailscale IPv4 address
+$env:JARVIS_BRIDGE_TOKEN = "replace-with-a-random-secret-at-least-32-bytes"
+$env:JARVIS_BRIDGE_PORT = "47821"
+dotnet run --project src/Council.App/Council.App.csproj
+```
+
+The protocol currently supports:
+- `GET /api/health` — authenticated health check.
+- `POST /api/commands` — authenticated JSON body: `{"requestId":"unique-id-0001","text":"Summarize my report"}`. Request IDs make retries idempotent.
+- `GET /api/commands` — list queued and historical commands.
+- `POST /api/commands/{guid}/cancel` — cancel a command that has not been approved.
+
+Every request must include `Authorization: Bearer <token>`. POST bodies are limited to 8 KB; command text is limited to 2,000 characters; the pending queue is limited to 100 items. Queue data is stored locally at `%LOCALAPPDATA%\JARVIS-Council\PhoneBridge\inbox.json` using atomic file replacement.
+
+The laptop console provides `/phone-queue` to list pending requests and `/phone-next` to preview the next request. **JARVIS will not execute a phone request until the person at the laptop types the exact word `YES`.** Only a completed assistant turn marks it completed; cancellation or an incomplete turn leaves it queued. The endpoint itself never executes commands.
+
+There is not yet a Galaxy Android companion app, automatic background polling, remote result notifications, or wake-on-LAN. The next step is the Android client and a pairing/setup flow; only after that should the manual approval flow be expanded. If the HTTP listener cannot bind because of Windows permissions, JARVIS reports the issue and continues without the bridge.
+
 ## Deliberately not implemented in this slice
 
-Always-on wake-word listening, screen capture/vision, general window manipulation, app closing/process termination, Android remote control, watch support, and home-network control remain future work. The global shortcut only focuses the console; it is not a voice wake word and does not unlock Windows. They need separate native modules, explicit permissions, stop/cancel handling, and device-specific tests. OpenJarvis's Python agents and Ultron/Altron's machine-specific scripts are not installed by this change.
+Always-on wake-word listening, screen capture/vision, general window manipulation, app closing/process termination, a native Android companion app, automatic phone polling/notifications, watch support, and home-network control remain future work. The global shortcut only focuses the console; it is not a voice wake word and does not unlock Windows. They need separate native modules, explicit permissions, stop/cancel handling, and device-specific tests. OpenJarvis's Python agents and Ultron/Altron's machine-specific scripts are not installed by this change.
 
 ## Validation status
 
