@@ -46,11 +46,11 @@ The interactive assistant includes a `web_search` tool backed by DuckDuckGo's pu
 
 - Search queries are limited to 300 characters and results to eight entries.
 - Requests are serialized and rate-limited; responses are capped at 1.5 MB and have a 15-second timeout.
-- JARVIS receives result titles, public URLs, and short snippets. It does not claim to have opened or verified the full source page.
+- JARVIS receives result titles, public URLs, and short snippets. Use the separate `web_open` tool to fetch and extract text from a relevant public HTML/plain-text page before summarizing it.
 - Search results are untrusted data. JARVIS is instructed not to follow instructions embedded in snippets and to include source URLs in its response.
 - Only the search query is sent to the search provider. Do not search for credentials, private user data, or confidential workspace content.
 
-The HTML parser is isolated and tested. If the provider changes its markup or rate-limits requests, JARVIS reports that search is unavailable rather than inventing results. Full-page retrieval, PDF download/reading, DOI resolution, and citation verification are separate capabilities to be integrated into the research workflow.
+The search HTML parser is isolated and tested. `web_open` follows at most five individually validated redirects, resolves DNS at connection time, blocks private/reserved IP ranges and non-standard ports, disables cookies/proxies, accepts only HTML/plain text, and caps responses at 2 MB and 20 seconds. If a provider changes its markup, rate-limits requests, or a page cannot be read safely, JARVIS reports the failure rather than inventing results. PDF download/reading, DOI resolution, and citation verification remain separate research capabilities.
 
 ## Interactive autonomous software-development tasks
 
