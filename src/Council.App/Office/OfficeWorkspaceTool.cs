@@ -25,7 +25,7 @@ public sealed class OfficeWorkspaceTool : ITool
 
     public OfficeWorkspaceTool(string? workspaceRoot = null, IAIProvider? provider = null, IImageUnderstandingProvider? imageProvider = null)
     {
-        _imageProvider = imageProvider ?? provider as IImageUnderstandingProvider;
+        _imageProvider = imageProvider;
         var configured = workspaceRoot ??
             Environment.GetEnvironmentVariable("JARVIS_OFFICE_WORKSPACE");
 
@@ -48,7 +48,7 @@ public sealed class OfficeWorkspaceTool : ITool
         cancellationToken.ThrowIfCancellationRequested();
 
         if (!arguments.TryGetValue("action", out var action))
-            return Task.FromResult(new ToolResult(false, "Required argument: action."));
+            return new ToolResult(false, "Required argument: action.");
 
         try
         {
