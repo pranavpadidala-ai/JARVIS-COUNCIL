@@ -1,3 +1,4 @@
+using System.Text;
 using ClosedXML.Excel;
 using DocumentFormat.OpenXml.Packaging;
 using DocumentFormat.OpenXml.Wordprocessing;
@@ -35,6 +36,38 @@ public sealed class OfficeWorkspaceToolTests
             Assert.Contains("Results", result.Message);
             Assert.Contains("125.5", result.Message);
             Assert.Contains("4.2", result.Message);
+        }
+        finally
+        {
+            Directory.Delete(root, recursive: true);
+        }
+    }
+
+    [Fact]
+    public async Task InspectDocument_ExtractsSelectablePdfText()
+    {
+        var root = CreateTemporaryDirectory();
+        try
+        {
+            WriteMinimalPdf(Path.Combine(root, "paper.pdf"));
+            var tool = new OfficeWorkspaceTool(root);
+
+            var listing = await tool.ExecuteAsync(new Dictionary<string, string>
+            {
+                ["action"] = "list_documents"
+            });
+            Assert.True(listing.Success);
+            Assert.Contains("paper.pdf", listing.Message);
+
+            var result = await tool.ExecuteAsync(new Dictionary<string, string>
+            {
+                ["action"] = "inspect_document",
+                ["path"] = "paper.pdf"
+            });
+
+            Assert.True(result.Success, result.Message);
+            Assert.Contains("Page 1", result.Message);
+            Assert.Contains("JARVIS PDF extraction test", result.Message);
         }
         finally
         {
@@ -188,6 +221,37 @@ public sealed class OfficeWorkspaceToolTests
         {
             Directory.Delete(root, recursive: true);
         }
+    }
+
+    private static void WriteMinimalPdf(string path)
+    {
+        const string pageContent = "BT /F1 18 Tf 40 90 Td (JARVIS PDF extraction test) Tj ET";
+        var objects = new[]
+        {
+            "<< /Type /Catalog /Pages 2 0 R >>",
+            "<< /Type /Pages /Kids [3 0 R] /Count 1 >>",
+            "<< /Type /Page /Parent 2 0 R /MediaBox [0 0 300 144] /Resources << /Font << /F1 4 0 R >> >> /Contents 5 0 R >>",
+            "<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica >>",
+            $"<< /Length {Encoding.ASCII.GetByteCount(pageContent) + 1} >>\nstream\n{pageContent}\nendstream"
+        };
+
+        var pdf = new StringBuilder("%PDF-1.4\n");
+        var offsets = new List<int>();
+        for (var index = 0; index < objects.Length; index++)
+        {
+            offsets.Add(Encoding.ASCII.GetByteCount(pdf.ToString()));
+            pdf.Append(index + 1).Append(" 0 obj\n")
+                .Append(objects[index]).Append("\nendobj\n");
+        }
+
+        var xrefOffset = Encoding.ASCII.GetByteCount(pdf.ToString());
+        pdf.Append("xref\n0 6\n0000000000 65535 f \n");
+        foreach (var offset in offsets)
+            pdf.Append(offset.ToString("D10")).Append(" 00000 n \n");
+        pdf.Append("trailer\n<< /Size 6 /Root 1 0 R >>\nstartxref\n")
+            .Append(xrefOffset).Append("\n%%EOF");
+
+        File.WriteAllText(path, pdf.ToString(), Encoding.ASCII);
     }
 
     private static string CreateTemporaryDirectory()
