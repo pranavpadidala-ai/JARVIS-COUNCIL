@@ -299,8 +299,15 @@ internal sealed class WindowsDesktopAdapter : IWindowsDesktopAdapter
         if (sent != inputs.Length) throw new Win32Exception(Marshal.GetLastWin32Error(), "Windows did not accept all keyboard input events.");
     }
     [StructLayout(LayoutKind.Sequential)] private struct INPUT { public uint Type; public InputUnion Data; }
-    [StructLayout(LayoutKind.Explicit)] private struct InputUnion { [FieldOffset(0)] public KEYBDINPUT Keyboard; }
+    [StructLayout(LayoutKind.Explicit, Size = 32)] private struct InputUnion
+    {
+        [FieldOffset(0)] public KEYBDINPUT Keyboard;
+        [FieldOffset(0)] public MOUSEINPUT Mouse;
+        [FieldOffset(0)] public HARDWAREINPUT Hardware;
+    }
     [StructLayout(LayoutKind.Sequential)] private struct KEYBDINPUT { public ushort VirtualKey; public ushort ScanCode; public uint Flags; public uint Time; public UIntPtr ExtraInfo; }
+    [StructLayout(LayoutKind.Sequential)] private struct MOUSEINPUT { public int Dx; public int Dy; public uint MouseData; public uint Flags; public uint Time; public UIntPtr ExtraInfo; }
+    [StructLayout(LayoutKind.Sequential)] private struct HARDWAREINPUT { public uint Message; public ushort ParameterLow; public ushort ParameterHigh; }
     [DllImport("user32.dll", SetLastError = true)] private static extern int GetSystemMetrics(int index);
     [DllImport("user32.dll", SetLastError = true)] private static extern bool SetCursorPos(int x, int y);
     [DllImport("user32.dll", SetLastError = true)] private static extern void mouse_event(uint flags, uint dx, uint dy, uint data, UIntPtr extraInfo);
