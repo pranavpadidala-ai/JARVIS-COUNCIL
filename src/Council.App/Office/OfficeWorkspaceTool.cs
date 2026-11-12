@@ -5,6 +5,7 @@ using DocumentFormat.OpenXml;
 using DocumentFormat.OpenXml.Packaging;
 using DocumentFormat.OpenXml.Wordprocessing;
 using A = DocumentFormat.OpenXml.Drawing;
+using UglyToad.PdfPig;
 using Council.Execution.Tools;
 
 namespace Council.App.Office;
@@ -33,7 +34,7 @@ public sealed class OfficeWorkspaceTool : ITool
     public string Name => "office_workspace";
 
     public string Description =>
-        "Microsoft Office file tool. Actions: list_documents; inspect_document (path for .xlsx/.docx/.pptx); create_workbook (path, data JSON array-of-arrays, optional sheet); create_document (new .docx path, content JSON array of paragraphs, optional title). All paths are relative to the dedicated Office workspace. Creation never overwrites existing files.";
+        "Microsoft Office file tool. Actions: list_documents; inspect_document (path for .xlsx/.docx/.pptx/.pdf); create_workbook (path, data JSON array-of-arrays, optional sheet); create_document (new .docx path, content JSON array of paragraphs, optional title). All paths are relative to the dedicated Office workspace. Creation never overwrites existing files.";
 
     public Task<ToolResult> ExecuteAsync(
         Dictionary<string, string> arguments,
@@ -70,7 +71,7 @@ public sealed class OfficeWorkspaceTool : ITool
             return new ToolResult(false, "list_documents accepts only action.");
 
         var files = EnumerateSafeFiles()
-            .Where(IsSupportedOfficeFile)
+            .Where(IsSupportedDocument)
             .Take(101)
             .ToArray();
 
@@ -104,7 +105,8 @@ public sealed class OfficeWorkspaceTool : ITool
             ".xlsx" => InspectExcel(path, cancellationToken),
             ".docx" => InspectWord(path, cancellationToken),
             ".pptx" => InspectPowerPoint(path, cancellationToken),
-            _ => new ToolResult(false, "Supported formats are .xlsx, .docx, and .pptx.")
+            ".pdf" => InspectPdf(path, cancellationToken),
+            _ => new ToolResult(false, "Supported formats are .xlsx, .docx, .pptx, and .pdf.")
         };
     }
 
@@ -196,6 +198,51 @@ public sealed class OfficeWorkspaceTool : ITool
             output.AppendLine("[Preview limited to 100 slides.]");
 
         return new ToolResult(true, output.ToString().Trim());
+    }
+
+    private ToolResult InspectPdf(string path, CancellationToken cancellationToken)
+    {
+        try
+        {
+            using var document = PdfDocument.Open(path);
+            var pages = document.GetPages().Take(101).ToArray();
+            var output = new StringBuilder("PDF: " + Path.GetFileName(path));
+            output.AppendLine().AppendLine("Pages in preview: " + Math.Min(pages.Length, 100));
+
+            var totalCharacters = 0;
+            var includedPages = 0;
+            foreach (var page in pages.Take(100))
+            {
+                cancellationToken.ThrowIfCancellationRequested();
+                var pageText = page.Text ?? string.Empty;
+                if (string.IsNullOrWhiteSpace(pageText))
+                    continue;
+
+                var remaining = 50_000 - totalCharacters;
+                if (remaining <= 0)
+                    break;
+                if (pageText.Length > remaining)
+                    pageText = pageText[..remaining];
+
+                output.AppendLine().AppendLine("Page " + page.Number).AppendLine(pageText);
+                totalCharacters += pageText.Length;
+                includedPages++;
+                if (totalCharacters >= 50_000)
+                    break;
+            }
+
+            if (includedPages == 0)
+                return new ToolResult(false, "No selectable text was found. This may be a scanned PDF; OCR is not available in this reader.");
+
+            if (pages.Length > 100 || totalCharacters >= 50_000)
+                output.AppendLine().Append("[PDF preview limited to 100 pages or 50,000 text characters.]");
+
+            return new ToolResult(true, output.ToString().Trim());
+        }
+        catch (Exception ex) when (ex is not OutOfMemoryException and not OperationCanceledException)
+        {
+            return new ToolResult(false, "PDF could not be read safely: " + ex.Message);
+        }
     }
 
     private ToolResult CreateDocument(
@@ -354,7 +401,7 @@ public sealed class OfficeWorkspaceTool : ITool
         var path = ResolvePath(relativePath);
         if (!File.Exists(path))
             throw new FileNotFoundException("Office document not found in the Office workspace.", relativePath);
-        if (!IsSupportedOfficeFile(path))
+        if (!IsSupportedDocument(path))
             throw new InvalidDataException("Only .xlsx, .docx, and .pptx files are supported.");
         if ((File.GetAttributes(path) & FileAttributes.ReparsePoint) != 0)
             throw new UnauthorizedAccessException("Symbolic links and reparse points are not allowed.");
@@ -426,8 +473,8 @@ public sealed class OfficeWorkspaceTool : ITool
         }
     }
 
-    private static bool IsSupportedOfficeFile(string path) =>
-        new[] { ".xlsx", ".docx", ".pptx" }
+    private static bool IsSupportedDocument(string path) =>
+        new[] { ".xlsx", ".docx", ".pptx", ".pdf" }
             .Contains(Path.GetExtension(path), StringComparer.OrdinalIgnoreCase);
 
     private static bool HasOnly(Dictionary<string, string> args, params string[] allowed) =>
