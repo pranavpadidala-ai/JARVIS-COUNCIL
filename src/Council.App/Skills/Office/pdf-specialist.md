@@ -16,4 +16,4 @@ description: Use for reading, extracting, merging, splitting, rotating, OCR, for
 7. Verify output by reopening and checking page count, text, and representative rendered pages.
 
 ## Current JARVIS tool contract
-The current Office workspace does not support PDF operations yet. Do not claim to have read or modified a PDF through office_workspace.
+Use office_workspace action inspect_document with a relative PDF path to extract selectable text. Extraction is limited to 100 pages or 50,000 characters per inspection. Scanned/image-only PDFs return no selectable text; OCR, visual page rendering, PDF editing, merging, splitting, and form filling are not implemented. Never claim OCR or visual verification has been performed.
