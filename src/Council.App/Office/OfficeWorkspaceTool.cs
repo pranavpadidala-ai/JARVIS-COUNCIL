@@ -11,7 +11,7 @@ using Council.Execution.Tools;
 namespace Council.App.Office;
 
 /// <summary>
-/// Initial Office skill: safe inventory, document inspection, and creation of new Excel workbooks.
+/// Office workspace: safe inventory and inspection of Excel, Word, PowerPoint, and text-based PDF documents; creates new Excel workbooks and Word documents.
 /// Existing Office files are never overwritten.
 /// </summary>
 public sealed class OfficeWorkspaceTool : ITool
@@ -82,7 +82,7 @@ public sealed class OfficeWorkspaceTool : ITool
 
         return new ToolResult(true,
             "Office workspace: " + _root + Environment.NewLine +
-            (lines.Length == 0 ? "No supported Office documents found." : string.Join(Environment.NewLine, lines)) +
+            (lines.Length == 0 ? "No supported documents found." : string.Join(Environment.NewLine, lines)) +
             (limited ? Environment.NewLine + "Listing limited to 100 documents." : string.Empty));
     }
 
@@ -402,7 +402,7 @@ public sealed class OfficeWorkspaceTool : ITool
         if (!File.Exists(path))
             throw new FileNotFoundException("Office document not found in the Office workspace.", relativePath);
         if (!IsSupportedDocument(path))
-            throw new InvalidDataException("Only .xlsx, .docx, and .pptx files are supported.");
+            throw new InvalidDataException("Only .xlsx, .docx, .pptx, and .pdf files are supported.");
         if ((File.GetAttributes(path) & FileAttributes.ReparsePoint) != 0)
             throw new UnauthorizedAccessException("Symbolic links and reparse points are not allowed.");
         return path;
