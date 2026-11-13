@@ -87,7 +87,7 @@ public class TerminalControllerTests
     public async Task Newline_command_injection_is_rejected()
     {
         var command = new TerminalCommand(
-            "dotnet --version\\nwhoami",
+            "dotnet --version\nwhoami",
             Environment.CurrentDirectory,
             TimeSpan.FromSeconds(10));
 
