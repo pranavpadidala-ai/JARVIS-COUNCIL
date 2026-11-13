@@ -80,6 +80,7 @@ public class AIDevelopmentPlannerTests
             result.Steps[0]);
 
         Assert.Equal(1, provider.CallCount);
+        Assert.True(provider.LastRequest?.JsonMode);
     }
 
     [Fact]
@@ -221,6 +222,7 @@ public class AIDevelopmentPlannerTests
         public string Name => "Fake";
 
         public int CallCount { get; private set; }
+        public AIRequest? LastRequest { get; private set; }
 
         public FakeAIProvider(string response)
         {
@@ -234,6 +236,7 @@ public class AIDevelopmentPlannerTests
             cancellationToken.ThrowIfCancellationRequested();
 
             CallCount++;
+            LastRequest = request;
 
             return Task.FromResult(
                 new AIResponse(
