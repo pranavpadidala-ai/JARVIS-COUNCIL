@@ -207,8 +207,7 @@ public sealed class BraveProfileManager : IDisposable
 
     private void ValidateProfile(BraveProfile profile)
     {
-        if (string.IsNullOrWhiteSpace(profile.Id) || profile.Id.Contains(Path.DirectorySeparatorChar) ||
-            profile.Id.Contains(Path.AltDirectorySeparatorChar))
+        if (!Guid.TryParseExact(profile.Id, "N", out _))
             throw new InvalidDataException("Invalid Brave profile ID.");
         var expected = Path.GetFullPath(Path.Combine(_root, "data", profile.Id));
         if (!string.Equals(Path.GetFullPath(profile.DataDirectory), expected, StringComparison.OrdinalIgnoreCase))
