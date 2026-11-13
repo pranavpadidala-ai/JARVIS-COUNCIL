@@ -81,9 +81,9 @@ public class TaskPersistenceTests
         finally
         {
             if (File.Exists(testFile))
-            {
                 File.Delete(testFile);
-            }
+            if (File.Exists(testFile + ".lock"))
+                File.Delete(testFile + ".lock");
         }
     }
 
