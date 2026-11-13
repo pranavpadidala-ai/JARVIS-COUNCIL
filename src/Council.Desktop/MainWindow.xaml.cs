@@ -17,7 +17,7 @@ public partial class MainWindow : Window
         Closed += (_, _) => _clock.Stop();
     }
 
-    private static void OpenConsole_Click(object sender, RoutedEventArgs e)
+    private void OpenConsole_Click(object sender, RoutedEventArgs e)
     {
         var root = AppContext.BaseDirectory;
         var candidates = new[]
