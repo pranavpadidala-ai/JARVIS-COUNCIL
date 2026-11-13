@@ -217,6 +217,10 @@ $env:JARVIS_MARKET_WATCHLIST_PATH = "$env:LOCALAPPDATA\JARVIS\market\watchlist.j
 
 JARVIS resolves exact NSE/BSE cash-equity symbols through Dhan's official compact instrument-master CSV (`dhan_instrument_lookup`). The result supplies the Dhan security ID and API exchange segment needed by `dhan_readonly` market snapshots. The public master is cached in memory for six hours and refreshed on expiry; no broker credentials are needed for symbol lookup. Quote snapshots still require locally configured Dhan credentials and an active Data API entitlement. The Dhan connector remains read-only; it cannot place, modify or cancel orders.
 
+## Dhan live market feed
+
+The optional `dhan_live_feed` tool maintains one read-only DhanHQ v2 WebSocket connection while JARVIS is running. Start it with resolved `SEGMENT:SECURITY_ID` pairs (maximum 100 instruments), use `status` to inspect recent prices, and `stop` to disconnect. Ticker mode is the lightweight default; quote mode includes additional volume information. The monitor reconnects with bounded backoff and keeps the latest received tick snapshots in memory only. Subscriptions are not restored after a JARVIS restart. It requires `DHAN_CLIENT_ID`, `DHAN_ACCESS_TOKEN`, and an active Dhan Data API subscription. It never places or modifies orders.
+
 ## Safety model
 
 - Direct workspace file tools are confined to the configured workspace and do not overwrite or delete existing files.
