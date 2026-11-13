@@ -162,6 +162,13 @@ public sealed class TaskManager
             return false;
 
         task.Status = status;
+        if (status is TaskStatus.Completed or TaskStatus.Failed or TaskStatus.Paused)
+        {
+            // A claimed one-shot approval is spent when its run finishes or is
+            // interrupted. The user must explicitly approve a retry.
+            task.IsApproved = false;
+            task.ApprovalConsumedAtUtc = null;
+        }
         task.UpdatedAtUtc = DateTime.UtcNow;
         await _store.SaveUnlockedAsync(latest, cancellationToken);
         ReplaceTasks(latest);
