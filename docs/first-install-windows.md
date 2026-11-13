@@ -4,17 +4,19 @@ This is the beginner-friendly installation path for the Windows desktop build. G
 
 ## Option A: One PowerShell command (recommended)
 
+Because this is a **private GitHub repository**, the command first installs GitHub CLI if needed and opens GitHub's official browser sign-in flow. It does not ask you to paste a password or token into PowerShell.
+
 Open PowerShell and paste this command:
 
 ```powershell
-irm https://raw.githubusercontent.com/pranavpadidala-ai/JARVIS-COUNCIL/feature/powershell-install-desktop-shortcut/Install-JARVIS.ps1 | iex
+$ErrorActionPreference='Stop'; if(-not(Get-Command gh -ErrorAction SilentlyContinue)){winget install --id GitHub.cli --exact --accept-package-agreements --accept-source-agreements; if($LASTEXITCODE -ne 0){throw 'GitHub CLI installation failed. Install GitHub CLI and rerun this command.'}; $env:Path=[Environment]::GetEnvironmentVariable('Path','Machine')+';'+[Environment]::GetEnvironmentVariable('Path','User')}; gh auth status *> $null; if($LASTEXITCODE -ne 0){gh auth login --hostname github.com --git-protocol https --web; if($LASTEXITCODE -ne 0){throw 'GitHub sign-in failed.'}}; $target=Join-Path $HOME 'JARVIS'; if(Test-Path $target){throw "The folder $target already exists. Rename it first to avoid overwriting files."}; gh repo clone pranavpadidala-ai/JARVIS-COUNCIL $target -- --branch feature/powershell-install-desktop-shortcut; if($LASTEXITCODE -ne 0){throw 'JARVIS download failed.'}; & (Join-Path $target 'Setup-JARVIS.ps1')
 ```
 
-The installer downloads the project to `%USERPROFILE%\\JARVIS`, checks/installs .NET 8, restores dependencies, builds the solution, runs tests, creates a **JARVIS** shortcut on your Windows Desktop, and starts the app. It stops rather than overwriting an existing `%USERPROFILE%\\JARVIS` folder.
+After GitHub sign-in, it downloads the project to `%USERPROFILE%\\JARVIS`, checks/installs .NET 8, restores dependencies, builds the solution, runs tests, creates a **JARVIS** shortcut on your Windows Desktop, and starts the app. It stops rather than overwriting an existing installation folder.
 
 ## Option B: Download ZIP manually
 
-1. Download the ZIP for branch **feature/powershell-install-desktop-shortcut**.
+1. Download the ZIP for branch **feature/powershell-install-desktop-shortcut** while signed in to GitHub.
 2. Extract it to a folder you can find again.
 3. Run **Setup-JARVIS.bat** in the extracted folder.
 
