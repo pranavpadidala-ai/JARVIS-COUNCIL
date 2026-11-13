@@ -19,18 +19,7 @@ public partial class MainWindow : Window
 
     private void OpenConsole_Click(object sender, RoutedEventArgs e)
     {
-        var root = AppContext.BaseDirectory;
-        var candidates = new[]
-        {
-            Path.GetFullPath(Path.Combine(root, "..", "..", "..", "..", "Council.App", "bin", "Debug", "net8.0", "Council.App.exe")),
-            Path.GetFullPath(Path.Combine(root, "..", "..", "..", "..", "Council.App", "bin", "Release", "net8.0", "Council.App.exe"))
-        };
-        var executable = candidates.FirstOrDefault(File.Exists);
-        if (executable is null)
-        {
-            MessageBox.Show("The chat runtime is not installed in this build yet. The Command Center shell is ready; runtime integration is the next step.", "JARVIS", MessageBoxButton.OK, MessageBoxImage.Information);
-            return;
-        }
-        Process.Start(new ProcessStartInfo(executable) { UseShellExecute = true });
+        var chat = new ChatWindow { Owner = this };
+        chat.Show();
     }
 }
