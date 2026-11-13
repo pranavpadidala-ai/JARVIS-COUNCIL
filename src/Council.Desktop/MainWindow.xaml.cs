@@ -10,7 +10,7 @@ public partial class MainWindow : Window
     [StructLayout(LayoutKind.Sequential, CharSet = CharSet.Auto)]
     private sealed class MemoryStatus
     {
-        public uint Length = (uint)Marshal.SizeOf<MemoryStatus>();
+        public uint Length = 64;
         public uint MemoryLoad;
         public ulong TotalPhysical;
         public ulong AvailablePhysical;
