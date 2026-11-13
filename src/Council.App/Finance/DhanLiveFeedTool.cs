@@ -76,7 +76,6 @@ public static class DhanFeedPacketParser
                     lastPrice = ReadFloat(packet, 9);
                     tradeTime = ReadEpoch(packet, 15);
                     volume = BinaryPrimitives.ReadInt32LittleEndian(packet.Slice(23, 4));
-                    previousClose = ReadFloat(packet, 39);
                 }
 
                 if (lastPrice is > 0 || previousClose is > 0)
@@ -137,6 +136,14 @@ public sealed class DhanLiveFeedTool : ITool
     private DateTimeOffset? _lastConnectedAt;
     private string? _clientId;
     private string? _accessToken;
+    private readonly Func<string?> _clientIdProvider;
+    private readonly Func<string?> _accessTokenProvider;
+
+    public DhanLiveFeedTool(Func<string?>? clientIdProvider = null, Func<string?>? accessTokenProvider = null)
+    {
+        _clientIdProvider = clientIdProvider ?? (() => Environment.GetEnvironmentVariable("DHAN_CLIENT_ID"));
+        _accessTokenProvider = accessTokenProvider ?? (() => Environment.GetEnvironmentVariable("DHAN_ACCESS_TOKEN"));
+    }
 
     public string Name => "dhan_live_feed";
     public string Description =>
@@ -169,8 +176,8 @@ public sealed class DhanLiveFeedTool : ITool
         if (mode is not ("ticker" or "quote"))
             return new ToolResult(false, "mode must be ticker or quote.");
 
-        var clientId = Environment.GetEnvironmentVariable("DHAN_CLIENT_ID")?.Trim();
-        var accessToken = Environment.GetEnvironmentVariable("DHAN_ACCESS_TOKEN")?.Trim();
+        var clientId = _clientIdProvider()?.Trim();
+        var accessToken = _accessTokenProvider()?.Trim();
         if (string.IsNullOrWhiteSpace(clientId) || string.IsNullOrWhiteSpace(accessToken))
             return new ToolResult(false, "Dhan is not connected. Set DHAN_CLIENT_ID and DHAN_ACCESS_TOKEN locally; do not paste credentials into chat.");
         if (clientId.Length > 24 || clientId.Any(ch => !char.IsAsciiDigit(ch)) ||
