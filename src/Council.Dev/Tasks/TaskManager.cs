@@ -280,7 +280,8 @@ public sealed class TaskManager
                 RetryCount = task.AttemptCount,
                 FailureClassification = task.FailureClassification,
                 IdempotencyKey = task.IdempotencyKey,
-                CreatedAtUtc = DateTime.UtcNow
+                CreatedAtUtc = task.CreatedAtUtc,
+                UpdatedAtUtc = DateTime.UtcNow
             }, cancellationToken);
         }
     }
