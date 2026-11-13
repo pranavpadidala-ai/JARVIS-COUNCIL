@@ -156,14 +156,14 @@
         <Border Grid.Column="1" Style="{StaticResource Panel}" Margin="0,0,8,0">
           <StackPanel>
             <TextBlock Text="MEMORY INSIGHTS" Style="{StaticResource SectionTitle}"/>
-            <TextBlock Text="Local conversation history" Style="{StaticResource Metric}" FontSize="15"/>
+            <TextBlock x:Name="MemoryCountText" Text="Loading saved conversations..." Style="{StaticResource Metric}" FontSize="15"/>
             <TextBlock Text="Project memory and searchable knowledge index will be connected here." Style="{StaticResource Small}" TextWrapping="Wrap" Margin="0,9"/>
           </StackPanel>
         </Border>
         <Border Grid.Column="2" Style="{StaticResource Panel}">
           <StackPanel>
             <TextBlock Text="LLM STATUS" Style="{StaticResource SectionTitle}"/>
-            <TextBlock Text="Gemini  •  Configure API key" Style="{StaticResource Small}" Margin="0,5"/>
+            <TextBlock x:Name="ProviderStatusText" Text="Checking configured providers..." Style="{StaticResource Small}" Margin="0,5"/>
             <TextBlock Text="OmniRoute  •  Optional gateway" Style="{StaticResource Small}" Margin="0,8"/>
             <TextBlock Text="OpenAI  •  Optional provider" Style="{StaticResource Small}" Margin="0,8"/>
             <TextBlock Text="Local model  •  Planned" Style="{StaticResource Small}" Margin="0,8"/>
