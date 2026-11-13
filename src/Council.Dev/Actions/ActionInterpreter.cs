@@ -43,9 +43,7 @@ public sealed class ActionInterpreter
                 actions.Add(
                     new DevelopmentAction(
                         DevelopmentActionType.ListFiles,
-                        ExtractPath(normalized) is var path && path == normalized
-                            ? "."
-                            : ExtractPath(normalized)));
+                        ExtractDirectoryTarget(normalized)));
 
                 continue;
             }
@@ -138,6 +136,18 @@ public sealed class ActionInterpreter
                || step.Equals(
                    "test",
                    StringComparison.OrdinalIgnoreCase);
+    }
+
+    private static string ExtractDirectoryTarget(string step)
+    {
+        var path = ExtractPath(step);
+
+        return string.Equals(
+            path,
+            step,
+            StringComparison.OrdinalIgnoreCase)
+            ? "."
+            : path;
     }
 
     private static bool LooksLikeListFiles(string step)
