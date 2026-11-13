@@ -1,20 +1,11 @@
 @echo off
 setlocal
 cd /d "%~dp0"
-if not exist "src\Council.Desktop\Council.Desktop.csproj" (
-  echo JARVIS application files were not found. Run Setup-JARVIS.bat from the extracted repository folder.
+set "JARVIS_EXE=%~dp0src\Council.Desktop\bin\Release\net8.0-windows\Council.Desktop.exe"
+if not exist "%JARVIS_EXE%" (
+  echo JARVIS desktop application was not built. Run Setup-JARVIS.ps1 first.
   pause
   exit /b 1
 )
-where dotnet >nul 2>nul
-if errorlevel 1 (
-  echo .NET SDK was not found. Run Setup-JARVIS.bat first.
-  pause
-  exit /b 1
-)
-dotnet run --project "src\Council.App\Council.App.csproj" --configuration Release --no-build
-if errorlevel 1 (
-  echo.
-  echo JARVIS stopped with an error. Run Setup-JARVIS.bat again or inspect jarvis-setup.log.
-  pause
-)
+start "" "%JARVIS_EXE%"
+exit /b 0
