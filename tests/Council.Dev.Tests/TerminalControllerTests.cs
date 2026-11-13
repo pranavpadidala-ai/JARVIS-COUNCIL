@@ -83,6 +83,18 @@ public class TerminalControllerTests
             () => _controller.ExecuteAsync(command));
     }
 
+    [Fact]
+    public async Task Newline_command_injection_is_rejected()
+    {
+        var command = new TerminalCommand(
+            "dotnet --version\\nwhoami",
+            Environment.CurrentDirectory,
+            TimeSpan.FromSeconds(10));
+
+        await Assert.ThrowsAsync<UnauthorizedAccessException>(
+            () => _controller.ExecuteAsync(command));
+    }
+
     [Theory]
     [InlineData("")]
     [InlineData("   ")]
