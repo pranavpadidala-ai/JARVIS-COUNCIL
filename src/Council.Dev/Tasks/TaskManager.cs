@@ -1,4 +1,5 @@
 using Council.Dev.Recovery;
+using System.Text.Json;
 
 namespace Council.Dev.Tasks;
 
@@ -28,12 +29,20 @@ public sealed class TaskManager
         var recoveredInterruptedTask = false;
         foreach (var task in _tasks.Where(t => t.Status == TaskStatus.Running))
         {
-            var checkpoint = _checkpointStore is null
-                ? null
-                : await _checkpointStore.LoadAsync(task.Id, cancellationToken);
+            TaskCheckpoint? checkpoint = null;
+            string? checkpointIssue = null;
+            if (_checkpointStore is not null)
+            {
+                try { checkpoint = await _checkpointStore.LoadAsync(task.Id, cancellationToken); }
+                catch (Exception ex) when (ex is IOException or JsonException)
+                {
+                    checkpointIssue = " The saved checkpoint could not be read; inspect repository state before resuming.";
+                    task.FailureClassification = "checkpoint_unreadable";
+                }
+            }
             task.Status = TaskStatus.Paused;
             task.CurrentStep = checkpoint is null
-                ? "Recovered after an unexpected shutdown. Review the task state before resuming."
+                ? "Recovered after an unexpected shutdown. Review the task state before resuming." + checkpointIssue
                 : checkpoint.NextAction;
             if (checkpoint is not null)
             {
