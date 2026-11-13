@@ -346,8 +346,10 @@ public sealed class ToolCallingAssistant
                 Console.WriteLine("[Phone bridge] Request: " + next.Text);
                 Console.Write("Run this request now? Type YES to approve: ");
                 if (!string.Equals(Console.ReadLine()?.Trim(), "YES", StringComparison.Ordinal)) { Console.WriteLine("[Phone bridge] Left in queue."); continue; }
-                input = next.Text;
-                phoneCommandId = next.Id;
+                var claimed = await phoneInbox.ClaimAsync(next.Id, cancellationToken);
+                if (claimed is null) { Console.WriteLine("[Phone bridge] Another JARVIS session already claimed this request."); continue; }
+                input = claimed.Text;
+                phoneCommandId = claimed.Id;
             }
             if (input.Equals("/voice", StringComparison.OrdinalIgnoreCase))
             {
@@ -653,31 +655,49 @@ public sealed class ToolCallingAssistant
                     Console.WriteLine("JARVIS: " + phoneCommandResult);
                     completed = true;
                 }
-                phoneCommandSucceeded = completed && !string.IsNullOrWhiteSpace(phoneCommandResult);
+                phoneCommandSucceeded =
+                    completed &&
+                    !string.IsNullOrWhiteSpace(phoneCommandResult) &&
+                    !phoneCommandResult.StartsWith("JARVIS did not produce a final response", StringComparison.OrdinalIgnoreCase) &&
+                    !phoneCommandResult.StartsWith("The AI provider returned an empty response", StringComparison.OrdinalIgnoreCase) &&
+                    !phoneCommandResult.StartsWith("This request needs too many workspace operations", StringComparison.OrdinalIgnoreCase);
             }
             catch (OperationCanceledException) when (turnToken.IsCancellationRequested && !cancellationToken.IsCancellationRequested)
             {
+                phoneCommandResult = "Request cancelled by the user on the laptop. Any work already completed remains completed.";
                 Console.WriteLine("JARVIS: Current request cancelled. Completed work and saved history were preserved.");
             }
             catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
             {
+                phoneCommandResult = "JARVIS session ended before this request could finish.";
                 Console.WriteLine("JARVIS session cancelled.");
-                break;
             }
             catch (Exception ex)
             {
+                phoneCommandResult = "JARVIS encountered an error while processing this phone request. Please retry from the laptop.";
                 Console.WriteLine("JARVIS couldn't complete that request: " + ex.Message);
             }
             finally
             {
                 activeTurnCancellation = null;
             }
-            if (phoneCommandId.HasValue && phoneCommandSucceeded)
+            if (phoneCommandId.HasValue)
             {
                 try
                 {
-                    await phoneInbox.CompleteAsync(phoneCommandId.Value, phoneCommandResult!, cancellationToken);
-                    Console.WriteLine("[Phone bridge] Approved request marked completed.");
+                    if (phoneCommandSucceeded)
+                    {
+                        await phoneInbox.CompleteAsync(phoneCommandId.Value, phoneCommandResult!, CancellationToken.None);
+                        Console.WriteLine("[Phone bridge] Approved request marked completed.");
+                    }
+                    else
+                    {
+                        await phoneInbox.FailAsync(
+                            phoneCommandId.Value,
+                            phoneCommandResult ?? "The request was cancelled or could not be completed on the laptop.",
+                            CancellationToken.None);
+                        Console.WriteLine("[Phone bridge] Request marked failed; a new request can be submitted from the phone.");
+                    }
                 }
                 catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
                 {

@@ -11,7 +11,12 @@
         <TextBlock Text="J A R V I S" Foreground="#39DDF4" FontSize="22" FontWeight="Light"/>
         <TextBlock Text="PERSONAL AI ASSISTANT" Foreground="#7398AB" FontSize="9" Margin="2,0,0,0"/>
       </StackPanel>
-      <TextBlock x:Name="ProviderStatus" DockPanel.Dock="Right" Text="Connecting..." Foreground="#65DAB7" FontSize="11" VerticalAlignment="Center"/>
+      <StackPanel DockPanel.Dock="Right" Orientation="Horizontal" VerticalAlignment="Center">
+        <TextBlock x:Name="ProviderStatus" Text="Connecting..." Foreground="#65DAB7" FontSize="11" VerticalAlignment="Center" Margin="0,0,12,0"/>
+        <Button x:Name="PhoneInboxButton" Content="PHONE INBOX (0)" Padding="10,7"
+                Background="#123447" Foreground="#BDEFFF" BorderBrush="#24718A"
+                FontSize="10" Click="PhoneInbox_Click"/>
+      </StackPanel>
     </DockPanel>
     <Border Grid.Row="1" Background="#0C2030" BorderBrush="#17445A" BorderThickness="1" CornerRadius="7" Padding="10" Margin="0,0,0,10">
       <TextBlock Text="Ask JARVIS to research, inspect project files, analyze papers, create Office files, use specialist agents or work in visible desktop apps. Teach it with /remember &lt;fact&gt; and /learn &lt;trigger&gt; =&gt; &lt;action&gt;; review with /memories or /instincts. Use /skills, /agents, /forget &lt;id&gt;, /forget-instinct &lt;id&gt; and /clear. Local Ollama needs no cloud API key." Foreground="#9BB9C8" FontSize="11" TextWrapping="Wrap"/>

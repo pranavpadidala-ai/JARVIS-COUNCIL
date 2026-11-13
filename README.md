@@ -131,6 +131,27 @@ The OmniRoute adapter rejects the `auto` alias and any model ID not present in t
 - **Abaqus diagnostics:** reports whether a supported Abaqus launcher is detected.
 - **Phone companion:** authenticated queue-only commands over Tailscale; the laptop user must type exact `YES` before a phone request executes.
 
+## Pair the Android phone companion
+
+The phone companion sends text requests to the laptop over your private Tailscale network. It cannot execute a request by itself.
+
+1. Install Tailscale on both devices and sign in to the same tailnet.
+2. From an **elevated PowerShell window** in the repository root, run:
+
+   ```powershell
+   .\scripts\Configure-JarvisPhoneBridge.ps1
+   ```
+
+   This detects the laptop's Tailscale IPv4 address, creates a random 256-bit bearer token, reserves the local HTTP listener, and adds a Windows Firewall rule restricted to Tailscale addresses. It saves the bridge settings in your Windows user environment and prints the token once for pairing.
+3. Close and reopen JARVIS Command Center. The PHONE INBOX button in chat shows queued phone requests. The laptop user must review and explicitly approve each request before JARVIS runs it.
+4. Open `android/JarvisPhone` in Android Studio, build and install the app on your phone. Enter the laptop Tailscale IPv4 address, port `47821`, and the one-time displayed token. The app stores the token using Android Keystore encryption.
+
+Do not expose the bridge through router port forwarding or a public reverse proxy. The bridge is disabled unless the laptop environment variables are configured. To disable it and remove the firewall/URL reservation, run this from an elevated PowerShell window:
+
+```powershell
+.\scripts\Configure-JarvisPhoneBridge.ps1 -Uninstall
+```
+
 ## Optional persistent background developer
 
 JARVIS can keep a low-CPU development-queue worker running in the Windows user session. This is separate from the desktop chat and is not started automatically by installing JARVIS.

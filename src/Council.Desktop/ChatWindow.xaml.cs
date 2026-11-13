@@ -1,9 +1,11 @@
+using System.IO;
 using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Input;
 using System.Windows.Media;
 using Council.App.Chat;
 using Council.App.Voice;
+using System.Windows.Threading;
 
 namespace Council.Desktop;
 
@@ -17,19 +19,23 @@ public partial class ChatWindow : Window
     private WindowsVoiceService? _voice;
     private CancellationTokenSource? _voiceCapture;
     private CancellationTokenSource? _turnCancellation;
+    private DispatcherTimer? _phoneRefreshTimer;
 
     public ChatWindow()
     {
         InitializeComponent();
         Loaded += ChatWindow_Loaded;
-        Closed += (_, _) =>
+        Closed += async (_, _) =>
         {
+            _phoneRefreshTimer?.Stop();
             _voiceCapture?.Cancel();
             _voice?.StopAll();
             _voice?.Dispose();
             _voiceCapture?.Dispose();
             _turnCancellation?.Cancel();
             _turnCancellation?.Dispose();
+            if (_session is not null)
+                await _session.DisposeAsync();
         };
     }
 
@@ -41,6 +47,11 @@ public partial class ChatWindow : Window
                 MessageInput.Text = InitialPrompt;
             _session = await AssistantSession.CreateAsync();
             ProviderStatus.Text = $"●  {_session.ProviderName}";
+            PhoneInboxButton.ToolTip = _session.PhoneBridgeStatus;
+            await RefreshPhoneInboxCountAsync();
+            _phoneRefreshTimer = new DispatcherTimer { Interval = TimeSpan.FromSeconds(5) };
+            _phoneRefreshTimer.Tick += async (_, _) => await RefreshPhoneInboxCountAsync();
+            _phoneRefreshTimer.Start();
             foreach (var message in _session.GetRecentMessages())
                 AddMessage(message.Role == "user" ? "YOU" : "JARVIS", message.Content, message.Role != "user");
             if (_session.MessageCount == 0)
@@ -51,6 +62,46 @@ public partial class ChatWindow : Window
             ProviderStatus.Text = "●  Initialization issue";
             AddMessage("JARVIS", $"I couldn't initialize the assistant: {ex.GetBaseException().Message}", true);
         }
+    }
+
+    private async void PhoneInbox_Click(object sender, RoutedEventArgs e)
+    {
+        if (_session is null)
+            return;
+
+        var window = new PhoneInboxWindow(_session) { Owner = this };
+        window.ShowDialog();
+        RefreshTranscriptFromSession();
+        await RefreshPhoneInboxCountAsync();
+    }
+
+    private async Task RefreshPhoneInboxCountAsync()
+    {
+        if (_session is null)
+            return;
+        try
+        {
+            var commands = await _session.ListPhoneCommandsAsync();
+            var pending = commands.Count(command => command.Status == Council.App.Phone.PhoneCommandStatus.Queued);
+            PhoneInboxButton.Content = $"PHONE INBOX ({pending})";
+            PhoneInboxButton.ToolTip = _session.PhoneBridgeStatus;
+        }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+        {
+            PhoneInboxButton.ToolTip = "Phone inbox unavailable: " + ex.Message;
+        }
+    }
+
+    private void RefreshTranscriptFromSession()
+    {
+        if (_session is null)
+            return;
+        Transcript.Children.Clear();
+        var messages = _session.GetRecentMessages();
+        foreach (var message in messages)
+            AddMessage(message.Role == "user" ? "YOU" : "JARVIS", message.Content, message.Role != "user");
+        if (messages.Count == 0)
+            AddMessage("JARVIS", "Hello. I'm ready. What would you like me to work on?", true);
     }
 
     private async void Send_Click(object sender, RoutedEventArgs e) => await SendMessageAsync();
