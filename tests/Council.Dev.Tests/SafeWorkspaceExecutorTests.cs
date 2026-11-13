@@ -151,6 +151,54 @@ public class SafeWorkspaceExecutorTests
             StringComparison.OrdinalIgnoreCase);
     }
 
+    [Fact]
+    public async Task Search_skips_protected_directories_before_traversal()
+    {
+        var root = CreateWorkspace();
+        var protectedDirectory = Path.Combine(root, ".git");
+        Directory.CreateDirectory(protectedDirectory);
+        Directory.CreateDirectory(Path.Combine(root, "src"));
+
+        await File.WriteAllTextAsync(
+            Path.Combine(protectedDirectory, "Secret.cs"),
+            "needle");
+        await File.WriteAllTextAsync(
+            Path.Combine(root, "src", "Visible.cs"),
+            "needle");
+
+        var executor = new SafeWorkspaceExecutor(root);
+        var result = await executor.ExecuteAsync(
+            new DevelopmentAction(
+                DevelopmentActionType.SearchCode,
+                "needle"));
+
+        Assert.True(result.Success);
+        Assert.Contains("Visible.cs", result.Content);
+        Assert.DoesNotContain(".git", result.Content);
+    }
+
+    [Fact]
+    public async Task Search_skips_protected_configuration_files()
+    {
+        var root = CreateWorkspace();
+        await File.WriteAllTextAsync(
+            Path.Combine(root, "appsettings.json"),
+            "needle");
+        await File.WriteAllTextAsync(
+            Path.Combine(root, "Program.cs"),
+            "needle");
+
+        var executor = new SafeWorkspaceExecutor(root);
+        var result = await executor.ExecuteAsync(
+            new DevelopmentAction(
+                DevelopmentActionType.SearchCode,
+                "needle"));
+
+        Assert.True(result.Success);
+        Assert.Contains("Program.cs", result.Content);
+        Assert.DoesNotContain("appsettings.json", result.Content);
+    }
+
     private static string CreateWorkspace()
     {
         var root = Path.Combine(
