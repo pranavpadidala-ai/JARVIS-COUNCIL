@@ -162,13 +162,13 @@ public sealed class DhanLiveFeedTool : ITool
 
     public DhanLiveFeedTool(Func<string?>? clientIdProvider = null, Func<string?>? accessTokenProvider = null)
     {
-        _clientIdProvider = clientIdProvider ?? (() => Environment.GetEnvironmentVariable("DHAN_CLIENT_ID"));
-        _accessTokenProvider = accessTokenProvider ?? (() => Environment.GetEnvironmentVariable("DHAN_ACCESS_TOKEN"));
+        _clientIdProvider = clientIdProvider ?? DhanCredentialStore.ReadClientId;
+        _accessTokenProvider = accessTokenProvider ?? DhanCredentialStore.ReadAccessToken;
     }
 
     public string Name => "dhan_live_feed";
     public string Description =>
-        "Manage a read-only DhanHQ v2 live market-data WebSocket. Actions: start (instruments='NSE_EQ:1333,NSE_EQ:2885', optional mode=ticker|quote), status, stop. Resolve symbols first with dhan_instrument_lookup and pass exact exchange segments/security IDs. Start is limited to 100 instruments on one connection. Ticker mode is lightweight; quote mode adds volume and previous close. Requires local DHAN_CLIENT_ID and DHAN_ACCESS_TOKEN plus an active Dhan Data API subscription. Never places or changes orders.";
+        "Manage a read-only DhanHQ v2 live market-data WebSocket. Actions: start (instruments='NSE_EQ:1333,NSE_EQ:2885', optional mode=ticker|quote), status, stop. Resolve symbols first with dhan_instrument_lookup and pass exact exchange segments/security IDs. Start is limited to 100 instruments on one connection. Ticker mode is lightweight; quote mode adds volume and previous close. Reads credentials from Windows Credential Manager (preferred) or DHAN_CLIENT_ID / DHAN_ACCESS_TOKEN environment variables; an active Dhan Data API subscription is required. Never places or changes orders.";
 
     public async Task<ToolResult> ExecuteAsync(Dictionary<string, string> arguments, CancellationToken cancellationToken = default)
     {
@@ -200,7 +200,7 @@ public sealed class DhanLiveFeedTool : ITool
         var clientId = _clientIdProvider()?.Trim();
         var accessToken = _accessTokenProvider()?.Trim();
         if (string.IsNullOrWhiteSpace(clientId) || string.IsNullOrWhiteSpace(accessToken))
-            return new ToolResult(false, "Dhan is not connected. Set DHAN_CLIENT_ID and DHAN_ACCESS_TOKEN locally; do not paste credentials into chat.");
+            return new ToolResult(false, "Dhan is not connected. Run scripts/Set-DhanCredentials.ps1 or set DHAN_CLIENT_ID and DHAN_ACCESS_TOKEN locally; do not paste credentials into chat.");
         if (clientId.Length > 24 || clientId.Any(ch => !char.IsAsciiDigit(ch)) ||
             accessToken.Length > 8192 || accessToken.Any(char.IsControl))
             return new ToolResult(false, "Dhan credentials have an invalid format. Check the local environment variables.");

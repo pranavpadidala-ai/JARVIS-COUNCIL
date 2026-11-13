@@ -205,7 +205,7 @@ $env:JARVIS_MARKET_WATCHLIST_PATH = "$env:LOCALAPPDATA\JARVIS\market\watchlist.j
 | `JARVIS_MARKET_MONITOR_ENABLED` | Enable/disable the daily EOD portfolio and alert check |
 | `JARVIS_MARKET_MONITOR_TIME` | Daily check time in IST; default `09:00` |
 | `JARVIS_MARKET_WATCHLIST_PATH` | Override local NSE/BSE holdings and watchlist file |
-| `DHAN_CLIENT_ID`, `DHAN_ACCESS_TOKEN` | Optional read-only DhanHQ account and market-data access |
+| `DHAN_CLIENT_ID`, `DHAN_ACCESS_TOKEN` | Optional environment-variable fallback for read-only DhanHQ access; Windows Credential Manager is preferred |
 | — | Dhan symbol lookup downloads and caches the official public instrument master for six hours; no broker credentials required |
 | `JARVIS_BRIDGE_BIND` | Laptop Tailscale IPv4 address |
 | `JARVIS_BRIDGE_TOKEN` | Private phone-bridge bearer token |
@@ -218,7 +218,7 @@ $env:JARVIS_MARKET_WATCHLIST_PATH = "$env:LOCALAPPDATA\JARVIS\market\watchlist.j
 
 ## Dhan symbol resolution and broker data
 
-JARVIS resolves exact NSE/BSE cash-equity symbols through Dhan's official compact instrument-master CSV (`dhan_instrument_lookup`). The result supplies the Dhan security ID and API exchange segment needed by `dhan_readonly` market snapshots. The public master is cached in memory for six hours and refreshed on expiry; no broker credentials are needed for symbol lookup. Quote snapshots still require locally configured Dhan credentials and an active Data API entitlement. The Dhan connector remains read-only; it cannot place, modify or cancel orders.
+Store Dhan credentials in Windows Credential Manager with `scripts/Set-DhanCredentials.ps1` (the access token is entered as a secure prompt and never saved in a project file). JARVIS reads those entries first and falls back to the two environment variables if no stored entry exists. Credentials are never printed in tool output. JARVIS resolves exact NSE/BSE cash-equity symbols through Dhan's official compact instrument-master CSV (`dhan_instrument_lookup`). The result supplies the Dhan security ID and API exchange segment needed by `dhan_readonly` market snapshots. The public master is cached in memory for six hours and refreshed on expiry; no broker credentials are needed for symbol lookup. Quote snapshots still require locally configured Dhan credentials and an active Data API entitlement. The Dhan connector remains read-only; it cannot place, modify or cancel orders.
 
 ## Dhan live market feed
 

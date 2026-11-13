@@ -22,8 +22,8 @@ public sealed class DhanReadOnlyTool : ITool
     public DhanReadOnlyTool(HttpClient? httpClient = null, Func<string?>? clientId = null, Func<string?>? accessToken = null)
     {
         _http = httpClient ?? SharedClient;
-        _clientId = clientId ?? (() => Environment.GetEnvironmentVariable("DHAN_CLIENT_ID"));
-        _accessToken = accessToken ?? (() => Environment.GetEnvironmentVariable("DHAN_ACCESS_TOKEN"));
+        _clientId = clientId ?? DhanCredentialStore.ReadClientId;
+        _accessToken = accessToken ?? DhanCredentialStore.ReadAccessToken;
     }
 
     public string Name => "dhan_readonly";
@@ -31,7 +31,7 @@ public sealed class DhanReadOnlyTool : ITool
     public string Description =>
         "Read-only DhanHQ account and market-data connector. Actions: profile, holdings, positions, quote. " +
         "quote requires exchange_segment (for example NSE_EQ or BSE_EQ) and security_id (Dhan numeric security ID). " +
-        "Requires DHAN_CLIENT_ID and DHAN_ACCESS_TOKEN environment variables. Reads only; cannot place, modify, cancel, or convert orders/positions.";
+        "Reads Dhan credentials from Windows Credential Manager (preferred) or DHAN_CLIENT_ID / DHAN_ACCESS_TOKEN environment variables. Read-only; cannot place, modify, cancel, or convert orders/positions.";
 
     public async Task<ToolResult> ExecuteAsync(Dictionary<string, string> arguments, CancellationToken cancellationToken = default)
     {
@@ -53,7 +53,7 @@ public sealed class DhanReadOnlyTool : ITool
         var clientId = _clientId();
         var token = _accessToken();
         if (string.IsNullOrWhiteSpace(clientId) || string.IsNullOrWhiteSpace(token))
-            return new ToolResult(false, "Dhan is not connected. Set DHAN_CLIENT_ID and DHAN_ACCESS_TOKEN locally, then restart JARVIS. Do not paste credentials into chat.");
+            return new ToolResult(false, "Dhan is not connected. Store the credentials with scripts/Set-DhanCredentials.ps1 or set DHAN_CLIENT_ID and DHAN_ACCESS_TOKEN locally, then restart JARVIS. Do not paste credentials into chat.");
         clientId = clientId.Trim();
         token = token.Trim();
         if (clientId.Length > 24 || clientId.Length == 0 || clientId.Any(ch => !char.IsAsciiDigit(ch)))
