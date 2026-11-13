@@ -100,6 +100,18 @@ public sealed class AutonomousDevelopmentTool : ITool
         }
     }
 
+    /// <summary>
+    /// Recovers interrupted work only after acquiring the same global execution
+    /// lock used by foreground runs, so agent startup cannot pause a live task.
+    /// </summary>
+    public async Task<int> RecoverInterruptedTasksAsync(CancellationToken cancellationToken = default)
+    {
+        await EnsureInitializedAsync(cancellationToken);
+        await using var executionLock = await AcquireGlobalExecutionLockAsync(cancellationToken);
+        await _tasks.RefreshAsync(cancellationToken);
+        return await _tasks.RecoverInterruptedTasksAsync(cancellationToken);
+    }
+
     private async Task EnsureInitializedAsync(CancellationToken cancellationToken)
     {
         if (_initialized) return;
