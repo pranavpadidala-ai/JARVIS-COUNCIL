@@ -17,9 +17,12 @@ dotnet restore .\JARVIS.Council.sln
 dotnet build .\JARVIS.Council.sln
 dotnet test .\JARVIS.Council.sln
 dotnet run --project .\src\Council.App\Council.App.csproj
+
+# Optional: inspect local readiness without starting the assistant
+dotnet run --project .\src\Council.App\Council.App.csproj -- --doctor
 ```
 
-The normal startup is the interactive JARVIS assistant. If no provider key is configured, it starts in mock mode so the local application and tools can still be exercised.
+The normal startup is the interactive JARVIS assistant. `--doctor` checks the configured AI provider, Ollama models, local vision/OCR, Dhan credential presence, Abaqus launcher, voice runtimes and phone-bridge configuration. It never displays secrets or starts feeds, GUI actions or solver jobs. If no provider key is configured, it starts in mock mode so the local application and tools can still be exercised.
 
 ## Choose an AI provider
 
