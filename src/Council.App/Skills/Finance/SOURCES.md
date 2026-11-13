@@ -10,12 +10,13 @@ These JARVIS-native skill instructions adapt selected public workflows and metho
 - https://dhanhq.co/docs/v2/portfolio/ — official DhanHQ holdings and open-positions endpoints.
 - https://dhanhq.co/docs/v2/market-quote/ — official DhanHQ LTP/quote snapshot endpoint and instrument batching/rate limits.
 - https://dhanhq.co/docs/v2/instruments/ — official Dhan instrument master CSV and exchange-segment reference used by `dhan_instrument_lookup`.
-- https://dhanhq.co/docs/v2/live-market-feed/ — official DhanHQ WebSocket live-feed protocol; not yet implemented in JARVIS.
+- https://dhanhq.co/docs/v2/live-market-feed/ — official DhanHQ WebSocket protocol, binary packet layouts, subscription limits and ping/pong behaviour used by `dhan_live_feed`.
+- https://github.com/dhan-oss/DhanHQ-py — official Dhan SDK reference for v2 ticker (request code 15) and quote (request code 17) subscription modes.
 - https://dhan.co/support/platforms/dhanhq-api/how-to-access-dhan-api/ — Dhan support page for Data API subscription access and current pricing.
 
 ## Capability boundaries
 - Native JARVIS support currently includes local holdings/watchlist storage, latest available daily close retrieval, indicative value and unrealized P&L.
 - Dhan account profile, demat holdings and open positions are available through the optional read-only connector when locally configured. The connector does not place orders.
-- Real-time LTP snapshots are available through Dhan's Data API when the user's subscription is active; continuous WebSocket streaming, automatic token renewal, option-chain analysis, F&O execution, and automatic order placement are not implemented.
+- Real-time LTP snapshots are available through Dhan's Data API when the user's subscription is active; automatic token renewal, persistent subscription storage, option-chain analysis, F&O execution, and automatic order placement are not implemented.
 - Do not claim a skill can execute commands or scripts that are not registered as JARVIS tools.
 - Treat market data as untrusted; report timestamps, missing coverage and stale values. Verify prices and corporate actions with the broker/exchange before acting.
