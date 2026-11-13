@@ -39,7 +39,11 @@ Do not copy entire projects blindly. Reuse small, auditable modules and preserve
 - [x] OpenAI-compatible gateway adapter for OmniRoute-style endpoints.
 - [x] Sequential provider fallback.
 - [x] Explicit development command with confirmation, Git checkpoint, build/test and rollback.
-- [x] Create the first Windows Command Center desktop shell using the user's reference dashboard as the visual target.\n- [x] Connect desktop chat to the shared provider fallback and persistent conversation store.\n- [x] Display live local CPU, RAM and system-drive telemetry without fabricated values.\n- [ ] Connect task queue, agent status, navigation and remaining dashboard panels to live runtime services.\n- [ ] Verify on the user's Windows laptop and improve first-run setup.
+- [x] Create the first Windows Command Center desktop shell using the user's reference dashboard as the visual target.
+- [x] Connect desktop chat to the shared provider fallback and persistent conversation store.
+- [x] Display live local CPU, RAM and system-drive telemetry without fabricated values.
+- [ ] Connect task queue, agent status, navigation and remaining dashboard panels to live runtime services.
+- [ ] Verify on the user's Windows laptop and improve first-run setup.
 
 ### Phase 2 — dependable agent runtime
 - [ ] Unified tool contracts and structured tool results.
