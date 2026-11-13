@@ -54,17 +54,19 @@ public sealed class OpenAICompatibleProvider : IAIProvider
             throw new ArgumentException("At least one message is required.", nameof(request));
 
         var model = request.Model ?? _defaultModel;
-        var payload = new
+        var payload = new Dictionary<string, object?>
         {
-            model,
-            messages = request.Messages.Select(message => new
+            ["model"] = model,
+            ["messages"] = request.Messages.Select(message => new
             {
                 role = message.Role,
                 content = message.Content
-            }),
-            temperature = request.Temperature,
-            stream = false
+            }).ToArray(),
+            ["temperature"] = request.Temperature,
+            ["stream"] = false
         };
+        if (request.JsonMode)
+            payload["response_format"] = new { type = "json_object" };
 
         using var message = new HttpRequestMessage(HttpMethod.Post, _endpoint);
         message.Headers.Authorization = new AuthenticationHeaderValue("Bearer", _apiKey);

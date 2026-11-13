@@ -121,4 +121,35 @@ public sealed class AutonomousDevelopmentToolTests
             Directory.Delete(root, recursive: true);
         }
     }
+
+    [Fact]
+    public async Task ForegroundRun_IsBlockedWhenBackgroundAgentAlreadyClaimedApproval()
+    {
+        var root = Path.Combine(Path.GetTempPath(), "JarvisDevToolTests", Guid.NewGuid().ToString("N"));
+        Directory.CreateDirectory(root);
+        var taskPath = Path.Combine(root, "tasks.json");
+        try
+        {
+            var manager = new Council.Dev.Tasks.TaskManager(new Council.Dev.Tasks.TaskStore(taskPath));
+            await manager.InitializeAsync();
+            var task = await manager.CreateAsync("Claimed task", "Must not execute twice.");
+            Assert.True(await manager.ApproveAsync(task.Id));
+            Assert.NotNull(await manager.ClaimNextApprovedTaskAsync());
+
+            var tool = new AutonomousDevelopmentTool(new MockAIProvider(), root, taskPath);
+            var result = await tool.ExecuteAsync(new Dictionary<string, string>
+            {
+                ["action"] = "run_task",
+                ["task_id"] = task.Id.ToString()
+            });
+
+            Assert.False(result.Success);
+            Assert.Contains("already been claimed", result.Message);
+        }
+        finally
+        {
+            Directory.Delete(root, recursive: true);
+        }
+    }
+
 }

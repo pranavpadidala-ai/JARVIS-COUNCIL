@@ -31,13 +31,14 @@ public sealed class OllamaProviderTests
             httpClient: client);
 
         var result = await provider.AskAsync(new AIRequest(
-            [new AIMessage("user", "Hello")]));
+            [new AIMessage("user", "Hello")], JsonMode: true));
 
         Assert.Equal("Ollama (local)", result.Provider);
         Assert.Equal("Hello from local AI", result.Content);
         Assert.Equal("qwen3.5:2b-q4_K_M", result.Model);
         Assert.Contains("\"num_ctx\":4096", requestBody);
         Assert.Contains("\"stream\":false", requestBody);
+        Assert.Contains("\"format\":\"json\"", requestBody);
     }
 
     [Fact]

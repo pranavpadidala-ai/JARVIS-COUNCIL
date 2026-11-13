@@ -221,7 +221,8 @@ public sealed class AIDevelopmentPlanner : IDevelopmentPlanner
                     "user",
                     prompt)
             ],
-            Temperature: 0.1);
+            Temperature: 0.1,
+            JsonMode: true);
 
         var response = await _aiProvider.AskAsync(
             request,

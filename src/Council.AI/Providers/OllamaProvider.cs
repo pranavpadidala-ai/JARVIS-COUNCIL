@@ -39,22 +39,24 @@ public sealed class OllamaProvider : IAIProvider
         CancellationToken cancellationToken = default)
     {
         var timer = Stopwatch.StartNew();
-        var payload = new
+        var payload = new Dictionary<string, object?>
         {
-            model = _model,
-            messages = request.Messages.Select(message => new
+            ["model"] = _model,
+            ["messages"] = request.Messages.Select(message => new
             {
                 role = message.Role,
                 content = message.Content
             }).ToArray(),
-            stream = false,
-            keep_alive = Environment.GetEnvironmentVariable("JARVIS_OLLAMA_KEEP_ALIVE") ?? "30s",
-            options = new
+            ["stream"] = false,
+            ["keep_alive"] = Environment.GetEnvironmentVariable("JARVIS_OLLAMA_KEEP_ALIVE") ?? "30s",
+            ["options"] = new
             {
                 temperature = request.Temperature,
                 num_ctx = _contextTokens
             }
         };
+        if (request.JsonMode)
+            payload["format"] = "json";
 
         HttpResponseMessage response;
         try

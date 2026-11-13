@@ -81,9 +81,146 @@ public class TaskPersistenceTests
         finally
         {
             if (File.Exists(testFile))
-            {
                 File.Delete(testFile);
-            }
+            if (File.Exists(testFile + ".lock"))
+                File.Delete(testFile + ".lock");
         }
     }
+
+    [Fact]
+    public async Task ConcurrentManagers_DoNotLoseTaskQueueUpdates()
+    {
+        var root = Path.Combine(Path.GetTempPath(), "jarvis-task-test-" + Guid.NewGuid().ToString("N"));
+        Directory.CreateDirectory(root);
+        var file = Path.Combine(root, "tasks.json");
+        try
+        {
+            var managers = Enumerable.Range(0, 4)
+                .Select(_ => new TaskManager(new TaskStore(file)))
+                .ToArray();
+            await Task.WhenAll(managers.Select(manager => manager.InitializeAsync()));
+
+            var writes = Enumerable.Range(0, 40)
+                .Select(index => managers[index % managers.Length]
+                    .CreateAsync("Concurrent task " + index, "Cross-process store test."));
+            await Task.WhenAll(writes);
+
+            var reloaded = new TaskManager(new TaskStore(file));
+            await reloaded.InitializeAsync();
+            Assert.Equal(40, reloaded.Tasks.Count);
+            Assert.Equal(40, reloaded.Tasks.Select(task => task.Id).Distinct().Count());
+        }
+        finally
+        {
+            Directory.Delete(root, recursive: true);
+        }
+    }
+
+    [Fact]
+    public async Task BackgroundApproval_IsConsumedOnce_AndInterruptedWorkNeedsFreshApproval()
+    {
+        var root = Path.Combine(Path.GetTempPath(), "jarvis-task-test-" + Guid.NewGuid().ToString("N"));
+        Directory.CreateDirectory(root);
+        var file = Path.Combine(root, "tasks.json");
+        try
+        {
+            var manager = new TaskManager(new TaskStore(file));
+            await manager.InitializeAsync();
+            var task = await manager.CreateAsync("Approved work", "Must be one-shot.");
+            Assert.True(await manager.ApproveAsync(task.Id));
+
+            var claimed = await manager.ClaimNextApprovedTaskAsync();
+            Assert.NotNull(claimed);
+            Assert.Equal(task.Id, claimed!.Id);
+            Assert.NotNull(claimed.ApprovalConsumedAtUtc);
+            Assert.False(await manager.RevokeApprovalAsync(task.Id));
+            Assert.False(await manager.ApproveAsync(task.Id));
+            Assert.Null(await manager.ClaimNextApprovedTaskAsync());
+
+            Assert.Equal(1, await manager.RecoverInterruptedTasksAsync());
+            var reloaded = new TaskManager(new TaskStore(file));
+            await reloaded.InitializeAsync();
+            var paused = reloaded.Find(task.Id);
+            Assert.NotNull(paused);
+            Assert.Equal(CouncilTaskStatus.Paused, paused!.Status);
+            Assert.False(paused.IsApproved);
+            Assert.Null(paused.ApprovalConsumedAtUtc);
+            Assert.Null(await reloaded.ClaimNextApprovedTaskAsync());
+
+            Assert.True(await reloaded.ApproveAsync(task.Id));
+            var reapproved = await reloaded.ClaimNextApprovedTaskAsync();
+            Assert.NotNull(reapproved);
+            Assert.Equal(task.Id, reapproved!.Id);
+        }
+        finally
+        {
+            Directory.Delete(root, recursive: true);
+        }
+    }
+
+    [Fact]
+    public async Task RevokedApproval_CannotBeClaimedByBackgroundAgent()
+    {
+        var root = Path.Combine(Path.GetTempPath(), "jarvis-task-test-" + Guid.NewGuid().ToString("N"));
+        Directory.CreateDirectory(root);
+        var file = Path.Combine(root, "tasks.json");
+        try
+        {
+            var manager = new TaskManager(new TaskStore(file));
+            await manager.InitializeAsync();
+            var task = await manager.CreateAsync("Revoked work", "Should remain pending.");
+            Assert.True(await manager.ApproveAsync(task.Id));
+            Assert.True(await manager.RevokeApprovalAsync(task.Id));
+
+            Assert.Null(await manager.ClaimNextApprovedTaskAsync());
+            var reloaded = new TaskManager(new TaskStore(file));
+            await reloaded.InitializeAsync();
+            var saved = reloaded.Find(task.Id);
+            Assert.NotNull(saved);
+            Assert.False(saved!.IsApproved);
+            Assert.Equal(CouncilTaskStatus.Pending, saved.Status);
+        }
+        finally
+        {
+            Directory.Delete(root, recursive: true);
+        }
+    }
+
+
+    [Theory]
+    [InlineData(CouncilTaskStatus.Failed)]
+    [InlineData(CouncilTaskStatus.Paused)]
+    public async Task FailedOrPausedBackgroundRun_ReleasesApprovalForExplicitRetry(CouncilTaskStatus finalStatus)
+    {
+        var root = Path.Combine(Path.GetTempPath(), "jarvis-task-test-" + Guid.NewGuid().ToString("N"));
+        Directory.CreateDirectory(root);
+        var file = Path.Combine(root, "tasks.json");
+        try
+        {
+            var manager = new TaskManager(new TaskStore(file));
+            await manager.InitializeAsync();
+            var task = await manager.CreateAsync("Retryable work", "A failed or paused run needs a fresh approval.");
+            Assert.True(await manager.ApproveAsync(task.Id));
+            Assert.NotNull(await manager.ClaimNextApprovedTaskAsync());
+
+            Assert.True(await manager.UpdateStatusAsync(task.Id, CouncilTaskStatus.Running));
+            Assert.True(await manager.UpdateStatusAsync(task.Id, finalStatus));
+
+            var reloaded = new TaskManager(new TaskStore(file));
+            await reloaded.InitializeAsync();
+            var saved = reloaded.Find(task.Id);
+            Assert.NotNull(saved);
+            Assert.Equal(finalStatus, saved!.Status);
+            Assert.False(saved.IsApproved);
+            Assert.Null(saved.ApprovalConsumedAtUtc);
+
+            Assert.True(await reloaded.ApproveAsync(task.Id));
+            Assert.NotNull(await reloaded.ClaimNextApprovedTaskAsync());
+        }
+        finally
+        {
+            Directory.Delete(root, recursive: true);
+        }
+    }
+
 }
