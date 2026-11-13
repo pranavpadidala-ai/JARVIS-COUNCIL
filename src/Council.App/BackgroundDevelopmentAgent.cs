@@ -72,7 +72,24 @@ public sealed class BackgroundDevelopmentAgent
 
             while (!cancellationToken.IsCancellationRequested)
             {
-                await RunOneCycleAsync(cancellationToken);
+                try
+                {
+                    await RunOneCycleAsync(cancellationToken);
+                }
+                catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+                {
+                    throw;
+                }
+                catch (Exception ex)
+                {
+                    // A transient provider, file-system or task-store failure must
+                    // not permanently terminate the user's background worker.
+                    await WriteLogAsync(
+                        "Development queue cycle failed; the agent will retry after its normal idle interval. " +
+                        ex.GetType().Name + ": " + ex.Message,
+                        cancellationToken);
+                }
+
                 await Task.Delay(_pollInterval, cancellationToken);
             }
         }
