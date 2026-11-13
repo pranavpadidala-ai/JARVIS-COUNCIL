@@ -88,7 +88,8 @@ public sealed class TaskManager
         await using var fileLock = await _store.AcquireExclusiveLockAsync(cancellationToken);
         var latest = await _store.LoadUnlockedAsync(cancellationToken);
         var task = latest.FirstOrDefault(item => item.Id == taskId);
-        if (task is null || task.Status is TaskStatus.Completed or TaskStatus.Running)
+        if (task is null || task.Status is TaskStatus.Completed or TaskStatus.Running ||
+            task.ApprovalConsumedAtUtc.HasValue)
             return false;
 
         task.Status = TaskStatus.Pending;
@@ -107,7 +108,8 @@ public sealed class TaskManager
         await using var fileLock = await _store.AcquireExclusiveLockAsync(cancellationToken);
         var latest = await _store.LoadUnlockedAsync(cancellationToken);
         var task = latest.FirstOrDefault(item => item.Id == taskId);
-        if (task is null || task.Status == TaskStatus.Running)
+        if (task is null || task.Status == TaskStatus.Running ||
+            task.ApprovalConsumedAtUtc.HasValue)
             return false;
 
         task.IsApproved = false;
