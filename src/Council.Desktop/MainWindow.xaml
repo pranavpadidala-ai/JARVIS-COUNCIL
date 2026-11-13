@@ -131,7 +131,7 @@
             <TextBlock Text="QUICK COMMANDS" Style="{StaticResource SectionTitle}"/>
             <Button Style="{StaticResource ActionButton}" Content="＋  Start New Task" Click="StartTask_Click"/>
             <Button Style="{StaticResource ActionButton}" Content="▤  Open Conversations" Click="OpenConsole_Click"/>
-            <Button Style="{StaticResource ActionButton}" Content="◉  Voice & Chat" Click="OpenConsole_Click"/>
+            <Button Style="{StaticResource ActionButton}" Content="◉  Voice &amp; Chat" Click="OpenConsole_Click"/>
             <Button Style="{StaticResource ActionButton}" Content="⌘  Run Workflow" Click="RunWorkflow_Click"/>
           </StackPanel>
         </Border>
