@@ -1,4 +1,6 @@
 using System.Text;
+using System.IO.Compression;
+using System.Security;
 using System.Text.Json;
 using ClosedXML.Excel;
 using DocumentFormat.OpenXml;
@@ -14,7 +16,7 @@ using Council.Core.Providers;
 namespace Council.App.Office;
 
 /// <summary>
-/// Office workspace: safe inspection of Excel, Word, PowerPoint and PDFs, including selectable-text extraction and bounded visual OCR; creates new Excel workbooks and Word documents.
+/// Office workspace: safe inspection of Excel, Word, PowerPoint and PDFs, including selectable-text extraction and bounded visual OCR; creates new Excel workbooks, Word documents and editable PowerPoint presentations.
 /// Existing Office files are never overwritten.
 /// </summary>
 public sealed class OfficeWorkspaceTool : ITool
@@ -43,7 +45,7 @@ public sealed class OfficeWorkspaceTool : ITool
     public string Name => "office_workspace";
 
     public string Description =>
-        "Microsoft Office file tool. Actions: list_documents; inspect_document (path for .xlsx/.docx/.pptx/.pdf); analyze_paper (path, optional mode=quick|deep, start_page, end_page for selectable-text extraction, bounded full-page rendering and local engineering OCR or optional Gemini full-PDF review); create_workbook (path, data JSON array-of-arrays, optional sheet); create_document (new .docx path, content JSON array of paragraphs, optional title). All paths are relative to the dedicated Office workspace. Creation never overwrites existing files.";
+        "Microsoft Office file tool. Actions: list_documents; inspect_document (path for .xlsx/.docx/.pptx/.pdf); analyze_paper (path, optional mode=quick|deep, start_page, end_page for selectable-text extraction, bounded full-page rendering and local engineering OCR or optional Gemini full-PDF review); create_workbook (path, data JSON array-of-arrays, optional sheet); create_document (new .docx path, content JSON array of paragraphs, optional title); create_presentation (new .pptx path, slides JSON array of slide objects with title, optional subtitle and bullets). All paths are relative to the dedicated Office workspace. Creation never overwrites existing files.";
 
     public async Task<ToolResult> ExecuteAsync(
         Dictionary<string, string> arguments,
@@ -63,7 +65,8 @@ public sealed class OfficeWorkspaceTool : ITool
                 "analyze_paper" => await AnalyzePaperAsync(arguments, cancellationToken),
                 "create_workbook" => CreateWorkbook(arguments, cancellationToken),
                 "create_document" => CreateDocument(arguments, cancellationToken),
-                _ => new ToolResult(false, "Unknown Office action. Use list_documents, inspect_document, analyze_paper, create_workbook, or create_document.")
+                "create_presentation" => CreatePresentation(arguments, cancellationToken),
+                _ => new ToolResult(false, "Unknown Office action. Use list_documents, inspect_document, analyze_paper, create_workbook, create_document, or create_presentation.")
             };
             return result;
         }
@@ -663,6 +666,138 @@ public sealed class OfficeWorkspaceTool : ITool
         }
     }
 
+    private ToolResult CreatePresentation(Dictionary<string, string> args, CancellationToken token)
+    {
+        if (!HasOnly(args, "action", "path", "slides") ||
+            !args.TryGetValue("path", out var relativePath) ||
+            !args.TryGetValue("slides", out var slidesJson))
+            return new ToolResult(false, "create_presentation requires action, path and slides (JSON array of slide objects).");
+        var path = ResolveNewFile(relativePath, ".pptx");
+        using var json = JsonDocument.Parse(slidesJson);
+        if (json.RootElement.ValueKind != JsonValueKind.Array || json.RootElement.GetArrayLength() is < 1 or > 50)
+            return new ToolResult(false, "slides must contain 1 to 50 slide objects.");
+
+        var slides = new List<PresentationSlide>();
+        var total = 0;
+        foreach (var item in json.RootElement.EnumerateArray())
+        {
+            token.ThrowIfCancellationRequested();
+            if (item.ValueKind != JsonValueKind.Object ||
+                item.EnumerateObject().Any(p => p.Name is not ("title" or "subtitle" or "bullets")) ||
+                !item.TryGetProperty("title", out var titleNode) || titleNode.ValueKind != JsonValueKind.String)
+                return new ToolResult(false, "Each slide needs a string title and may contain only subtitle and bullets.");
+            var title = titleNode.GetString()?.Trim() ?? "";
+            var subtitle = item.TryGetProperty("subtitle", out var sub) && sub.ValueKind == JsonValueKind.String ? sub.GetString()?.Trim() ?? "" : "";
+            if (string.IsNullOrWhiteSpace(title) || title.Length > 200 || subtitle.Length > 400)
+                return new ToolResult(false, "Slide title must be 1–200 characters and subtitle at most 400 characters.");
+            var bullets = new List<string>();
+            if (item.TryGetProperty("bullets", out var bulletNode))
+            {
+                if (bulletNode.ValueKind != JsonValueKind.Array || bulletNode.GetArrayLength() > 12)
+                    return new ToolResult(false, "Each slide may contain at most 12 bullet strings.");
+                foreach (var bullet in bulletNode.EnumerateArray())
+                {
+                    if (bullet.ValueKind != JsonValueKind.String) return new ToolResult(false, "Every bullet must be a string.");
+                    var value = bullet.GetString()?.Trim() ?? "";
+                    if (value.Length is < 1 or > 2000) return new ToolResult(false, "Each bullet must contain 1–2,000 characters.");
+                    bullets.Add(value);
+                }
+            }
+            total += title.Length + subtitle.Length + bullets.Sum(x => x.Length);
+            if (total > 100_000) return new ToolResult(false, "Presentation text is limited to 100,000 characters.");
+            slides.Add(new PresentationSlide(title, subtitle, bullets));
+        }
+
+        var temp = path + "." + Guid.NewGuid().ToString("N") + ".tmp";
+        try
+        {
+            using (var stream = new FileStream(temp, FileMode.CreateNew, FileAccess.ReadWrite, FileShare.None))
+            using (var zip = new ZipArchive(stream, ZipArchiveMode.Create))
+            {
+                AddZipText(zip, "[Content_Types].xml", BuildPptxContentTypes(slides.Count));
+                AddZipText(zip, "_rels/.rels", """<?xml version="1.0" encoding="UTF-8"?><Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships"><Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/officeDocument" Target="ppt/presentation.xml"/></Relationships>""");
+                AddZipText(zip, "ppt/presentation.xml", BuildPptxPresentation(slides.Count));
+                AddZipText(zip, "ppt/_rels/presentation.xml.rels", BuildPptxPresentationRels(slides.Count));
+                AddZipText(zip, "ppt/slideMasters/slideMaster1.xml", PptxSlideMaster);
+                AddZipText(zip, "ppt/slideMasters/_rels/slideMaster1.xml.rels", """<?xml version="1.0" encoding="UTF-8"?><Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships"><Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/slideLayout" Target="../slideLayouts/slideLayout1.xml"/></Relationships>""");
+                AddZipText(zip, "ppt/slideLayouts/slideLayout1.xml", PptxSlideLayout);
+                AddZipText(zip, "ppt/slideLayouts/_rels/slideLayout1.xml.rels", """<?xml version="1.0" encoding="UTF-8"?><Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships"><Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/slideMaster" Target="../slideMasters/slideMaster1.xml"/></Relationships>""");
+                for (var i = 0; i < slides.Count; i++)
+                {
+                    token.ThrowIfCancellationRequested();
+                    var n = i + 1;
+                    AddZipText(zip, $"ppt/slides/slide{n}.xml", BuildPptxSlide(slides[i], n));
+                    AddZipText(zip, $"ppt/slides/_rels/slide{n}.xml.rels", """<?xml version="1.0" encoding="UTF-8"?><Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships"><Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/slideLayout" Target="../slideLayouts/slideLayout1.xml"/></Relationships>""");
+                }
+            }
+            File.Move(temp, path);
+        }
+        finally { if (File.Exists(temp)) File.Delete(temp); }
+
+        return new ToolResult(true, $"Created editable PowerPoint presentation: {Path.GetRelativePath(_root, path)} ({slides.Count} slides, {total} text characters). Existing files were not overwritten.");
+    }
+
+    private static void AddZipText(ZipArchive zip, string name, string value)
+    {
+        var entry = zip.CreateEntry(name, CompressionLevel.Optimal);
+        using var writer = new StreamWriter(entry.Open(), new UTF8Encoding(false));
+        writer.Write(value);
+    }
+
+    private static string BuildPptxContentTypes(int count)
+    {
+        var slides = string.Concat(Enumerable.Range(1, count).Select(i => $"<Override PartName=\"/ppt/slides/slide{i}.xml\" ContentType=\"application/vnd.openxmlformats-officedocument.presentationml.slide+xml\"/>"));
+        return $"""<?xml version="1.0" encoding="UTF-8"?><Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types"><Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/><Default Extension="xml" ContentType="application/xml"/><Override PartName="/ppt/presentation.xml" ContentType="application/vnd.openxmlformats-officedocument.presentationml.presentation.main+xml"/><Override PartName="/ppt/slideMasters/slideMaster1.xml" ContentType="application/vnd.openxmlformats-officedocument.presentationml.slideMaster+xml"/><Override PartName="/ppt/slideLayouts/slideLayout1.xml" ContentType="application/vnd.openxmlformats-officedocument.presentationml.slideLayout+xml"/>{slides}</Types>""";
+    }
+
+    private static string BuildPptxPresentation(int count)
+    {
+        var ids = string.Concat(Enumerable.Range(1, count).Select(i => $"<p:sldId id=\"{255 + i}\" r:id=\"rId{i + 1}\"/>"));
+        return $"""<?xml version="1.0" encoding="UTF-8"?><p:presentation xmlns:a="http://schemas.openxmlformats.org/drawingml/2006/main" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships" xmlns:p="http://schemas.openxmlformats.org/presentationml/2006/main"><p:sldMasterIdLst><p:sldMasterId id="2147483648" r:id="rId1"/></p:sldMasterIdLst><p:sldIdLst>{ids}</p:sldIdLst><p:sldSz cx="12192000" cy="6858000" type="screen16x9"/><p:notesSz cx="6858000" cy="9144000"/></p:presentation>""";
+    }
+
+    private static string BuildPptxPresentationRels(int count)
+    {
+        var slides = string.Concat(Enumerable.Range(1, count).Select(i => $"<Relationship Id=\"rId{i + 1}\" Type=\"http://schemas.openxmlformats.org/officeDocument/2006/relationships/slide\" Target=\"slides/slide{i}.xml\"/>"));
+        return $"""<?xml version="1.0" encoding="UTF-8"?><Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships"><Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/slideMaster" Target="slideMasters/slideMaster1.xml"/>{slides}</Relationships>""";
+    }
+
+    private const string PptxSlideMaster = """<?xml version="1.0" encoding="UTF-8"?><p:sldMaster xmlns:a="http://schemas.openxmlformats.org/drawingml/2006/main" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships" xmlns:p="http://schemas.openxmlformats.org/presentationml/2006/main"><p:cSld><p:spTree><p:nvGrpSpPr><p:cNvPr id="1" name=""/><p:cNvGrpSpPr/><p:nvPr/></p:nvGrpSpPr><p:grpSpPr><a:xfrm><a:off x="0" y="0"/><a:ext cx="0" cy="0"/><a:chOff x="0" y="0"/><a:chExt cx="0" cy="0"/></a:xfrm></p:grpSpPr></p:spTree></p:cSld><p:clrMap bg1="lt1" tx1="dk1" bg2="lt2" tx2="dk2" accent1="accent1" accent2="accent2" accent3="accent3" accent4="accent4" accent5="accent5" accent6="accent6" hlink="hlink" folHlink="folHlink"/><p:sldLayoutIdLst><p:sldLayoutId id="1" r:id="rId1"/></p:sldLayoutIdLst><p:txStyles><p:titleStyle><a:lvl1pPr><a:defRPr sz="3200"/></a:lvl1pPr></p:titleStyle><p:bodyStyle><a:lvl1pPr><a:defRPr sz="2000"/></a:lvl1pPr></p:bodyStyle><p:otherStyle><a:defPPr><a:defRPr lang="en-US"/></a:defPPr></p:otherStyle></p:txStyles></p:sldMaster>""";
+    private const string PptxSlideLayout = """<?xml version="1.0" encoding="UTF-8"?><p:sldLayout xmlns:a="http://schemas.openxmlformats.org/drawingml/2006/main" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships" xmlns:p="http://schemas.openxmlformats.org/presentationml/2006/main" type="blank" preserve="1"><p:cSld name="JARVIS Blank"><p:spTree><p:nvGrpSpPr><p:cNvPr id="1" name=""/><p:cNvGrpSpPr/><p:nvPr/></p:nvGrpSpPr><p:grpSpPr><a:xfrm><a:off x="0" y="0"/><a:ext cx="0" cy="0"/><a:chOff x="0" y="0"/><a:chExt cx="0" cy="0"/></a:xfrm></p:grpSpPr></p:spTree></p:cSld><p:clrMapOvr><a:masterClrMapping/></p:clrMapOvr></p:sldLayout>""";
+
+    private static string BuildPptxSlide(PresentationSlide slide, int number)
+    {
+        var size = slide.Bullets.Count > 9 || slide.Bullets.Sum(x => x.Length) > 900 ? 1700 : slide.Bullets.Count > 6 ? 1900 : 2100;
+        var body = slide.Bullets.Count == 0 ? "<a:p><a:endParaRPr lang=\"en-US\"/></a:p>" :
+            string.Concat(slide.Bullets.Select(x => PptxTextParagraph(x, size, "263445", false, true)));
+        var subtitle = string.IsNullOrWhiteSpace(slide.Subtitle) ? "" :
+            PptxTextShape(5, "Subtitle", 914400, 1050000, 10363200, 360000, PptxTextParagraph(slide.Subtitle, 1700, "F6C66A", false, false), "ctr");
+        var footer = PptxTextShape(6, "Slide number", 11000000, 6400000, 500000, 200000, PptxTextParagraph(number.ToString(System.Globalization.CultureInfo.InvariantCulture), 1000, "64748B", false, false), "ctr");
+        return $"""<?xml version="1.0" encoding="UTF-8"?><p:sld xmlns:a="http://schemas.openxmlformats.org/drawingml/2006/main" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships" xmlns:p="http://schemas.openxmlformats.org/presentationml/2006/main"><p:cSld name="Slide {number}"><p:spTree><p:nvGrpSpPr><p:cNvPr id="1" name=""/><p:cNvGrpSpPr/><p:nvPr/></p:nvGrpSpPr><p:grpSpPr><a:xfrm><a:off x="0" y="0"/><a:ext cx="0" cy="0"/><a:chOff x="0" y="0"/><a:chExt cx="0" cy="0"/></a:xfrm></p:grpSpPr>{PptxRectangle(2, "Navy header", 0, 0, 12192000, 1524000, "17365D")}{PptxRectangle(3, "Gold accent", 0, 1524000, 12192000, 45720, "E3A13B")}{PptxTextShape(4, "Slide title", 914400, 300000, 10363200, 650000, PptxTextParagraph(slide.Title, 3100, "FFFFFF", true, false), "ctr")}{subtitle}{PptxTextShape(7, "Slide body", 1050000, 1950000, 10000000, 4200000, body, "t")}{footer}</p:spTree></p:cSld><p:clrMapOvr><a:masterClrMapping/></p:clrMapOvr></p:sld>""";
+    }
+
+    private static string PptxRectangle(uint id, string name, long x, long y, long w, long h, string fill) =>
+        PptxShape(id, name, x, y, w, h, $"<a:solidFill><a:srgbClr val=\"{fill}\"/></a:solidFill>", "<a:p><a:endParaRPr lang=\"en-US\"/></a:p>", false, "ctr");
+
+    private static string PptxTextShape(uint id, string name, long x, long y, long w, long h, string paragraphs, string anchor) =>
+        PptxShape(id, name, x, y, w, h, "<a:noFill/>", paragraphs, true, anchor);
+
+    private static string PptxShape(uint id, string name, long x, long y, long w, long h, string fill, string paragraphs, bool textBox, string anchor)
+    {
+        var textBoxAttribute = textBox ? " txBox=\"1\"" : "";
+        return $"""<p:sp><p:nvSpPr><p:cNvPr id="{id}" name="{SecurityElement.Escape(name)}"/><p:cNvSpPr{textBoxAttribute}/><p:nvPr/></p:nvSpPr><p:spPr><a:xfrm><a:off x="{x}" y="{y}"/><a:ext cx="{w}" cy="{h}"/></a:xfrm><a:prstGeom prst="rect"><a:avLst/></a:prstGeom>{fill}<a:ln><a:noFill/></a:ln></p:spPr><p:txBody><a:bodyPr wrap="square" anchor="{anchor}" lIns="0" rIns="0" tIns="0" bIns="0"/><a:lstStyle/>{paragraphs}</p:txBody></p:sp>""";
+    }
+
+    private static string PptxTextParagraph(string text, int size, string color, bool bold, bool bullet)
+    {
+        var escaped = SecurityElement.Escape(text) ?? "";
+        var pPr = bullet ? "<a:pPr marL=\"457200\" indent=\"-228600\" algn=\"l\"><a:buChar char=\"•\"/></a:pPr>" : "<a:pPr algn=\"l\"/>";
+        var boldAttribute = bold ? " b=\"1\"" : "";
+        return $"""<a:p>{pPr}<a:r><a:rPr lang="en-US" sz="{size}"{boldAttribute}><a:solidFill><a:srgbClr val="{color}"/></a:solidFill><a:latin typeface="Aptos"/></a:rPr><a:t xml:space="preserve">{escaped}</a:t></a:r><a:endParaRPr lang="en-US" sz="{size}"/></a:p>""";
+    }
+
+    private sealed record PresentationSlide(string Title, string Subtitle, IReadOnlyList<string> Bullets);
+
     private ToolResult CreateDocument(
         Dictionary<string, string> args,
         CancellationToken cancellationToken)
@@ -830,7 +965,7 @@ public sealed class OfficeWorkspaceTool : ITool
     {
         var path = ResolvePath(relativePath);
         if (!string.Equals(Path.GetExtension(path), requiredExtension, StringComparison.OrdinalIgnoreCase))
-            throw new ArgumentException("New workbook path must end in " + requiredExtension);
+            throw new ArgumentException("New file path must end in " + requiredExtension);
         if (File.Exists(path) || Directory.Exists(path))
             throw new IOException("The destination already exists. Choose a new filename.");
         var parent = Path.GetDirectoryName(path)!;

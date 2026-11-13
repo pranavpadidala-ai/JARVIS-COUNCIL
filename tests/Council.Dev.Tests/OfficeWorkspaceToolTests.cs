@@ -2,6 +2,7 @@ using System.Text;
 using ClosedXML.Excel;
 using DocumentFormat.OpenXml.Packaging;
 using DocumentFormat.OpenXml.Wordprocessing;
+using A = DocumentFormat.OpenXml.Drawing;
 using Council.App.Office;
 using Council.Core.Models;
 using Council.Core.Providers;
@@ -11,6 +12,62 @@ namespace Council.Dev.Tests;
 
 public sealed class OfficeWorkspaceToolTests
 {
+    [Fact]
+    public async Task CreatePresentation_WritesAnEditablePowerPointWithSlideTitlesAndBullets()
+    {
+        var root = CreateTemporaryDirectory();
+        try
+        {
+            var result = await new OfficeWorkspaceTool(root).ExecuteAsync(new Dictionary<string, string>
+            {
+                ["action"] = "create_presentation",
+                ["path"] = "engineering-review.pptx",
+                ["slides"] = """[
+                    {"title":"Structural Behaviour","subtitle":"Aluminium mullion and external fin study","bullets":["Research gap","Finite element modelling","Validation programme"]},
+                    {"title":"Numerical programme","bullets":["Mullion alone","Fin alone","Mullion plus fin"]}
+                ]"""
+            });
+
+            Assert.True(result.Success, result.Message);
+            Assert.Contains("2 slides", result.Message);
+            using var presentation = PresentationDocument.Open(Path.Combine(root, "engineering-review.pptx"), false);
+            var slideParts = presentation.PresentationPart!.SlideParts.ToArray();
+            Assert.Equal(2, slideParts.Length);
+            var slideText = slideParts.SelectMany(slide => slide.Slide.Descendants<A.Text>())
+                .Select(text => text.Text).ToArray();
+            Assert.Contains("Structural Behaviour", slideText);
+            Assert.Contains("Research gap", slideText);
+            Assert.Contains("Mullion plus fin", slideText);
+        }
+        finally
+        {
+            Directory.Delete(root, recursive: true);
+        }
+    }
+
+    [Fact]
+    public async Task CreatePresentation_RefusesToOverwriteExistingPowerPoint()
+    {
+        var root = CreateTemporaryDirectory();
+        try
+        {
+            var path = Path.Combine(root, "existing.pptx");
+            await File.WriteAllTextAsync(path, "keep-this-file");
+            var result = await new OfficeWorkspaceTool(root).ExecuteAsync(new Dictionary<string, string>
+            {
+                ["action"] = "create_presentation",
+                ["path"] = "existing.pptx",
+                ["slides"] = """[{"title":"Do not overwrite"}]"""
+            });
+            Assert.False(result.Success);
+            Assert.Equal("keep-this-file", await File.ReadAllTextAsync(path));
+        }
+        finally
+        {
+            Directory.Delete(root, recursive: true);
+        }
+    }
+
     [Fact]
     public async Task InspectDocument_ReadsExcelSheetAndValues()
     {
