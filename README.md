@@ -44,6 +44,8 @@ dotnet run --project .\src\Council.Desktop\Council.Desktop.csproj
 
 The desktop conversation history is stored locally under `%LOCALAPPDATA%\JARVIS\Conversations\current.json`. The desktop shell is an early usable chat/dashboard build; advanced tool execution, voice controls and live agent/task panels are still being connected to the full JARVIS runtime. Do not treat dashboard placeholder labels as proof that those services are active.
 
+You can begin teaching the desktop assistant immediately: send `/remember I prefer concise answers with worked engineering examples`, use `/memories` to review saved facts, and `/forget <id>` to remove one. These explicitly saved facts are encrypted with Windows DPAPI for the current Windows account and are included as context in later chats. Do not store passwords, API keys, OTPs or other secrets.
+
 ## Choose an AI provider
 
 Set configuration in the current PowerShell session. Do not commit API keys or place them in the project workspace.
