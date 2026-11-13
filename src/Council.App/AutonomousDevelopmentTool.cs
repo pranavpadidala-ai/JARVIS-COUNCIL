@@ -43,7 +43,8 @@ public sealed class AutonomousDevelopmentTool : ITool
         if (!Directory.Exists(root))
             throw new DirectoryNotFoundException("Development workspace does not exist: " + root);
 
-        _tasks = new TaskManager(new TaskStore(taskStorePath));
+        var configuredTaskStore = taskStorePath ?? Environment.GetEnvironmentVariable("JARVIS_TASK_STORE_PATH");
+        _tasks = new TaskManager(new TaskStore(configuredTaskStore));
         var terminal = new TerminalController();
         var workspace = new SafeWorkspaceExecutor(root);
         var actions = new DevelopmentActionExecutor(workspace, terminal, root);
