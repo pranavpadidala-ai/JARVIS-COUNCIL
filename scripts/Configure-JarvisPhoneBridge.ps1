@@ -59,10 +59,6 @@ $token = [Convert]::ToBase64String($tokenBytes).TrimEnd('=').Replace('+', '-').R
 [Array]::Clear($tokenBytes, 0, $tokenBytes.Length)
 
 & (Join-Path $PSScriptRoot "Install-JarvisPhoneBridge.ps1") -Port $Port
-if ($LASTEXITCODE -ne 0) {
-    throw "Could not configure the Windows URL reservation and Tailscale-only firewall rule."
-}
-
 $settings = @{
     JARVIS_BRIDGE_BIND = $bindAddress
     JARVIS_BRIDGE_PORT = $Port.ToString()
