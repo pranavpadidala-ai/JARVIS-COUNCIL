@@ -655,7 +655,12 @@ public sealed class ToolCallingAssistant
                     Console.WriteLine("JARVIS: " + phoneCommandResult);
                     completed = true;
                 }
-                phoneCommandSucceeded = completed && !string.IsNullOrWhiteSpace(phoneCommandResult);
+                phoneCommandSucceeded =
+                    completed &&
+                    !string.IsNullOrWhiteSpace(phoneCommandResult) &&
+                    !phoneCommandResult.StartsWith("JARVIS did not produce a final response", StringComparison.OrdinalIgnoreCase) &&
+                    !phoneCommandResult.StartsWith("The AI provider returned an empty response", StringComparison.OrdinalIgnoreCase) &&
+                    !phoneCommandResult.StartsWith("This request needs too many workspace operations", StringComparison.OrdinalIgnoreCase);
             }
             catch (OperationCanceledException) when (turnToken.IsCancellationRequested && !cancellationToken.IsCancellationRequested)
             {
