@@ -60,11 +60,10 @@ public sealed class AutonomousDevelopmentTool : ITool
 
     public string Description =>
         "Persistent autonomous software-development task manager for the configured JARVIS workspace. " +
-        "Actions: create_task (required title, optional description); list_tasks (no extra arguments); " +
-        "run_task (required task_id GUID, optional max_attempts from 1 to 5; defaults to 2). " +
-        "Running a task requires a clean Git working tree. JARVIS creates a checkpoint, plans and applies safe workspace changes, " +
-        "runs dotnet build and dotnet test, commits only after validation succeeds, and rolls back failed attempts. " +
-        "A task is never run merely by creating it; the user must explicitly ask JARVIS to run it.";
+        "Actions: create_task (required title, optional description); list_tasks; approve_task (required task_id GUID; explicitly authorizes one background run); revoke_approval (required task_id GUID); run_task (required task_id GUID, explicit immediate user request, optional max_attempts 1-5); run_approved (internal background-host action only). " +
+        "Creating a task never approves or runs it. The background host claims only tasks with a fresh, unconsumed user approval; each approval is one-shot and a failed/interrupted task needs fresh approval. " +
+        "Running a task requires a clean Git working tree and a cross-process execution lock. JARVIS creates a checkpoint, plans and applies safe workspace changes, " +
+        "runs dotnet build and dotnet test, commits only after validation succeeds, and rolls back failed attempts.";
 
     public async Task<ToolResult> ExecuteAsync(
         Dictionary<string, string> arguments,
@@ -76,11 +75,15 @@ public sealed class AutonomousDevelopmentTool : ITool
         try
         {
             await EnsureInitializedAsync(cancellationToken);
+            await _tasks.RefreshAsync(cancellationToken);
             return requestedAction.Trim().ToLowerInvariant() switch
             {
                 "create_task" => await CreateTaskAsync(arguments, cancellationToken),
                 "list_tasks" => ListTasks(arguments),
+                "approve_task" => await ApproveTaskAsync(arguments, cancellationToken),
+                "revoke_approval" => await RevokeApprovalAsync(arguments, cancellationToken),
                 "run_task" => await RunTaskAsync(arguments, cancellationToken),
+                "run_approved" => await RunNextApprovedTaskAsync(arguments, cancellationToken),
                 _ => new ToolResult(false, "Unknown development task action. Use create_task, list_tasks, or run_task.")
             };
         }
@@ -132,7 +135,7 @@ public sealed class AutonomousDevelopmentTool : ITool
         var task = await _tasks.CreateAsync(title, description, cancellationToken);
         return new ToolResult(true,
             $"Created persistent development task {task.Id}. Status: Pending. " +
-            "The task has not been run; explicitly ask JARVIS to run this task ID.");
+            "The task has not been approved or run. Use approve_task only when you explicitly authorize the local background agent to execute it, or explicitly ask JARVIS to run it now.");
     }
 
     private ToolResult ListTasks(Dictionary<string, string> args)
@@ -152,7 +155,8 @@ public sealed class AutonomousDevelopmentTool : ITool
         foreach (var task in tasks)
         {
             output.AppendLine();
-            output.Append($"{task.Id} | {task.Status} | attempts: {task.AttemptCount} | {task.Title}");
+            var approval = task.IsApproved && task.ApprovalConsumedAtUtc is null ? "APPROVED / waiting" : "not approved / consumed";
+            output.Append($"{task.Id} | {task.Status} | {approval} | attempts: {task.AttemptCount} | {task.Title}");
             if (!string.IsNullOrWhiteSpace(task.CurrentStep))
                 output.AppendLine().Append("  Current step: ").Append(task.CurrentStep);
         }
@@ -168,6 +172,7 @@ public sealed class AutonomousDevelopmentTool : ITool
             !Guid.TryParse(idText, out var id))
             return new ToolResult(false, "run_task requires task_id as a valid task GUID; max_attempts is optional.");
 
+        await _tasks.RefreshAsync(cancellationToken);
         var task = _tasks.Find(id);
         if (task is null)
             return new ToolResult(false, "No saved development task matches that ID.");
@@ -185,20 +190,54 @@ public sealed class AutonomousDevelopmentTool : ITool
 
         try
         {
+            await using var executionLock = await AcquireGlobalExecutionLockAsync(cancellationToken);
+            await _tasks.RefreshAsync(cancellationToken);
+            task = _tasks.Find(id);
+            if (task is null)
+                return new ToolResult(false, "The development task no longer exists.");
+
             var preflight = await _checkpoints.CreateCheckpointAsync(cancellationToken);
             if (!preflight.Success || preflight.Checkpoint is null)
                 return new ToolResult(false, "Autonomous execution blocked before changes: " + preflight.Message);
 
             var result = await _orchestrator.ExecuteAsync(task, maxAttempts, cancellationToken);
+            await _tasks.RefreshAsync(cancellationToken);
+            var finalTask = _tasks.Find(id) ?? task;
             return new ToolResult(result.Success,
                 (result.Success ? "Development task completed. " : "Development task failed. ") +
                 result.Message + Environment.NewLine +
-                "Task ID: " + task.Id + " | Status: " + task.Status +
-                " | Attempts: " + task.AttemptCount);
+                "Task ID: " + finalTask.Id + " | Status: " + finalTask.Status +
+                " | Attempts: " + finalTask.AttemptCount);
         }
         finally
         {
             _runGate.Release();
+        }
+    }
+
+
+    private static async Task<FileStream> AcquireGlobalExecutionLockAsync(
+        CancellationToken cancellationToken)
+    {
+        var localData = Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData);
+        if (string.IsNullOrWhiteSpace(localData))
+            localData = Environment.GetFolderPath(Environment.SpecialFolder.UserProfile);
+        var directory = Path.Combine(localData, "JARVIS");
+        Directory.CreateDirectory(directory);
+        var path = Path.Combine(directory, "development-execution.lock");
+
+        while (true)
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+            try
+            {
+                return new FileStream(path, FileMode.OpenOrCreate, FileAccess.ReadWrite,
+                    FileShare.None, bufferSize: 1, useAsync: true);
+            }
+            catch (IOException)
+            {
+                await Task.Delay(TimeSpan.FromMilliseconds(150), cancellationToken);
+            }
         }
     }
 
