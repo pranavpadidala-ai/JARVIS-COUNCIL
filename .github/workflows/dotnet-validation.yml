@@ -4,6 +4,7 @@ on:
   push:
     branches:
       - feature/first-usable-desktop
+      - feature/persistent-development-agent
   pull_request:
     branches:
       - feature/safe-workspace-tools
@@ -33,6 +34,20 @@ jobs:
 
       - name: Build
         run: dotnet build JARVIS.Council.sln --configuration Release --no-restore
+
+      - name: Validate PowerShell script syntax
+        shell: pwsh
+        run: |
+          $files = Get-ChildItem scripts -Filter *.ps1 -Recurse
+          foreach ($file in $files) {
+            $tokens = $null
+            $parseErrors = $null
+            [System.Management.Automation.Language.Parser]::ParseFile($file.FullName, [ref]$tokens, [ref]$parseErrors) | Out-Null
+            if ($parseErrors.Count -gt 0) {
+              $parseErrors | ForEach-Object { Write-Error "$($file.Name): $($_.Message)" }
+              throw "PowerShell syntax validation failed."
+            }
+          }
 
       - name: Test
         run: dotnet test JARVIS.Council.sln --configuration Release --no-build --no-restore
