@@ -1,6 +1,7 @@
 using System.Text;
 using ClosedXML.Excel;
 using DocumentFormat.OpenXml.Packaging;
+using DocumentFormat.OpenXml.Validation;
 using DocumentFormat.OpenXml.Wordprocessing;
 using A = DocumentFormat.OpenXml.Drawing;
 using Council.App.Office;
@@ -33,6 +34,9 @@ public sealed class OfficeWorkspaceToolTests
             Assert.True(result.Success, result.Message);
             Assert.Contains("2 slides", result.Message);
             using var presentation = PresentationDocument.Open(Path.Combine(root, "engineering-review.pptx"), false);
+            var validationErrors = new OpenXmlValidator().Validate(presentation).ToArray();
+            Assert.True(validationErrors.Length == 0,
+                string.Join(Environment.NewLine, validationErrors.Select(error => $"{error.Description} ({error.Path?.XPath})")));
             var slideParts = presentation.PresentationPart!.SlideParts.ToArray();
             Assert.Equal(2, slideParts.Length);
             var slideText = slideParts.SelectMany(slide => slide.Slide!.Descendants<A.Text>())
