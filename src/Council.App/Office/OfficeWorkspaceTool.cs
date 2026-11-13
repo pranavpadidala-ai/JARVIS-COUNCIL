@@ -352,6 +352,11 @@ public sealed class OfficeWorkspaceTool : ITool
                 foreach (var pageNumber in renderPages.Take(maxVisualImages))
                 {
                     cancellationToken.ThrowIfCancellationRequested();
+                    if (!OperatingSystem.IsWindows())
+                    {
+                        output.AppendLine("[Full-page PDF rendering is currently enabled only on Windows in this build.]");
+                        continue;
+                    }
                     try
                     {
                         using var pdfStream = File.OpenRead(path);

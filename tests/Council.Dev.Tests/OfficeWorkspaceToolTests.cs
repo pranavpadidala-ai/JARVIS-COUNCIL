@@ -35,7 +35,7 @@ public sealed class OfficeWorkspaceToolTests
             using var presentation = PresentationDocument.Open(Path.Combine(root, "engineering-review.pptx"), false);
             var slideParts = presentation.PresentationPart!.SlideParts.ToArray();
             Assert.Equal(2, slideParts.Length);
-            var slideText = slideParts.SelectMany(slide => slide.Slide.Descendants<A.Text>())
+            var slideText = slideParts.SelectMany(slide => slide.Slide!.Descendants<A.Text>())
                 .Select(text => text.Text).ToArray();
             Assert.Contains("Structural Behaviour", slideText);
             Assert.Contains("Research gap", slideText);
