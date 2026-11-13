@@ -135,6 +135,19 @@ public class ActionInterpreterTests
     }
 
     [Fact]
+    public void List_files_step_becomes_list_files_action()
+    {
+        var actions = _interpreter.Interpret(
+            [
+                "List files"
+            ]);
+
+        Assert.Single(actions);
+        Assert.Equal(DevelopmentActionType.ListFiles, actions[0].Type);
+        Assert.Equal(".", actions[0].Target);
+    }
+
+    [Fact]
     public void Null_steps_are_rejected()
     {
         Assert.Throws<ArgumentNullException>(
