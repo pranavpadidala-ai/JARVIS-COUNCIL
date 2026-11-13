@@ -83,6 +83,46 @@ public class AIDevelopmentPlannerTests
     }
 
     [Fact]
+    public async Task Fenced_json_with_braces_in_string_and_list_files_action_is_parsed()
+    {
+        var provider = new FakeAIProvider(
+            """
+            Plan:
+            ```json
+            {
+              "summary": "Inspect files",
+              "actions": [
+                {
+                  "type": "ListFiles",
+                  "target": ".",
+                  "content": null
+                },
+                {
+                  "type": "CreateFile",
+                  "target": "notes.txt",
+                  "content": "Keep this { brace } inside the string."
+                }
+              ]
+            }
+            ```
+            """);
+
+        var planner = new AIDevelopmentPlanner(
+            provider,
+            new RepositoryContextProvider(Directory.GetCurrentDirectory()));
+
+        var result = await planner.CreatePlanAsync(CreateTask());
+
+        Assert.True(result.Success);
+        Assert.Equal(2, result.Actions.Count);
+        Assert.Equal(DevelopmentActionType.ListFiles, result.Actions[0].Type);
+        Assert.Equal(".", result.Actions[0].Target);
+        Assert.Equal(
+            "Keep this { brace } inside the string.",
+            result.Actions[1].Content);
+    }
+
+    [Fact]
     public async Task Unsupported_action_type_returns_failed_plan()
     {
         var provider = new FakeAIProvider("""
