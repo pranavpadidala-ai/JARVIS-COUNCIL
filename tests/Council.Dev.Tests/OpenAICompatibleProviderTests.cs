@@ -21,13 +21,14 @@ public sealed class OpenAICompatibleProviderTests
             httpClient);
 
         var response = await provider.AskAsync(
-            new AIRequest([new AIMessage("user", "Hello")]));
+            new AIRequest([new AIMessage("user", "Hello")], JsonMode: true));
 
         Assert.Equal("Gateway response", response.Content);
         Assert.Equal("model-test", response.Model);
         Assert.Equal("https://gateway.example/v1/chat/completions", handler.RequestUri?.ToString());
         Assert.Equal("Bearer", handler.AuthorizationScheme);
         Assert.Equal("test-token", handler.AuthorizationParameter);
+        Assert.Contains("\"response_format\":{\"type\":\"json_object\"}", handler.RequestBody);
     }
 
     [Fact]
@@ -57,19 +58,21 @@ public sealed class OpenAICompatibleProviderTests
         public Uri? RequestUri { get; private set; }
         public string? AuthorizationScheme { get; private set; }
         public string? AuthorizationParameter { get; private set; }
+        public string? RequestBody { get; private set; }
 
-        protected override Task<HttpResponseMessage> SendAsync(
+        protected override async Task<HttpResponseMessage> SendAsync(
             HttpRequestMessage request,
             CancellationToken cancellationToken)
         {
             RequestUri = request.RequestUri;
             AuthorizationScheme = request.Headers.Authorization?.Scheme;
             AuthorizationParameter = request.Headers.Authorization?.Parameter;
+            RequestBody = await request.Content!.ReadAsStringAsync(cancellationToken);
 
-            return Task.FromResult(new HttpResponseMessage(statusCode)
+            return new HttpResponseMessage(statusCode)
             {
                 Content = new StringContent(responseBody, Encoding.UTF8, "application/json")
-            });
+            };
         }
     }
 }
