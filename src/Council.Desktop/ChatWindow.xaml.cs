@@ -16,6 +16,7 @@ public partial class ChatWindow : Window
     private bool _speakReplies;
     private WindowsVoiceService? _voice;
     private CancellationTokenSource? _voiceCapture;
+    private CancellationTokenSource? _turnCancellation;
 
     public ChatWindow()
     {
@@ -27,6 +28,8 @@ public partial class ChatWindow : Window
             _voice?.StopAll();
             _voice?.Dispose();
             _voiceCapture?.Dispose();
+            _turnCancellation?.Cancel();
+            _turnCancellation?.Dispose();
         };
     }
 
@@ -71,6 +74,7 @@ public partial class ChatWindow : Window
         var capture = new CancellationTokenSource();
         _voiceCapture = capture;
         VoiceButton.Content = "  STOP  ";
+        StopButton.IsEnabled = true;
         ProviderStatus.Text = "●  Listening... speak now";
         try
         {
@@ -97,7 +101,16 @@ public partial class ChatWindow : Window
             if (ReferenceEquals(_voiceCapture, capture)) _voiceCapture = null;
             capture.Dispose();
             VoiceButton.Content = "  VOICE  ";
+            StopButton.IsEnabled = _turnCancellation is not null;
         }
+    }
+
+    private void Stop_Click(object sender, RoutedEventArgs e)
+    {
+        _voiceCapture?.Cancel();
+        _turnCancellation?.Cancel();
+        _voice?.StopAll();
+        ProviderStatus.Text = "●  Cancellation requested";
     }
 
     private void Speak_Click(object sender, RoutedEventArgs e)
@@ -130,10 +143,13 @@ public partial class ChatWindow : Window
         MessageInput.Clear();
         AddMessage("YOU", prompt, false);
         _sending = true;
+        using var turnCancellation = new CancellationTokenSource();
+        _turnCancellation = turnCancellation;
+        StopButton.IsEnabled = true;
         ProviderStatus.Text = "●  Thinking...";
         try
         {
-            var response = await _session.SendAsync(prompt);
+            var response = await _session.SendAsync(prompt, turnCancellation.Token);
             AddMessage("JARVIS", response.Content, true);
             ProviderStatus.Text = $"●  {response.Provider} / {response.Model}";
             if (_speakReplies && OperatingSystem.IsWindows())
@@ -153,6 +169,11 @@ public partial class ChatWindow : Window
                 }
             }
         }
+        catch (OperationCanceledException) when (turnCancellation.IsCancellationRequested)
+        {
+            AddMessage("JARVIS", "I stopped the active request. Any action already completed before cancellation remains completed.", true);
+            ProviderStatus.Text = "●  Request cancelled";
+        }
         catch (Exception ex)
         {
             AddMessage("JARVIS", $"I couldn't complete that request: {ex.GetBaseException().Message}", true);
@@ -160,7 +181,10 @@ public partial class ChatWindow : Window
         }
         finally
         {
+            if (ReferenceEquals(_turnCancellation, turnCancellation))
+                _turnCancellation = null;
             _sending = false;
+            StopButton.IsEnabled = _voiceCapture is not null;
             MessageInput.Focus();
         }
     }
