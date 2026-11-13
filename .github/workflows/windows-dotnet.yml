@@ -9,6 +9,10 @@ on:
     branches:
       - unified/jarvis-available
 
+concurrency:
+  group: windows-dotnet-${{ github.ref }}
+  cancel-in-progress: true
+
 permissions:
   contents: read
 
