@@ -14,7 +14,8 @@ public sealed class DevelopmentTaskQueueService
 
     public DevelopmentTaskQueueService(string? taskStorePath = null)
     {
-        _manager = new TaskManager(new TaskStore(taskStorePath));
+        var configuredTaskStore = taskStorePath ?? Environment.GetEnvironmentVariable("JARVIS_TASK_STORE_PATH");
+        _manager = new TaskManager(new TaskStore(configuredTaskStore));
     }
 
     public async Task<IReadOnlyList<DevelopmentTask>> ListAsync(
