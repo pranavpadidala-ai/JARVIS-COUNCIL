@@ -42,7 +42,7 @@ $env:OLLAMA_MODEL = "qwen3.5:2b-q4_K_M"
 dotnet run --project .\src\Council.Desktop\Council.Desktop.csproj
 ```
 
-The desktop conversation history is stored locally under `%LOCALAPPDATA%\JARVIS\Conversations\current.json`. The desktop shell is an early usable chat/dashboard build; advanced tool execution, voice controls and live agent/task panels are still being connected to the full JARVIS runtime. Do not treat dashboard placeholder labels as proof that those services are active.
+The desktop conversation history is stored locally under `%LOCALAPPDATA%\JARVIS\Memory\desktop-conversation.jsonl` and protected with Windows DPAPI. The desktop chat now calls the same bounded tool-calling runtime as the console assistant, including workspace file tools, public web research, Office document tools, Indian equity monitoring, Abaqus diagnostics, specialist agents, and explicitly requested visible-desktop computer use. Voice is on-demand: press VOICE to open the microphone, press STOP to cancel capture, and toggle SPEAK to read replies aloud. The dashboard provides system telemetry and launches the chat; some dashboard cards are informational and do not imply a background agent or market feed is running.
 
 You can begin teaching the desktop assistant immediately: send `/remember I prefer concise answers with worked engineering examples`, use `/memories` to review saved facts, and `/forget <id>` to remove one. These explicitly saved facts are encrypted with Windows DPAPI for the current Windows account and are included as context in later chats. Do not store passwords, API keys, OTPs or other secrets.
 
