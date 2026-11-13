@@ -58,7 +58,7 @@
         <Grid.ColumnDefinitions><ColumnDefinition/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
         <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
           <TextBlock Text="SYSTEM STATUS" Foreground="#7CA6B9" FontSize="10" FontWeight="Bold"/>
-          <TextBlock Text="   ● CORE ONLINE" Foreground="#3DE3B4" FontSize="10" FontWeight="Bold"/>
+          <TextBlock Text="   ● DESKTOP READY" Foreground="#3DE3B4" FontSize="10" FontWeight="Bold"/>
         </StackPanel>
         <StackPanel Grid.Column="1" Orientation="Horizontal" VerticalAlignment="Center">
           <TextBlock x:Name="ClockText" Text="--:--:--" Foreground="#38DDF5" FontSize="17" FontWeight="SemiBold" Margin="0,0,18,0"/>
@@ -73,8 +73,8 @@
             <TextBlock Text="AI CORE OVERVIEW" Style="{StaticResource SectionTitle}"/>
             <TextBlock Text="◉  AI Core" FontWeight="SemiBold"/><TextBlock Text="Assistant runtime initializing" Style="{StaticResource Small}" Margin="22,0,0,9"/>
             <TextBlock Text="◉  Memory" FontWeight="SemiBold"/><TextBlock Text="Local conversation history" Style="{StaticResource Small}" Margin="22,0,0,9"/>
-            <TextBlock Text="◉  Voice" FontWeight="SemiBold"/><TextBlock Text="Not connected" Style="{StaticResource Small}" Margin="22,0,0,9"/>
-            <TextBlock Text="◉  Agents" FontWeight="SemiBold"/><TextBlock Text="Agent runtime planned" Style="{StaticResource Small}" Margin="22,0,0,9"/>
+            <TextBlock Text="◉  Voice" FontWeight="SemiBold"/><TextBlock Text="Push-to-talk in chat" Style="{StaticResource Small}" Margin="22,0,0,9"/>
+            <TextBlock Text="◉  Agents" FontWeight="SemiBold"/><TextBlock Text="Specialist agents available" Style="{StaticResource Small}" Margin="22,0,0,9"/>
           </StackPanel>
         </Border>
         <Border Grid.Column="1" Margin="0,0,8,0" CornerRadius="10" BorderBrush="#16465F" BorderThickness="1">
@@ -97,9 +97,9 @@
           <StackPanel>
             <TextBlock Text="LIVE INTELLIGENCE FEED" Style="{StaticResource SectionTitle}"/>
             <TextBlock Text="●  Desktop shell started" Foreground="#49DDB6" FontSize="11" Margin="0,4"/>
-            <TextBlock Text="○  Provider connection pending" Style="{StaticResource Small}" Margin="0,8"/>
-            <TextBlock Text="○  Task queue not connected" Style="{StaticResource Small}" Margin="0,8"/>
-            <TextBlock Text="○  Computer-use module planned" Style="{StaticResource Small}" Margin="0,8"/>
+            <TextBlock Text="○  Provider connects on first request" Style="{StaticResource Small}" Margin="0,8"/>
+            <TextBlock Text="○  Background task worker is optional" Style="{StaticResource Small}" Margin="0,8"/>
+            <TextBlock Text="○  Visible desktop control on request" Style="{StaticResource Small}" Margin="0,8"/>
           </StackPanel>
         </Border>
       </Grid>
@@ -110,10 +110,10 @@
           <StackPanel>
             <TextBlock Text="ACTIVE AGENTS" Style="{StaticResource SectionTitle}"/>
             <UniformGrid Columns="2" Rows="2">
-              <Border Background="#102A3B" CornerRadius="6" Padding="9" Margin="3"><StackPanel><TextBlock Text="◈  Coding Agent" FontWeight="SemiBold"/><TextBlock Text="Available when enabled" Style="{StaticResource Small}"/></StackPanel></Border>
-              <Border Background="#102A3B" CornerRadius="6" Padding="9" Margin="3"><StackPanel><TextBlock Text="⌕  Research Agent" FontWeight="SemiBold"/><TextBlock Text="Planned skill" Style="{StaticResource Small}"/></StackPanel></Border>
+              <Border Background="#102A3B" CornerRadius="6" Padding="9" Margin="3"><StackPanel><TextBlock Text="◈  Coding Agent" FontWeight="SemiBold"/><TextBlock Text="Coding and workspace tools" Style="{StaticResource Small}"/></StackPanel></Border>
+              <Border Background="#102A3B" CornerRadius="6" Padding="9" Margin="3"><StackPanel><TextBlock Text="⌕  Research Agent" FontWeight="SemiBold"/><TextBlock Text="Web and source research" Style="{StaticResource Small}"/></StackPanel></Border>
               <Border Background="#102A3B" CornerRadius="6" Padding="9" Margin="3"><StackPanel><TextBlock Text="▤  Memory Agent" FontWeight="SemiBold"/><TextBlock Text="Conversation store" Style="{StaticResource Small}"/></StackPanel></Border>
-              <Border Background="#102A3B" CornerRadius="6" Padding="9" Margin="3"><StackPanel><TextBlock Text="⚙  System Agent" FontWeight="SemiBold"/><TextBlock Text="Planned skill" Style="{StaticResource Small}"/></StackPanel></Border>
+              <Border Background="#102A3B" CornerRadius="6" Padding="9" Margin="3"><StackPanel><TextBlock Text="⚙  System Agent" FontWeight="SemiBold"/><TextBlock Text="Local system and app tools" Style="{StaticResource Small}"/></StackPanel></Border>
             </UniformGrid>
           </StackPanel>
         </Border>
@@ -130,9 +130,10 @@
           <StackPanel>
             <TextBlock Text="QUICK COMMANDS" Style="{StaticResource SectionTitle}"/>
             <Button Style="{StaticResource ActionButton}" Content="＋  Start New Task" Click="StartTask_Click"/>
-            <Button Style="{StaticResource ActionButton}" Content="▤  Open Conversations" Click="OpenConsole_Click"/>
-            <Button Style="{StaticResource ActionButton}" Content="◉  Voice &amp; Chat" Click="OpenConsole_Click"/>
-            <Button Style="{StaticResource ActionButton}" Content="⌘  Run Workflow" Click="RunWorkflow_Click"/>
+            <Button Style="{StaticResource ActionButton}" Content="◉  Open JARVIS Chat" Click="OpenConsole_Click"/>
+            <Button Style="{StaticResource ActionButton}" Content="✎  Teach a Preference" Click="TeachPreference_Click"/>
+            <Button Style="{StaticResource ActionButton}" Content="⌘  Teach a Workflow" Click="TeachWorkflow_Click"/>
+            <Button Style="{StaticResource ActionButton}" Content="◷  Review My Memory" Click="ReviewMemory_Click"/>
           </StackPanel>
         </Border>
       </Grid>
