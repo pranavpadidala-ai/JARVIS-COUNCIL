@@ -307,7 +307,7 @@ public sealed class AIDevelopmentPlanner : IDevelopmentPlanner
 
         // Accept standard markdown JSON fences without relying on the model
         // to follow the formatting instruction perfectly.
-        if (text.StartsWith("\`\`\`", StringComparison.Ordinal))
+        if (text.StartsWith("```", StringComparison.Ordinal))
         {
             var firstNewLine = text.IndexOf('\n');
 
@@ -317,7 +317,7 @@ public sealed class AIDevelopmentPlanner : IDevelopmentPlanner
             }
 
             var closingFence = text.LastIndexOf(
-                "\`\`\`",
+                "```",
                 StringComparison.Ordinal);
 
             if (closingFence >= 0)
