@@ -52,6 +52,66 @@ public partial class ChatWindow : Window
 
     private async void Send_Click(object sender, RoutedEventArgs e) => await SendMessageAsync();
 
+    private async void Voice_Click(object sender, RoutedEventArgs e)
+    {
+        if (_voiceCapture is not null)
+        {
+            _voiceCapture.Cancel();
+            _voice?.StopAll();
+            ProviderStatus.Text = "●  Stopping microphone...";
+            return;
+        }
+
+        if (!OperatingSystem.IsWindows())
+        {
+            ProviderStatus.Text = "●  Voice input requires Windows";
+            return;
+        }
+
+        var capture = new CancellationTokenSource();
+        _voiceCapture = capture;
+        VoiceButton.Content = "  STOP  ";
+        ProviderStatus.Text = "●  Listening... speak now";
+        try
+        {
+            _voice ??= new WindowsVoiceService();
+            var recognized = await _voice.ListenOnceAsync(capture.Token);
+            if (string.IsNullOrWhiteSpace(recognized))
+            {
+                ProviderStatus.Text = "●  No speech recognized";
+                return;
+            }
+            MessageInput.Text = recognized.Trim();
+            await SendMessageAsync();
+        }
+        catch (OperationCanceledException)
+        {
+            ProviderStatus.Text = "●  Voice capture stopped";
+        }
+        catch (Exception ex)
+        {
+            ProviderStatus.Text = "●  Voice unavailable: " + ex.GetBaseException().Message;
+        }
+        finally
+        {
+            if (ReferenceEquals(_voiceCapture, capture)) _voiceCapture = null;
+            capture.Dispose();
+            VoiceButton.Content = "  VOICE  ";
+        }
+    }
+
+    private void Speak_Click(object sender, RoutedEventArgs e)
+    {
+        _speakReplies = !_speakReplies;
+        SpeakButton.Content = _speakReplies ? "  SPEAK: ON  " : "  SPEAK: OFF  ";
+        if (!_speakReplies)
+        {
+            _voice?.StopAll();
+            ProviderStatus.Text = "●  " + (_session?.ProviderName ?? "Assistant not connected");
+        }
+    }
+
+
     private async void MessageInput_KeyDown(object sender, KeyEventArgs e)
     {
         if (e.Key == Key.Enter && Keyboard.Modifiers == ModifierKeys.Control)
