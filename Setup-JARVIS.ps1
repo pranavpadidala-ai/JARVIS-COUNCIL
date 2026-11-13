@@ -83,9 +83,23 @@ try {
         if ($LASTEXITCODE -ne 0) { throw "One or more tests failed. JARVIS was built, but setup is not marked successful." }
     }
 
+    Write-Step "Creating your desktop shortcut"
+    $desktop = [Environment]::GetFolderPath("Desktop")
+    if ([string]::IsNullOrWhiteSpace($desktop)) { throw "Could not locate the Windows Desktop folder." }
+    $shortcutPath = Join-Path $desktop "JARVIS.lnk"
+    $shell = New-Object -ComObject WScript.Shell
+    $shortcut = $shell.CreateShortcut($shortcutPath)
+    $shortcut.TargetPath = Join-Path $env:SystemRoot "System32\cmd.exe"
+    $shortcut.Arguments = '/c ""' + (Join-Path $root "Start-JARVIS.bat") + '""'
+    $shortcut.WorkingDirectory = $root
+    $shortcut.Description = "Start JARVIS personal AI assistant"
+    $shortcut.IconLocation = Join-Path $env:SystemRoot "System32\shell32.dll" + ",44"
+    $shortcut.Save()
+    Write-Host "Desktop shortcut created: $shortcutPath" -ForegroundColor Green
+
     Write-Host ""
     Write-Host "JARVIS setup completed successfully." -ForegroundColor Green
-    Write-Host "Start it any time by double-clicking Start-JARVIS.bat."
+    Write-Host "You can start JARVIS any time by double-clicking the JARVIS desktop icon."
     Write-Host "No local AI models or paid API subscriptions were installed by this setup."
     if (-not $NoLaunch) {
         Write-Step "Starting JARVIS"
