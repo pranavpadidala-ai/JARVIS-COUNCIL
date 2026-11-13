@@ -53,7 +53,7 @@
     </Border>
 
     <Grid Grid.Column="1" Margin="12,0,0,0">
-      <Grid.RowDefinitions><RowDefinition Height="48"/><RowDefinition Height="190"/><RowDefinition Height="170"/><RowDefinition Height="*"/><RowDefinition Height="62"/></Grid.RowDefinitions>
+      <Grid.RowDefinitions><RowDefinition Height="48"/><RowDefinition Height="190"/><RowDefinition Height="220"/><RowDefinition Height="*"/><RowDefinition Height="62"/></Grid.RowDefinitions>
       <Grid Grid.Row="0">
         <Grid.ColumnDefinitions><ColumnDefinition/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
         <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
