@@ -167,6 +167,13 @@ public sealed class AutonomousDevelopmentExecutor : IDevelopmentExecutor
         var validation = await _buildTestExecutor.RunAsync(
             cancellationToken);
 
+        await _taskManager.UpdateValidationReferencesAsync(
+            task.Id,
+            validation.BuildLogPath,
+            validation.TestLogPath,
+            validation.Success ? null : "build_or_test_failure",
+            CancellationToken.None);
+
         if (!validation.Success)
         {
             var failure = BuildValidationFailureMessage(
