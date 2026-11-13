@@ -126,7 +126,7 @@ public sealed class DhanLiveFeedToolTests
             Assert.True(listed.Success, listed.Message);
             Assert.Contains("RELIANCE", listed.Message);
             Assert.Contains("ACTIVE", listed.Message);
-            Assert.Contains("₹1,525.50", listed.Message);
+            Assert.Contains("1,525.50", listed.Message);
 
             var removed = await second.ExecuteAsync(new Dictionary<string, string>
             {

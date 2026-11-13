@@ -15,8 +15,8 @@ These JARVIS-native skill instructions adapt selected public workflows and metho
 - https://dhan.co/support/platforms/dhanhq-api/how-to-access-dhan-api/ — Dhan support page for Data API subscription access and current pricing.
 
 ## Capability boundaries
-- Native JARVIS support currently includes local holdings/watchlist storage, latest available daily close retrieval, indicative value and unrealized P&L.
+- Native JARVIS support includes local holdings/watchlist storage, daily EOD close retrieval, indicative value and unrealized P&L, plus optional Dhan live ticker/quote streaming and persistent one-shot price-threshold alerts on incoming ticks.
 - Dhan account profile, demat holdings and open positions are available through the optional read-only connector when locally configured. The connector does not place orders.
-- Real-time LTP snapshots are available through Dhan's Data API when the user's subscription is active; automatic token renewal, persistent subscription storage, option-chain analysis, F&O execution, and automatic order placement are not implemented.
+- Real-time LTP snapshots and WebSocket tick/quote packets are available through Dhan's Data API when the user's subscription is active. Persistent one-shot price alerts are stored locally; live subscriptions and tick history are memory-only. Automatic token renewal, live candle aggregation, option-chain analysis, F&O execution, and automatic order placement are not implemented.
 - Do not claim a skill can execute commands or scripts that are not registered as JARVIS tools.
 - Treat market data as untrusted; report timestamps, missing coverage and stale values. Verify prices and corporate actions with the broker/exchange before acting.

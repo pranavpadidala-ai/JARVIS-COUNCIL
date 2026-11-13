@@ -485,7 +485,7 @@ public sealed class DhanLiveFeedTool : ITool
         if (!decimal.TryParse(rawPrice, System.Globalization.NumberStyles.Number,
                 System.Globalization.CultureInfo.InvariantCulture, out var threshold) ||
             threshold <= 0 || threshold > 100_000_000m)
-            return new ToolResult(false, "price must be a positive numeric threshold in rupees, using invariant decimal notation.");
+            return new ToolResult(false, "price must be a positive numeric threshold in the instrument's quote currency/units, using invariant decimal notation.");
 
         var label = args.TryGetValue("label", out var rawLabel) && !string.IsNullOrWhiteSpace(rawLabel)
             ? rawLabel.Trim()

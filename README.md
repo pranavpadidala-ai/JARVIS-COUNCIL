@@ -224,7 +224,7 @@ Store Dhan credentials in Windows Credential Manager with `scripts/Set-DhanCrede
 
 ## Dhan live market feed
 
-The optional `dhan_live_feed` tool maintains one read-only DhanHQ v2 WebSocket connection while JARVIS is running. Start it with resolved `SEGMENT:SECURITY_ID` pairs (maximum 100 instruments), use `status` to inspect recent prices, and `stop` to disconnect. Ticker mode is the lightweight default; quote mode includes additional volume information. The monitor reconnects with bounded backoff and keeps the latest received tick snapshots in memory only. Subscriptions are not restored after a JARVIS restart. It reads credentials from Windows Credential Manager (preferred) or the two environment-variable fallbacks, and requires an active Dhan Data API subscription. It never places or modifies orders.
+The optional `dhan_live_feed` tool maintains one read-only DhanHQ v2 WebSocket connection while JARVIS is running. Start it with resolved `SEGMENT:SECURITY_ID` pairs (maximum 100 instruments), use `status` to inspect recent prices, and `stop` to disconnect. Ticker mode is the lightweight default; quote mode includes additional volume information. Persistent one-shot price alerts (`set_alert`, `alerts`, `remove_alert`) are evaluated on incoming subscribed ticks; starting without an instrument list subscribes to all active alert instruments. The monitor reconnects with bounded backoff and keeps the latest tick snapshots in memory only. Subscriptions are not restored after a JARVIS restart. It reads credentials from Windows Credential Manager (preferred) or the two environment-variable fallbacks, and requires an active Dhan Data API subscription. It never places or modifies orders.
 
 ## Safety model
 
