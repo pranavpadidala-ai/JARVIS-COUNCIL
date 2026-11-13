@@ -49,6 +49,13 @@ public sealed class CommandPolicy
             return false;
         }
 
+        // PowerShell treats line breaks as statement separators. Reject
+        // all control characters before applying the command allowlist.
+        if (command.Any(char.IsControl))
+        {
+            return false;
+        }
+
         var trimmed = command.Trim();
 
         if (ContainsBlockedOperator(trimmed))
