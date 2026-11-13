@@ -139,6 +139,34 @@ public sealed class OfficeWorkspaceToolTests
     }
 
     [Fact]
+    public async Task AnalyzePaper_FallsBackToRenderedPagesWhenCloudPdfReviewFails()
+    {
+        var root = CreateTemporaryDirectory();
+        try
+        {
+            WriteMinimalPdf(Path.Combine(root, "paper.pdf"));
+            var provider = new FailingDocumentAndRecordingImageProvider();
+            var tool = new OfficeWorkspaceTool(root, imageProvider: provider);
+
+            var result = await tool.ExecuteAsync(new Dictionary<string, string>
+            {
+                ["action"] = "analyze_paper",
+                ["path"] = "paper.pdf"
+            });
+
+            Assert.True(result.Success, result.Message);
+            Assert.Contains("Cloud full-PDF review failed safely", result.Message);
+            Assert.Contains("Fallback rendered page review", result.Message);
+            Assert.Single(provider.Images);
+            Assert.Contains("rendered full page", provider.Images[0].Name.ToLowerInvariant());
+        }
+        finally
+        {
+            Directory.Delete(root, recursive: true);
+        }
+    }
+
+    [Fact]
     public async Task AnalyzePaper_ReturnsSafeFailureForMalformedPdf()
     {
         var root = CreateTemporaryDirectory();
@@ -400,6 +428,21 @@ public sealed class OfficeWorkspaceToolTests
         File.WriteAllText(path, pdf.ToString(), Encoding.ASCII);
     }
 
+
+
+    private sealed class FailingDocumentAndRecordingImageProvider : IImageUnderstandingProvider, IDocumentUnderstandingProvider
+    {
+        public List<AIImage> Images { get; } = [];
+
+        public Task<string> AnalyzeDocumentAsync(string prompt, AIImage document, CancellationToken cancellationToken = default) =>
+            Task.FromException<string>(new InvalidOperationException("simulated cloud review failure"));
+
+        public Task<string> DescribeImagesAsync(string prompt, IReadOnlyList<AIImage> images, CancellationToken cancellationToken = default)
+        {
+            Images.AddRange(images);
+            return Task.FromResult("Fallback rendered page review");
+        }
+    }
 
     private sealed class RecordingImageProvider : IImageUnderstandingProvider
     {
