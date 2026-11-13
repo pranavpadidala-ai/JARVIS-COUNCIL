@@ -28,17 +28,35 @@ if ([string]::IsNullOrWhiteSpace($env:JARVIS_WORKSPACE_ROOT)) {
     $env:JARVIS_WORKSPACE_ROOT = $repoRoot
 }
 
-if ($env:JARVIS_AI_PROVIDER -eq "ollama") {
-    if (-not (Get-Command ollama -ErrorAction SilentlyContinue)) {
-        throw "Ollama is not installed or not on PATH. Run .\scripts\Install-LocalModels.ps1 first."
+$provider = $env:JARVIS_AI_PROVIDER.Trim().ToLowerInvariant()
+switch ($provider) {
+    "ollama" {
+        if (-not (Get-Command ollama -ErrorAction SilentlyContinue)) {
+            throw "Ollama is not installed or not on PATH. Run .\scripts\Install-LocalModels.ps1 first."
+        }
+        if ([string]::IsNullOrWhiteSpace($env:OLLAMA_MODEL)) {
+            $env:OLLAMA_MODEL = "qwen3.5:2b-q4_K_M"
+        }
+        $installed = (& ollama list 2>$null | Out-String)
+        if ($LASTEXITCODE -ne 0 -or $installed -notmatch [regex]::Escape($env:OLLAMA_MODEL)) {
+            throw "Local model '$env:OLLAMA_MODEL' is not installed. Run .\scripts\Install-LocalModels.ps1 or set OLLAMA_MODEL to an installed model."
+        }
     }
-    if ([string]::IsNullOrWhiteSpace($env:OLLAMA_MODEL)) {
-        $env:OLLAMA_MODEL = "qwen3.5:2b-q4_K_M"
+    "gemini" {
+        if ([string]::IsNullOrWhiteSpace($env:GEMINI_API_KEY)) { throw "GEMINI_API_KEY is required for the Gemini background agent." }
     }
-    $installed = (& ollama list 2>$null | Out-String)
-    if ($LASTEXITCODE -ne 0 -or $installed -notmatch [regex]::Escape($env:OLLAMA_MODEL)) {
-        throw "Local model '$env:OLLAMA_MODEL' is not installed. Run .\scripts\Install-LocalModels.ps1 or set OLLAMA_MODEL to an installed model."
+    "openai" {
+        if ([string]::IsNullOrWhiteSpace($env:OPENAI_API_KEY)) { throw "OPENAI_API_KEY is required for the OpenAI background agent." }
     }
+    "omniroute" {
+        if ([string]::IsNullOrWhiteSpace($env:OMNIROUTE_API_KEY) -or
+            [string]::IsNullOrWhiteSpace($env:OMNIROUTE_MODEL) -or
+            [string]::IsNullOrWhiteSpace($env:OMNIROUTE_FREE_MODELS) -or
+            $env:OMNIROUTE_MODEL -eq "auto") {
+            throw "OmniRoute requires an API key, explicit model ID and exact approved model allowlist."
+        }
+    }
+    default { throw "Unsupported or non-functional provider '$provider'. Configure Ollama, Gemini, OpenAI or allowlisted OmniRoute." }
 }
 
 Push-Location $repoRoot
