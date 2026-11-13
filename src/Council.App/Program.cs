@@ -152,6 +152,35 @@ switch (selectedProvider?.Trim().ToLowerInvariant())
 
 Console.WriteLine($"Active AI provider: {activeProvider.Name}");
 
+if (args.Any(arg => string.Equals(arg, "--agent", StringComparison.OrdinalIgnoreCase)))
+{
+    if (activeProvider.Name == "Mock")
+        throw new InvalidOperationException("The background development agent requires a real provider. Configure local Ollama, Gemini, OpenAI, or an explicitly allowlisted OmniRoute model.");
+
+    var agentWorkspaceRoot = Environment.GetEnvironmentVariable("JARVIS_WORKSPACE_ROOT");
+    if (string.IsNullOrWhiteSpace(agentWorkspaceRoot))
+        agentWorkspaceRoot = Directory.GetCurrentDirectory();
+
+    using var agentCancellation = new CancellationTokenSource();
+    ConsoleCancelEventHandler agentCancelHandler = (_, eventArgs) =>
+    {
+        eventArgs.Cancel = true;
+        agentCancellation.Cancel();
+    };
+    Console.CancelKeyPress += agentCancelHandler;
+    try
+    {
+        var agent = new BackgroundDevelopmentAgent(activeProvider, agentWorkspaceRoot);
+        await agent.RunAsync(agentCancellation.Token);
+    }
+    finally
+    {
+        Console.CancelKeyPress -= agentCancelHandler;
+    }
+    return;
+}
+
+
 var providers = new List<IAIProvider>
 {
     activeProvider
