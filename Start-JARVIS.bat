@@ -1,7 +1,7 @@
 @echo off
 setlocal
 cd /d "%~dp0"
-if not exist "src\Council.App\Council.App.csproj" (
+if not exist "src\Council.Desktop\Council.Desktop.csproj" (
   echo JARVIS application files were not found. Run Setup-JARVIS.bat from the extracted repository folder.
   pause
   exit /b 1
