@@ -1,5 +1,4 @@
 using Council.Core.Providers;
-using Council.Dev.Tasks;
 using Council.Execution.Tools;
 
 namespace Council.App;
@@ -12,7 +11,6 @@ public sealed class BackgroundDevelopmentAgent
 {
     private const string MutexName = @"Local\JARVIS-Council-Development-Agent";
     private readonly AutonomousDevelopmentTool _development;
-    private readonly TaskManager _tasks;
     private readonly string _logPath;
     private readonly TimeSpan _pollInterval;
     private readonly SemaphoreSlim _logGate = new(1, 1);
@@ -33,7 +31,6 @@ public sealed class BackgroundDevelopmentAgent
 
         var storePath = taskStorePath ??
             Environment.GetEnvironmentVariable("JARVIS_TASK_STORE_PATH");
-        _tasks = new TaskManager(new TaskStore(storePath));
         _development = new AutonomousDevelopmentTool(provider, workspaceRoot, storePath);
         _logPath = Path.GetFullPath(logPath ??
             Path.Combine(localData, "JARVIS", "Agent", "agent.log"));
@@ -68,8 +65,7 @@ public sealed class BackgroundDevelopmentAgent
                 return;
             }
 
-            await _tasks.InitializeAsync(cancellationToken);
-            var recovered = await _tasks.RecoverInterruptedTasksAsync(cancellationToken);
+            var recovered = await _development.RecoverInterruptedTasksAsync(cancellationToken);
             await WriteLogAsync(
                 $"Agent started. Provider configured. Recovered interrupted tasks: {recovered}. Poll interval: {_pollInterval.TotalSeconds:0}s.",
                 cancellationToken);
