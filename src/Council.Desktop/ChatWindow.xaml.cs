@@ -21,6 +21,8 @@ public partial class ChatWindow : Window
     {
         try
         {
+            if (!string.IsNullOrWhiteSpace(InitialPrompt))
+                MessageInput.Text = InitialPrompt;
             _session = await AssistantSession.CreateAsync();
             ProviderStatus.Text = $"●  {_session.ProviderName}";
             foreach (var message in _session.GetRecentMessages())
