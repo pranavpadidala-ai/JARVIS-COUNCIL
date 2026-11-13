@@ -89,8 +89,10 @@ try {
     $shortcutPath = Join-Path $desktop "JARVIS.lnk"
     $shell = New-Object -ComObject WScript.Shell
     $shortcut = $shell.CreateShortcut($shortcutPath)
-    $shortcut.TargetPath = Join-Path $env:SystemRoot "System32\cmd.exe"
-    $shortcut.Arguments = '/c ""' + (Join-Path $root "Start-JARVIS.bat") + '""'
+    $desktopExe = Join-Path $root "src\Council.Desktop\bin\Release\net8.0-windows\Council.Desktop.exe"
+    if (-not (Test-Path $desktopExe)) { throw "The desktop executable was not produced by the successful build: $desktopExe" }
+    $shortcut.TargetPath = $desktopExe
+    $shortcut.Arguments = ""
     $shortcut.WorkingDirectory = $root
     $shortcut.Description = "Start JARVIS personal AI assistant"
     $shortcut.IconLocation = "$env:SystemRoot\System32\shell32.dll,44"
