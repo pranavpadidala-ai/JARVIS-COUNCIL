@@ -93,7 +93,7 @@ try {
     $shortcut.Arguments = '/c ""' + (Join-Path $root "Start-JARVIS.bat") + '""'
     $shortcut.WorkingDirectory = $root
     $shortcut.Description = "Start JARVIS personal AI assistant"
-    $shortcut.IconLocation = Join-Path $env:SystemRoot "System32\shell32.dll" + ",44"
+    $shortcut.IconLocation = "$env:SystemRoot\System32\shell32.dll,44"
     $shortcut.Save()
     Write-Host "Desktop shortcut created: $shortcutPath" -ForegroundColor Green
 
