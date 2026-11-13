@@ -26,6 +26,18 @@ using Council.Memory;
 // ============================================================
 
 // Read-only Abaqus launcher diagnostic; does not require an AI provider.
+if (args.Any(arg => string.Equals(arg, "--doctor", StringComparison.OrdinalIgnoreCase)))
+{
+    var checks = await RuntimeHealthCheck.RunAsync();
+    Console.WriteLine("JARVIS RUNTIME HEALTH CHECK");
+    Console.WriteLine("===========================");
+    foreach (var check in checks)
+        Console.WriteLine($"[{check.Status}] {check.Component}: {check.Detail}");
+    Console.WriteLine();
+    Console.WriteLine("This check never prints credentials or starts market feeds, desktop control, or solver jobs.");
+    return;
+}
+
 if (args.Any(arg => string.Equals(arg, "--abaqus-status", StringComparison.OrdinalIgnoreCase)))
 {
     var abaqus = new AbaqusInstallationDetector().Detect();
@@ -186,7 +198,7 @@ if (!args.Any(arg =>
                 documentImageProvider = new OllamaVisionProvider(documentVisionModel, ollamaBaseUrl, contextTokens: 4096);
                 Console.WriteLine($"Local screen/computer vision: Ollama / {localVisionModel}.");
                 Console.WriteLine($"Local engineering-document image reader: Ollama / {documentVisionModel}.");
-                Console.WriteLine("Both models run locally and are loaded on demand. PDF page rendering/OCR for full-page scans and vector-only figures remains unavailable; embedded raster images can be analysed.");
+                Console.WriteLine("Both models run locally and are loaded on demand. The document reader renders up to four full PDF pages (including scanned backgrounds and vector plots) and analyses supported embedded raster images; OCR/table/figure accuracy depends on page quality and model capability.");
             }
             else Console.WriteLine("Vision disabled by JARVIS_LOCAL_VISION_ENABLED=false.");
             break;
