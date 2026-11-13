@@ -501,6 +501,20 @@ public sealed class SafeWorkspaceExecutor : IWorkspaceExecutor
         var normalized =
             Path.GetFullPath(path);
 
+        var currentName = Path.GetFileName(
+            normalized.TrimEnd(
+                Path.DirectorySeparatorChar,
+                Path.AltDirectorySeparatorChar));
+
+        if (ProtectedSegments.Any(segment =>
+            string.Equals(
+                segment,
+                currentName,
+                StringComparison.OrdinalIgnoreCase)))
+        {
+            return true;
+        }
+
         foreach (var segment in ProtectedSegments)
         {
             var directoryName =
