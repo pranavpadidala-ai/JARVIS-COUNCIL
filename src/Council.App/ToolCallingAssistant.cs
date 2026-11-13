@@ -86,6 +86,21 @@ public sealed class ToolCallingAssistant
 
 
     /// <summary>
+    /// Clears conversation history and explicit facts while retaining learned
+    /// project practices. Used by desktop clients for the /clear command.
+    /// </summary>
+    public async Task ClearConversationAsync(CancellationToken cancellationToken = default)
+    {
+        if (_history.Count > 1)
+            _history.RemoveRange(1, _history.Count - 1);
+        if (_memory is not null)
+            await _memory.ClearAsync(cancellationToken);
+        if (_facts is not null)
+            await _facts.ClearAsync(cancellationToken);
+        _memoryLoaded = true;
+    }
+
+    /// <summary>
     /// Processes one user turn for desktop, phone and other non-console clients.
     /// Uses the same registered tools, specialist skills, memory retrieval and
     /// bounded tool-execution loop as the interactive JARVIS console.
