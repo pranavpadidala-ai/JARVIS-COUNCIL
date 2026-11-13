@@ -124,6 +124,7 @@ public sealed class BraveProfileManager : IDisposable
             try { profileLock = new FileStream(lockPath, FileMode.OpenOrCreate, FileAccess.ReadWrite, FileShare.None); }
             catch (IOException) { throw new InvalidOperationException("This Brave profile is already in use by another JARVIS session."); }
 
+            Process? startedProcess = null;
             try
             {
                 var start = new ProcessStartInfo(executable) { UseShellExecute = false, WorkingDirectory = profile.DataDirectory };
@@ -132,14 +133,25 @@ public sealed class BraveProfileManager : IDisposable
                 start.ArgumentList.Add("--disable-sync");
                 if (mode == BraveProfileMode.Headless) { start.ArgumentList.Add("--headless=new"); start.ArgumentList.Add("--disable-gpu"); }
                 if (startUrl is not null) start.ArgumentList.Add(startUrl);
-                var process = Process.Start(start) ?? throw new InvalidOperationException("Brave did not start.");
-                _running[profileId] = new RunningSession(process, profileLock, mode);
+                startedProcess = Process.Start(start) ?? throw new InvalidOperationException("Brave did not start.");
+                _running[profileId] = new RunningSession(startedProcess, profileLock, mode);
                 var updated = profile with { LastUsedAtUtc = DateTime.UtcNow };
                 _profiles[_profiles.FindIndex(p => p.Id == profileId)] = updated;
                 await SaveMetadataAsync(cancellationToken);
-                return new BraveProfileStatus(updated, true, mode, process.Id);
+                return new BraveProfileStatus(updated, true, mode, startedProcess.Id);
             }
-            catch { profileLock.Dispose(); throw; }
+            catch
+            {
+                _running.Remove(profileId);
+                if (startedProcess is not null)
+                {
+                    try { if (!startedProcess.HasExited) startedProcess.Kill(entireProcessTree: true); }
+                    catch (InvalidOperationException) { }
+                    startedProcess.Dispose();
+                }
+                profileLock.Dispose();
+                throw;
+            }
         }
         finally { _gate.Release(); }
     }
