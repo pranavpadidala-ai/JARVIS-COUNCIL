@@ -84,7 +84,7 @@ public sealed class AutonomousDevelopmentTool : ITool
                 "revoke_approval" => await RevokeApprovalAsync(arguments, cancellationToken),
                 "run_task" => await RunTaskAsync(arguments, cancellationToken),
                 "run_approved" => await RunNextApprovedTaskAsync(arguments, cancellationToken),
-                _ => new ToolResult(false, "Unknown development task action. Use create_task, list_tasks, or run_task.")
+                _ => new ToolResult(false, "Unknown development task action. Use create_task, list_tasks, approve_task, revoke_approval, or run_task.")
             };
         }
         catch (OperationCanceledException)
@@ -161,6 +161,57 @@ public sealed class AutonomousDevelopmentTool : ITool
                 output.AppendLine().Append("  Current step: ").Append(task.CurrentStep);
         }
         return new ToolResult(true, output.ToString());
+    }
+
+    private async Task<ToolResult> ApproveTaskAsync(
+        Dictionary<string, string> args,
+        CancellationToken cancellationToken)
+    {
+        if (!HasOnly(args, "action", "task_id") ||
+            !args.TryGetValue("task_id", out var idText) ||
+            !Guid.TryParse(idText, out var id))
+            return new ToolResult(false, "approve_task requires task_id as a valid task GUID.");
+
+        var approved = await _tasks.ApproveAsync(id, cancellationToken);
+        return new ToolResult(approved, approved
+            ? $"Task {id} is approved for one background execution. The local agent still requires a clean Git tree and validates before committing."
+            : "Approval was not applied. The task may not exist, may already be running, or may already be completed.");
+    }
+
+    private async Task<ToolResult> RevokeApprovalAsync(
+        Dictionary<string, string> args,
+        CancellationToken cancellationToken)
+    {
+        if (!HasOnly(args, "action", "task_id") ||
+            !args.TryGetValue("task_id", out var idText) ||
+            !Guid.TryParse(idText, out var id))
+            return new ToolResult(false, "revoke_approval requires task_id as a valid task GUID.");
+
+        var revoked = await _tasks.RevokeApprovalAsync(id, cancellationToken);
+        return new ToolResult(revoked, revoked
+            ? $"Background approval for task {id} was revoked."
+            : "Approval could not be revoked. The task may not exist or may already be running.");
+    }
+
+    private async Task<ToolResult> RunNextApprovedTaskAsync(
+        Dictionary<string, string> args,
+        CancellationToken cancellationToken)
+    {
+        if (!HasOnly(args, "action"))
+            return new ToolResult(false, "run_approved is an internal background-host action and accepts only action.");
+
+        var task = await _tasks.ClaimNextApprovedTaskAsync(cancellationToken);
+        if (task is null)
+            return new ToolResult(true, "No approved development tasks are waiting.");
+
+        return await RunTaskAsync(
+            new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase)
+            {
+                ["action"] = "run_task",
+                ["task_id"] = task.Id.ToString(),
+                ["max_attempts"] = "2"
+            },
+            cancellationToken);
     }
 
     private async Task<ToolResult> RunTaskAsync(
