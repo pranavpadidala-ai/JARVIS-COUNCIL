@@ -7,6 +7,7 @@ using Council.App.Phone;
 using Council.App.Skills;
 using Council.App.Voice;
 using Council.App.Windows;
+using Council.Dev.Browser;
 using Council.Core.Models;
 using Council.Core.Providers;
 using Council.Execution;
@@ -25,6 +26,7 @@ public sealed class ToolCallingAssistant
     private readonly IImageUnderstandingProvider? _documentImageProvider;
     private readonly GeminiCloudSpeechProvider? _cloudSpeechProvider;
     private readonly IndianMarketTool _indianMarketTool;
+    private readonly BraveProfileManager _braveProfiles;
     private WindowsVoiceService? _voice;
     private bool _voiceOutputEnabled;
     private readonly ConversationMemoryStore? _memory;
@@ -60,6 +62,7 @@ public sealed class ToolCallingAssistant
         _documentImageProvider = documentImageProvider ?? imageProvider;
         _cloudSpeechProvider = cloudSpeechProvider;
         _indianMarketTool = indianMarketTool ?? new IndianMarketTool();
+        _braveProfiles = new BraveProfileManager(braveExecutable: Environment.GetEnvironmentVariable("JARVIS_BRAVE_PATH"));
         _memory = memory;
         _facts = memory is null ? null : new MemoryFactStore(memory.FilePath + ".facts.jsonl");
         _instincts = memory is null ? null : new InstinctStore(workspaceRoot);
@@ -75,6 +78,7 @@ public sealed class ToolCallingAssistant
         _tools.Register(new DhanLiveFeedTool());
         _tools.Register(new OfficeWorkspaceTool(provider: _provider, imageProvider: _imageProvider, documentImageProvider: _documentImageProvider));
         _tools.Register(new DesktopControlTool());
+        _tools.Register(new BraveProfileTool(_braveProfiles));
         _tools.Register(new WindowsComputerUseTool(_imageProvider));
         _tools.Register(new AutonomousDevelopmentTool(_provider, workspaceRoot));
         _tools.Register(new WebSearchTool());
@@ -93,7 +97,7 @@ public sealed class ToolCallingAssistant
         Console.WriteLine($"Provider : {_provider.Name}");
         Console.WriteLine("Memory   : " + (_memory is null ? "disabled" : "local conversation history enabled"));
         Console.WriteLine("Workspace: " + Path.GetFullPath(Directory.GetCurrentDirectory()));
-        Console.WriteLine("Tools    : workspace files, public web search and page reading, specialist agents, Indian equity EOD portfolio monitor, Abaqus status, Office workspace, allowlisted Windows app launcher, autonomous development tasks");
+        Console.WriteLine("Tools    : workspace files, public web search and page reading, specialist agents, Indian equity EOD portfolio monitor, Abaqus status, Office workspace, allowlisted Windows app launcher, Brave profile manager, autonomous development tasks");
         Console.WriteLine("Commands : /help, /skills, /agents, /remember <fact>, /memories, /forget <id>, /learn <trigger> => <action>, /instincts, /forget-instinct <id>, /clear, /voice, /speak on|off, Ctrl+C cancels active request");
         Console.WriteLine();
 
@@ -130,6 +134,7 @@ public sealed class ToolCallingAssistant
             {
                 Console.WriteLine("[Phone bridge] Not started: " + ex.Message);
                 if (phoneBridge is not null) await phoneBridge.DisposeAsync();
+            _braveProfiles.Dispose();
                 phoneBridge = null;
             }
         }
