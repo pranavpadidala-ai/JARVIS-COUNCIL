@@ -311,7 +311,7 @@ public sealed class SafeWorkspaceExecutor : IWorkspaceExecutor
         return (true, fullPath, null);
     }
 
-    private async Task<WorkspaceActionResult> ListFilesAsync(
+    private Task<WorkspaceActionResult> ListFilesAsync(
         DevelopmentAction action,
         CancellationToken cancellationToken)
     {
@@ -320,13 +320,13 @@ public sealed class SafeWorkspaceExecutor : IWorkspaceExecutor
 
         if (!pathResult.Success)
         {
-            return pathResult.Result!;
+            return Task.FromResult(pathResult.Result!);
         }
 
         if (!Directory.Exists(pathResult.Path!))
         {
-            return WorkspaceActionResult.Failed(
-                $"Directory does not exist: {action.Target}");
+            return Task.FromResult(WorkspaceActionResult.Failed(
+                $"Directory does not exist: {action.Target}"));
         }
 
         var files = EnumerateWorkspaceFiles(
@@ -341,11 +341,11 @@ public sealed class SafeWorkspaceExecutor : IWorkspaceExecutor
         var truncated = files.Length > 5000;
         var visibleFiles = files.Take(5000);
 
-        return WorkspaceActionResult.Completed(
+        return Task.FromResult(WorkspaceActionResult.Completed(
             truncated
                 ? "File listing completed. Output limited to 5000 files."
                 : $"File listing completed. Files: {files.Length}.",
-            string.Join(Environment.NewLine, visibleFiles));
+            string.Join(Environment.NewLine, visibleFiles)));
     }
 
     private IEnumerable<string> EnumerateWorkspaceFiles(
