@@ -393,7 +393,9 @@ var autonomousExecutor =
         developmentPlanner,
         developmentActionExecutor,
         buildTestExecutor,
-        taskManager);
+        taskManager,
+        terminalController,
+        workspaceRoot);
 
 // ------------------------------------------------------------
 // Development loop
