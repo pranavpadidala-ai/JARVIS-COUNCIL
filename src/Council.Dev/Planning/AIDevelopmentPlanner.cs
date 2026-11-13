@@ -97,6 +97,8 @@ public sealed class AIDevelopmentPlanner : IDevelopmentPlanner
         builder.AppendLine(task.Description);
         builder.AppendLine();
 
+        AppendCheckpointContext(builder, task);
+
         builder.AppendLine("ACTUAL REPOSITORY CONTEXT:");
         builder.AppendLine(context.ToPromptText());
         builder.AppendLine();
@@ -131,6 +133,8 @@ public sealed class AIDevelopmentPlanner : IDevelopmentPlanner
         builder.AppendLine(task.Description);
         builder.AppendLine();
 
+        AppendCheckpointContext(builder, task);
+
         builder.AppendLine("PREVIOUS FAILURE:");
         builder.AppendLine(failure);
         builder.AppendLine();
@@ -156,6 +160,29 @@ public sealed class AIDevelopmentPlanner : IDevelopmentPlanner
         AppendPlanRules(builder);
 
         return builder.ToString();
+    }
+
+    private static void AppendCheckpointContext(StringBuilder builder, DevelopmentTask task)
+    {
+        builder.AppendLine("DURABLE TASK CHECKPOINT:");
+        builder.AppendLine("Task idempotency key: " + task.IdempotencyKey);
+        builder.AppendLine("Completed steps (do not repeat unless repository inspection proves they did not take effect):");
+        if (task.CompletedSteps.Count == 0)
+            builder.AppendLine("- None recorded.");
+        else
+            foreach (var step in task.CompletedSteps)
+                builder.AppendLine("- " + step);
+        builder.AppendLine("Exact last recorded step / next action:");
+        builder.AppendLine(string.IsNullOrWhiteSpace(task.CurrentStep) ? "- No next action recorded." : task.CurrentStep);
+        builder.AppendLine("Recorded provider route: " + (task.ProviderRoute ?? "unknown"));
+        builder.AppendLine("Recorded Git baseline: " + (task.GitCommitSha ?? "unknown"));
+        builder.AppendLine("Recorded working-tree state: " + (task.GitWorkingTreeStatus ?? "unknown"));
+        builder.AppendLine("Recovery instructions:");
+        builder.AppendLine("- Resume from the checkpoint; do not restart completed work from scratch.");
+        builder.AppendLine("- Inspect current files and Git state before deciding whether the last action took effect.");
+        builder.AppendLine("- Reconcile ambiguous operations before retrying; avoid duplicate side effects.");
+        builder.AppendLine("- If the actual repository conflicts with the checkpoint, report the discrepancy and plan a safe reconciliation.");
+        builder.AppendLine();
     }
 
     private static void AppendPlanRules(
