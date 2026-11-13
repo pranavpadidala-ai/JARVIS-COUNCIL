@@ -221,8 +221,11 @@ public sealed class OfficeWorkspaceTool : ITool
                 output.AppendLine("[Full-PDF visual/OCR review is not configured. Enable JARVIS_VISION_PROVIDER=gemini to analyse complete PDF pages, tables, diagrams and scanned content in Gemini.]");
 
             var visualCandidates = new List<AIImage>();
+            var embeddedVisualCandidates = new List<AIImage>();
+            var embeddedVisualBytes = 0;
             var visualBytes = 0;
             var visualImageIndex = 0;
+            var visualPageCandidates = new List<int>();
             const int maxVisualImages = 4;
             const int maxVisualBytes = 8 * 1024 * 1024;
 
@@ -241,13 +244,19 @@ public sealed class OfficeWorkspaceTool : ITool
                 var wordCount = page.GetWords().Count();
                 var pageImages = page.GetImages().ToList();
                 var embeddedImageCount = pageImages.Count;
+                var hasVisualCue = extractedText.Contains("figure", StringComparison.OrdinalIgnoreCase) ||
+                    extractedText.Contains("fig.", StringComparison.OrdinalIgnoreCase) ||
+                    extractedText.Contains("table", StringComparison.OrdinalIgnoreCase) ||
+                    extractedText.Contains("equation", StringComparison.OrdinalIgnoreCase);
+                if (wordCount < 60 || embeddedImageCount > 0 || hasVisualCue)
+                    visualPageCandidates.Add(page.Number);
                 output.AppendLine(
                     $"[Page layout: {page.Width:0.#} x {page.Height:0.#} pt; extracted words: {wordCount}; embedded raster image objects: {embeddedImageCount}]");
 
                 foreach (var pdfImage in pageImages)
                 {
                     cancellationToken.ThrowIfCancellationRequested();
-                    if (visualCandidates.Count >= maxVisualImages)
+                    if (embeddedVisualCandidates.Count >= maxVisualImages)
                         break;
 
                     if (pdfImage.WidthInSamples <= 0 || pdfImage.HeightInSamples <= 0 ||
@@ -273,12 +282,12 @@ public sealed class OfficeWorkspaceTool : ITool
                     }
 
                     if (imageBytes is null || imageBytes.Length == 0 ||
-                        imageBytes.Length > maxVisualBytes - visualBytes)
+                        imageBytes.Length > maxVisualBytes - embeddedVisualBytes)
                         continue;
 
                     visualImageIndex++;
-                    visualBytes += imageBytes.Length;
-                    visualCandidates.Add(new AIImage(
+                    embeddedVisualBytes += imageBytes.Length;
+                    embeddedVisualCandidates.Add(new AIImage(
                         $"PDF page {page.Number}, embedded image {visualImageIndex} ({pdfImage.WidthInSamples} x {pdfImage.HeightInSamples} px; placed at {pdfImage.BoundingBox})",
                         mimeType,
                         imageBytes));
@@ -305,16 +314,86 @@ public sealed class OfficeWorkspaceTool : ITool
                     break;
             }
 
+            if (_documentProvider is null && _documentImageProvider is not null)
+            {
+                var renderPages = visualPageCandidates.Distinct().Take(maxVisualImages).ToList();
+                if (includedPages == 0)
+                {
+                    renderPages.Clear();
+                    var pageCountInRange = endPage - startPage + 1;
+                    var sampleCount = Math.Min(maxVisualImages, pageCountInRange);
+                    for (var sample = 0; sample < sampleCount; sample++)
+                    {
+                        var pageNumber = sampleCount == 1
+                            ? startPage
+                            : startPage + (int)Math.Round(sample * (pageCountInRange - 1d) / (sampleCount - 1));
+                        if (!renderPages.Contains(pageNumber)) renderPages.Add(pageNumber);
+                    }
+                }
+                else if (renderPages.Count == 0)
+                {
+                    renderPages.Add(startPage);
+                    if (endPage != startPage) renderPages.Add(endPage);
+                }
+
+                var renderedPages = 0;
+                foreach (var pageNumber in renderPages.Take(maxVisualImages))
+                {
+                    cancellationToken.ThrowIfCancellationRequested();
+                    try
+                    {
+                        using var pdfStream = File.OpenRead(path);
+                        using var imageStream = new MemoryStream();
+                        PDFtoImage.Conversion.SavePng(
+                            imageStream, pdfStream, page: pageNumber - 1, leaveOpen: true,
+                            options: new PDFtoImage.RenderOptions(Dpi: 120, Width: 1400, WithAspectRatio: true));
+                        var pageBytes = imageStream.ToArray();
+                        if (pageBytes.Length == 0 || pageBytes.Length > maxVisualBytes - visualBytes)
+                        {
+                            output.AppendLine($"[Rendered PDF page {pageNumber} exceeded the remaining visual-image budget and was skipped.]");
+                            continue;
+                        }
+                        visualCandidates.Add(new AIImage($"PDF page {pageNumber} (rendered full page)", "image/png", pageBytes));
+                        visualBytes += pageBytes.Length;
+                        renderedPages++;
+                    }
+                    catch (Exception ex) when (ex is not OutOfMemoryException and not OperationCanceledException)
+                    {
+                        output.AppendLine($"[Full-page rendering failed for PDF page {pageNumber}: {ex.Message}]");
+                    }
+                }
+                if (renderedPages > 0)
+                    output.AppendLine($"[Rendered {renderedPages} full PDF page(s) at up to 1,400 px wide for local visual/OCR review.]");
+
+                foreach (var embedded in embeddedVisualCandidates)
+                {
+                    if (visualCandidates.Count >= maxVisualImages || embedded.Data.Length > maxVisualBytes - visualBytes)
+                        break;
+                    visualCandidates.Add(embedded);
+                    visualBytes += embedded.Data.Length;
+                }
+            }
+            else
+            {
+                foreach (var embedded in embeddedVisualCandidates)
+                {
+                    if (visualCandidates.Count >= maxVisualImages || embedded.Data.Length > maxVisualBytes - visualBytes)
+                        break;
+                    visualCandidates.Add(embedded);
+                    visualBytes += embedded.Data.Length;
+                }
+            }
+
             if (includedPages == 0 && visualCandidates.Count == 0)
-                return new ToolResult(false, "No selectable text or supported embedded raster images were found in the requested page range. The PDF may be scanned or contain vector-only graphics.");
+                return new ToolResult(false, "No selectable text or renderable page images or supported embedded raster images were found in the requested page range. The PDF may be malformed or unsupported.");
 
             if (includedPages == 0)
-                output.AppendLine("[No selectable text was found; continuing with visual-only analysis of extracted embedded images.]");
+                output.AppendLine("[No selectable text was found; continuing with visual-only analysis of rendered full pages and embedded image assets.]");
 
             if (visualCandidates.Count > 0)
             {
                 if (_documentProvider is not null)
-                    output.AppendLine($"[Extracted {visualCandidates.Count} embedded raster image(s); the full-PDF cloud review already received the original document, so duplicate image calls were skipped.]");
+                    output.AppendLine($"[The full-PDF cloud review already received the original document; duplicate local image calls for {visualCandidates.Count} visual asset(s) were skipped.]");
                 else if (_documentImageProvider is null)
                 {
                     output.AppendLine($"[Visual review unavailable: found {visualCandidates.Count} extractable embedded raster image(s), but no document-image provider is configured.]");
@@ -324,12 +403,12 @@ public sealed class OfficeWorkspaceTool : ITool
                     try
                     {
                         var visualPrompt = """
-                            Text Recognition: Read the attached embedded images extracted from a structural/mechanical engineering PDF.
+                            Text Recognition: Read the attached rendered full-page images and embedded image assets extracted from a structural/mechanical engineering PDF.
                             For each image, use its supplied page/image label. Transcribe clearly legible text, dimensions, units,
                             equation symbols, subscripts, signs, table headings, figure labels and annotations. Preserve decimal
                             precision and units. Identify plots, charts, schematics or photographs when possible. Never guess
                             illegible values; mark uncertainty and distinguish direct visual evidence from interpretation.
-                            These are embedded image assets, not necessarily complete PDF pages.
+                            Images may be complete rendered PDF pages or embedded image assets; use their supplied page labels.
                             """;
 
                         var visualAnalysis = await _documentImageProvider.DescribeImagesAsync(
@@ -342,7 +421,7 @@ public sealed class OfficeWorkspaceTool : ITool
                             localDocumentModel.ModelName.Contains("glm-ocr", StringComparison.OrdinalIgnoreCase))
                         {
                             var tablePrompt = """
-                                Table Recognition: Extract every legible table from these engineering-document images.
+                                Table Recognition: Extract every legible table from these rendered PDF pages or embedded engineering-document images.
                                 Preserve row and column order, merged-cell relationships when apparent, headings, units,
                                 decimal precision, signs and footnotes. Return tables as Markdown tables where possible.
                                 If an image contains no table, say so. Never infer missing cells or values.
@@ -362,7 +441,7 @@ public sealed class OfficeWorkspaceTool : ITool
             }
             else
             {
-                output.AppendLine("[No supported embedded raster images were extracted in this page range. Vector plots/charts are not rendered by this reader.]");
+                output.AppendLine("[No supported rendered page images or embedded raster images were available in this page range.]");
             }
 
             if (totalCharacters >= maxCharacters)

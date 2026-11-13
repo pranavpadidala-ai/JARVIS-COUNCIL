@@ -3,6 +3,8 @@ using ClosedXML.Excel;
 using DocumentFormat.OpenXml.Packaging;
 using DocumentFormat.OpenXml.Wordprocessing;
 using Council.App.Office;
+using Council.Core.Models;
+using Council.Core.Providers;
 using Council.Execution.Tools;
 
 namespace Council.Dev.Tests;
@@ -99,6 +101,36 @@ public sealed class OfficeWorkspaceToolTests
             Assert.Contains("Page layout:", result.Message);
             Assert.Contains("embedded raster image objects:", result.Message);
             Assert.Contains("No supported embedded raster images", result.Message);
+        }
+        finally
+        {
+            Directory.Delete(root, recursive: true);
+        }
+    }
+
+    [Fact]
+    public async Task AnalyzePaper_RendersScannedPagesForLocalOcrProvider()
+    {
+        var root = CreateTemporaryDirectory();
+        try
+        {
+            WriteMinimalPdf(Path.Combine(root, "scanned.pdf"), includeText: false);
+            var vision = new RecordingImageProvider();
+            var tool = new OfficeWorkspaceTool(root, documentImageProvider: vision);
+
+            var result = await tool.ExecuteAsync(new Dictionary<string, string>
+            {
+                ["action"] = "analyze_paper",
+                ["path"] = "scanned.pdf"
+            });
+
+            Assert.True(result.Success, result.Message);
+            Assert.Contains("Rendered 1 full PDF page", result.Message);
+            Assert.Contains("OCR output from rendered page", result.Message);
+            Assert.Single(vision.Images);
+            Assert.Contains("rendered full page", vision.Images[0].Name, StringComparison.OrdinalIgnoreCase);
+            Assert.Equal("image/png", vision.Images[0].MimeType);
+            Assert.Equal(new byte[] { 137, 80, 78, 71 }, vision.Images[0].Data.Take(4));
         }
         finally
         {
@@ -337,9 +369,9 @@ public sealed class OfficeWorkspaceToolTests
         }
     }
 
-    private static void WriteMinimalPdf(string path)
+    private static void WriteMinimalPdf(string path, bool includeText = true)
     {
-        const string pageContent = "BT /F1 18 Tf 40 90 Td (JARVIS PDF extraction test) Tj ET";
+        var pageContent = includeText ? "BT /F1 18 Tf 40 90 Td (JARVIS PDF extraction test) Tj ET" : string.Empty;
         var objects = new[]
         {
             "<< /Type /Catalog /Pages 2 0 R >>",
@@ -366,6 +398,18 @@ public sealed class OfficeWorkspaceToolTests
             .Append(xrefOffset).Append("\n%%EOF");
 
         File.WriteAllText(path, pdf.ToString(), Encoding.ASCII);
+    }
+
+
+    private sealed class RecordingImageProvider : IImageUnderstandingProvider
+    {
+        public List<AIImage> Images { get; } = [];
+
+        public Task<string> DescribeImagesAsync(string prompt, IReadOnlyList<AIImage> images, CancellationToken cancellationToken = default)
+        {
+            Images.AddRange(images);
+            return Task.FromResult("OCR output from rendered page");
+        }
     }
 
     private static string CreateTemporaryDirectory()
