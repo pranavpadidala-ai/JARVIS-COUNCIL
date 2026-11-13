@@ -44,6 +44,7 @@ public sealed class TaskManager
 
             task.Status = TaskStatus.Paused;
             task.IsApproved = false;
+            task.ApprovalConsumedAtUtc = null;
             task.UpdatedAtUtc = DateTime.UtcNow;
             task.CurrentStep = "Interrupted by host shutdown; fresh user approval is required to resume.";
             recovered++;
