@@ -5,6 +5,7 @@ using System.Text.Json;
 using System.Text.Json.Serialization;
 using System.Text.RegularExpressions;
 using Council.Execution.Tools;
+using Council.Security;
 
 namespace Council.App.Finance;
 
@@ -73,7 +74,7 @@ public sealed class IndianMarketTool : ITool
         {
             return new ToolResult(false, "Indian market data request timed out: " + ex.Message);
         }
-        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or JsonException or HttpRequestException or InvalidOperationException)
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or JsonException or HttpRequestException or InvalidOperationException or System.Security.Cryptography.CryptographicException or PlatformNotSupportedException or FormatException)
         {
             return new ToolResult(false, "Indian market monitor failed safely: " + ex.Message);
         }
@@ -462,7 +463,8 @@ public sealed class IndianMarketTool : ITool
     private async Task<WatchlistDocument> LoadStoreAsync(CancellationToken token)
     {
         if (!File.Exists(_watchlistPath)) return new WatchlistDocument();
-        var json = await File.ReadAllTextAsync(_watchlistPath, token);
+        var stored = await File.ReadAllTextAsync(_watchlistPath, token);
+        var json = LocalMemoryProtector.Unprotect(stored);
         return JsonSerializer.Deserialize<WatchlistDocument>(json, JsonOptions) ?? new WatchlistDocument();
     }
 
@@ -474,7 +476,9 @@ public sealed class IndianMarketTool : ITool
         var temporary = _watchlistPath + "." + Guid.NewGuid().ToString("N") + ".tmp";
         try
         {
-            await File.WriteAllTextAsync(temporary, JsonSerializer.Serialize(store, JsonOptions), new UTF8Encoding(false), token);
+            var json = JsonSerializer.Serialize(store, JsonOptions);
+            var stored = OperatingSystem.IsWindows() ? LocalMemoryProtector.Protect(json) : json;
+            await File.WriteAllTextAsync(temporary, stored, new UTF8Encoding(false), token);
             File.Move(temporary, _watchlistPath, true);
         }
         finally

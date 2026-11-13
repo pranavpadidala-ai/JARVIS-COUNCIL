@@ -54,7 +54,8 @@ public sealed class RuntimeHealthCheckTests
             detectAbaqus: () => new AbaqusInstallationInfo(false, null, "not found"));
 
         Assert.Contains(checks, x => x.Component == "Ollama service" && x.Status == "NOT READY");
-        Assert.Contains(checks, x => x.Component == "Local chat model" && x.Status == "NOT READY");
+        Assert.Contains(checks, x => x.Component == "Local chat model" && x.Status == "OPTIONAL");
+        Assert.Contains(checks, x => x.Component == "Desktop / engineering vision" && x.Status == "NOT READY");
         Assert.Contains(checks, x => x.Component == "Gemini provider" && x.Status == "READY");
         Assert.DoesNotContain(checks, x => x.Detail.Contains("secret-test-value", StringComparison.Ordinal));
     }

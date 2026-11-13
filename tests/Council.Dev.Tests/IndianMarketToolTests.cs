@@ -8,6 +8,63 @@ namespace Council.Dev.Tests;
 public sealed class IndianMarketToolTests
 {
     [Fact]
+    public async Task EncryptsLocalHoldingsWithCurrentWindowsUserDpapi()
+    {
+        if (!OperatingSystem.IsWindows()) return;
+        var folder = Path.Combine(Path.GetTempPath(), "JarvisMarketTests", Guid.NewGuid().ToString("N"));
+        var path = Path.Combine(folder, "watchlist.json");
+        try
+        {
+            var tool = new IndianMarketTool(new HttpClient(new StubHandler((_, _) => throw new InvalidOperationException())), path);
+            var saved = await tool.ExecuteAsync(new Dictionary<string, string>
+            {
+                ["action"] = "set_holding", ["symbol"] = "RELIANCE", ["quantity"] = "10", ["average_buy_price"] = "100"
+            });
+            Assert.True(saved.Success, saved.Message);
+            var stored = await File.ReadAllTextAsync(path);
+            Assert.StartsWith("dpapi:v1:", stored);
+            Assert.DoesNotContain("RELIANCE", stored);
+            var listed = await tool.ExecuteAsync(new Dictionary<string, string> { ["action"] = "list" });
+            Assert.True(listed.Success, listed.Message);
+            Assert.Contains("RELIANCE", listed.Message);
+        }
+        finally
+        {
+            if (Directory.Exists(folder)) Directory.Delete(folder, true);
+        }
+    }
+
+    [Fact]
+    public async Task ReadsLegacyPlaintextWatchlistAndEncryptsItOnNextWrite()
+    {
+        var folder = Path.Combine(Path.GetTempPath(), "JarvisMarketTests", Guid.NewGuid().ToString("N"));
+        var path = Path.Combine(folder, "watchlist.json");
+        Directory.CreateDirectory(folder);
+        try
+        {
+            await File.WriteAllTextAsync(path, """{"holdings":[{"symbol":"TCS","exchange":"NSE","quantity":5,"averageBuyPrice":2500}],"watchlist":[],"alerts":[]}""");
+            var tool = new IndianMarketTool(new HttpClient(new StubHandler((_, _) => throw new InvalidOperationException())), path);
+            var listed = await tool.ExecuteAsync(new Dictionary<string, string> { ["action"] = "list" });
+            Assert.True(listed.Success, listed.Message);
+            Assert.Contains("TCS", listed.Message);
+            var updated = await tool.ExecuteAsync(new Dictionary<string, string>
+            {
+                ["action"] = "set_holding", ["symbol"] = "TCS", ["quantity"] = "6", ["average_buy_price"] = "2550"
+            });
+            Assert.True(updated.Success, updated.Message);
+            if (OperatingSystem.IsWindows())
+            {
+                var stored = await File.ReadAllTextAsync(path);
+                Assert.StartsWith("dpapi:v1:", stored);
+            }
+        }
+        finally
+        {
+            if (Directory.Exists(folder)) Directory.Delete(folder, true);
+        }
+    }
+
+    [Fact]
     public async Task SavesHoldingAndCalculatesPortfolioValueFromEodQuote()
     {
         var today = DateOnly.FromDateTime(DateTime.UtcNow);

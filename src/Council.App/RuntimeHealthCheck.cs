@@ -36,7 +36,12 @@ public static class RuntimeHealthCheck
             var brainModel = get("OLLAMA_MODEL") ?? "qwen3.5:2b-q4_K_M";
             var visionModel = get("JARVIS_VISION_MODEL") ?? "qwen3-vl:2b";
             var documentModel = get("JARVIS_DOCUMENT_VISION_MODEL") ?? "glm-ocr";
+            var provider = (get("JARVIS_AI_PROVIDER") ?? "").Trim().ToLowerInvariant();
+            var visionProvider = (get("JARVIS_VISION_PROVIDER") ?? "ollama").Trim().ToLowerInvariant();
             var visionEnabled = !bool.TryParse(get("JARVIS_LOCAL_VISION_ENABLED"), out var enabled) || enabled;
+            var brainRequired = provider == "ollama";
+            var localVisionRequired = visionProvider == "ollama" && visionEnabled;
+            var ollamaRequired = brainRequired || localVisionRequired;
             HashSet<string> installedModels = new(StringComparer.OrdinalIgnoreCase);
             string? ollamaError = null;
 
@@ -64,22 +69,39 @@ public static class RuntimeHealthCheck
                     }
                 }
             }
+            catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested) { throw; }
             catch (Exception ex) when (ex is HttpRequestException or TaskCanceledException or JsonException or InvalidOperationException or UriFormatException or InvalidDataException)
             {
                 ollamaError = ex is TaskCanceledException ? "Ollama did not respond within 4 seconds." : ex.Message;
             }
 
-            checks.Add(new("Ollama service", ollamaError is null ? "READY" : "NOT READY",
-                ollamaError is null ? $"Connected to {SafeEndpoint(baseUrl)}; found {installedModels.Count} installed model(s)." : ollamaError));
-            checks.Add(ModelCheck("Local chat model", brainModel, installedModels, ollamaError));
-            checks.Add(visionEnabled
-                ? ModelCheck("Desktop / engineering vision", visionModel, installedModels, ollamaError)
-                : new("Desktop / engineering vision", "DISABLED", "JARVIS_LOCAL_VISION_ENABLED=false."));
-            checks.Add(visionEnabled
-                ? ModelCheck("Specialist document OCR", documentModel, installedModels, ollamaError)
-                : new("Specialist document OCR", "DISABLED", "Local vision is disabled."));
+            checks.Add(new("Ollama service", ollamaError is null ? "READY" : ollamaRequired ? "NOT READY" : "OPTIONAL",
+                ollamaError is null ? $"Connected to {SafeEndpoint(baseUrl)}; found {installedModels.Count} installed model(s)." :
+                ollamaRequired ? ollamaError : "Not required by the selected AI and vision providers."));
+            checks.Add(ModelCheck("Local chat model", brainModel, installedModels, ollamaError, brainRequired));
+            if (visionProvider == "ollama" && visionEnabled)
+            {
+                checks.Add(ModelCheck("Desktop / engineering vision", visionModel, installedModels, ollamaError, required: true));
+                checks.Add(ModelCheck("Specialist document OCR", documentModel, installedModels, ollamaError, required: true));
+            }
+            else if (visionProvider == "gemini")
+            {
+                checks.Add(new("Desktop / engineering vision", "OPTIONAL", "Local Qwen vision is not used when Gemini vision is selected."));
+                checks.Add(new("Specialist document OCR", "OPTIONAL", "Local GLM-OCR is not used when Gemini vision is selected."));
+                checks.Add(Present("Cloud vision/document reader", get("GEMINI_API_KEY"), "GEMINI_API_KEY"));
+            }
+            else if (visionProvider == "none" || !visionEnabled)
+            {
+                checks.Add(new("Desktop / engineering vision", "DISABLED", "Local/cloud vision is disabled."));
+                checks.Add(new("Specialist document OCR", "DISABLED", "Local/cloud document OCR is disabled."));
+            }
+            else
+            {
+                checks.Add(new("Desktop / engineering vision", "NOT READY", "JARVIS_VISION_PROVIDER must be ollama, gemini or none."));
+                checks.Add(new("Specialist document OCR", "NOT READY", "JARVIS_VISION_PROVIDER must be ollama, gemini or none."));
+            }
 
-            var provider = (get("JARVIS_AI_PROVIDER") ?? "").Trim().ToLowerInvariant();
+
             var providerCheck = provider switch
             {
                 "gemini" => Present("Gemini provider", get("GEMINI_API_KEY"), "GEMINI_API_KEY"),
@@ -133,13 +155,16 @@ public static class RuntimeHealthCheck
     }
 
     private static RuntimeHealthCheckResult ModelCheck(string component, string model,
-        HashSet<string> installed, string? ollamaError)
+        HashSet<string> installed, string? ollamaError, bool required)
     {
         if (ollamaError is not null)
-            return new(component, "NOT READY", "Cannot verify model because Ollama is unavailable.");
+            return new(component, required ? "NOT READY" : "OPTIONAL",
+                required ? "Cannot verify model because Ollama is unavailable." : "Not required by the selected provider.");
         var found = installed.Contains(model) || installed.Contains(model + ":latest");
-        return new(component, found ? "READY" : "NOT READY",
-            found ? $"Model '{model}' is installed." : $"Model '{model}' is missing. Pull it with Ollama or run the appropriate JARVIS installer.");
+        return new(component, found ? "READY" : required ? "NOT READY" : "OPTIONAL",
+            found ? $"Model '{model}' is installed." :
+            required ? $"Model '{model}' is missing. Pull it with Ollama or run the appropriate JARVIS installer." :
+            $"Model '{model}' is not installed; it is not required by the selected provider.");
     }
 
     private static RuntimeHealthCheckResult Present(string component, string? value, string variable) =>

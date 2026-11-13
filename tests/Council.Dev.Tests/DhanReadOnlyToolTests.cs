@@ -27,20 +27,20 @@ public sealed class DhanReadOnlyToolTests
         string? capturedToken = null;
         string? capturedClientId = null;
         string? capturedBody = null;
-        var handler = new StubHandler((request, _) =>
+        var handler = new StubHandler(async (request, _) =>
         {
             capturedMethod = request.Method;
             capturedUrl = request.RequestUri!.ToString();
             capturedToken = request.Headers.GetValues("access-token").Single();
             capturedClientId = request.Headers.GetValues("client-id").Single();
-            capturedBody = request.Content!.ReadAsStringAsync().GetAwaiter().GetResult();
-            return Task.FromResult(new HttpResponseMessage(HttpStatusCode.OK)
+            capturedBody = await request.Content!.ReadAsStringAsync();
+            return new HttpResponseMessage(HttpStatusCode.OK)
             {
                 Content = new StringContent(
                     """{"status":"success","data":{"NSE_EQ":{"1333":{"last_price":1523.45}}}}""",
                     Encoding.UTF8,
                     "application/json")
-            });
+            };
         });
         using var client = new HttpClient(handler);
         var tool = new DhanReadOnlyTool(client, () => "1000000001", () => "test-token");
