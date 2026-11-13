@@ -84,6 +84,85 @@ public sealed class ToolCallingAssistant
             string.Join("\n", _tools.GetAll().Select(t => t.Name + ": " + t.Description))));
     }
 
+
+    /// <summary>
+    /// Processes one user turn for desktop, phone and other non-console clients.
+    /// Uses the same registered tools, specialist skills, memory retrieval and
+    /// bounded tool-execution loop as the interactive JARVIS console.
+    /// </summary>
+    public async Task<string> ProcessMessageAsync(
+        string input,
+        CancellationToken cancellationToken = default)
+    {
+        if (string.IsNullOrWhiteSpace(input))
+            throw new ArgumentException("A message is required.", nameof(input));
+
+        input = input.Trim();
+        if (!_memoryLoaded && _memory is not null)
+        {
+            var restored = await _memory.LoadRecentAsync(MaxHistoryMessages, cancellationToken);
+            _history.InsertRange(1, restored);
+            TrimHistory();
+        }
+        _memoryLoaded = true;
+
+        await AddHistoryAsync(new AIMessage("user", input), cancellationToken);
+        TrimHistory();
+
+        var toolExecutions = 0;
+        for (var round = 0; round < MaxModelRoundsPerTurn; round++)
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+            var response = await _provider.AskAsync(
+                new AIRequest(await BuildMessagesForTurnAsync(input, cancellationToken), Temperature: 0.2),
+                cancellationToken);
+
+            if (string.IsNullOrWhiteSpace(response.Content))
+                return "The AI provider returned an empty response. Please try again.";
+
+            if (!TryParseEnvelope(response.Content, out var type, out var calls, out var message))
+            {
+                var cleanText = response.Content.Trim();
+                await AddHistoryAsync(new AIMessage("assistant", cleanText), cancellationToken);
+                return cleanText;
+            }
+
+            if (type == "message")
+            {
+                await AddHistoryAsync(new AIMessage("assistant", message), cancellationToken);
+                return message;
+            }
+
+            if (calls.Count == 0 || toolExecutions + calls.Count > MaxToolExecutionsPerTurn)
+                return "This request needs too many tool operations. Please split it into smaller steps.";
+
+            await AddHistoryAsync(new AIMessage("assistant", response.Content), cancellationToken);
+            foreach (var call in calls)
+            {
+                cancellationToken.ThrowIfCancellationRequested();
+                if (!_tools.TryGet(call.Name, out var tool))
+                {
+                    await AddHistoryAsync(
+                        new AIMessage("user", "Tool result: FAILED: Unknown tool name; operation blocked."),
+                        cancellationToken);
+                }
+                else
+                {
+                    var result = await tool.ExecuteAsync(call.Arguments, cancellationToken);
+                    await AddHistoryAsync(
+                        new AIMessage("user", "Tool result (" + tool.Name + "): " +
+                            (result.Success ? "SUCCESS: " : "FAILED: ") + result.Message),
+                        cancellationToken);
+                }
+
+                toolExecutions++;
+                TrimHistory();
+            }
+        }
+
+        return "JARVIS reached its maximum reasoning rounds without producing a final response. Please retry with a smaller request.";
+    }
+
     public async Task RunAsync(CancellationToken cancellationToken = default)
     {
         Console.WriteLine();
