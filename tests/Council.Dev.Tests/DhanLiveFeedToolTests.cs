@@ -53,6 +53,17 @@ public sealed class DhanLiveFeedToolTests
     }
 
     [Fact]
+    public void ReadsServerDisconnectReasonCode()
+    {
+        var packet = new byte[10];
+        packet[0] = 50;
+        BinaryPrimitives.WriteUInt16LittleEndian(packet.AsSpan(1, 2), 10);
+        BinaryPrimitives.WriteInt16LittleEndian(packet.AsSpan(8, 2), 807);
+
+        Assert.Equal(807, DhanFeedPacketParser.TryReadDisconnectCode(packet));
+    }
+
+    [Fact]
     public void IgnoresUnknownSegmentsAndMalformedPackets()
     {
         var packet = new byte[17];
