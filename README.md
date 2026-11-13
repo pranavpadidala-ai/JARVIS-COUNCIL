@@ -24,6 +24,26 @@ dotnet run --project .\src\Council.App\Council.App.csproj -- --doctor
 
 The normal startup is the interactive JARVIS assistant. `--doctor` checks the configured AI provider, Ollama models, local vision/OCR, Dhan credential presence, Abaqus launcher, voice runtimes and phone-bridge configuration. It never displays secrets or starts feeds, GUI actions or solver jobs. If no provider key is configured, it starts in mock mode so the local application and tools can still be exercised.
 
+## Windows desktop app (first usable build)
+
+Launch the WPF Command Center and chat window from PowerShell:
+
+```powershell
+.\scripts\Start-JarvisDesktop.ps1
+```
+
+The desktop chat uses the same provider setting as the main application. For a private, no-API-credit local setup, install Ollama and the small local model stack once:
+
+```powershell
+Set-ExecutionPolicy -Scope Process Bypass
+.\scripts\Install-LocalModels.ps1
+$env:JARVIS_AI_PROVIDER = "ollama"
+$env:OLLAMA_MODEL = "qwen3.5:2b-q4_K_M"
+dotnet run --project .\src\Council.Desktop\Council.Desktop.csproj
+```
+
+The desktop conversation history is stored locally under `%LOCALAPPDATA%\JARVIS\Conversations\current.json`. The desktop shell is an early usable chat/dashboard build; advanced tool execution, voice controls and live agent/task panels are still being connected to the full JARVIS runtime. Do not treat dashboard placeholder labels as proof that those services are active.
+
 ## Choose an AI provider
 
 Set configuration in the current PowerShell session. Do not commit API keys or place them in the project workspace.
