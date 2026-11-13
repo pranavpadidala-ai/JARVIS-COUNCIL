@@ -147,7 +147,7 @@ Optionally register a user-level Windows logon task and start it immediately:
 .\scripts\Install-JarvisAgentTask.ps1 -StartNow
 ```
 
-The scheduled task runs as the current user (no administrator privilege or stored Windows password), restarts after a failure, and logs to `%LOCALAPPDATA%\JARVIS\Agent\agent.log`. It defaults to the local Ollama model unless `JARVIS_AI_PROVIDER` is explicitly configured. It does not continuously run a language model: it polls the task queue every 30 seconds and stays idle when there is no approved work.
+The scheduled task runs as the current user (no administrator privilege or stored Windows password), uses local Ollama only so no cloud API secret is needed for background use, restarts after a failure, and logs to `%LOCALAPPDATA%\JARVIS\Agent\agent.log`. It does not continuously run a language model: it polls the task queue every 30 seconds and stays idle when there is no approved work. For a foreground worker using a cloud provider from the current PowerShell session, run `Start-JarvisAgent.ps1` directly instead.
 
 **Approval boundary:** asking JARVIS to create a development task only queues it. A user must explicitly approve a task in JARVIS before the background worker can claim it. Approval is one-shot, can be revoked before claim, and is consumed when claimed. An interrupted or failed task requires fresh approval. Execution requires a clean Git working tree, a checkpoint, safe workspace actions, successful `dotnet build` and `dotnet test`, and a commit only after validation passes. A failed attempt is rolled back. The worker and foreground JARVIS share cross-process task and execution locks so they cannot execute two development tasks at once.
 
