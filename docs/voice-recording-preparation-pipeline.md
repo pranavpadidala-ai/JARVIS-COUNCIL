@@ -174,3 +174,18 @@ The pipeline is not considered voice-training-ready until the owner reviews a sa
 
 The owner must choose the folder containing the M4A files and confirm a few short reference clips that clearly contain their own voice. No files are scanned until the user selects the folder in the local JARVIS app. The app should then offer a pilot batch before processing the full collection.
 ```
+
+
+## Duration-aware scheduling (confirmed collection profile)
+
+The owner reports that most recordings are shorter than 15 minutes, with some extending to a maximum of approximately 1.5 hours. Exact durations are not yet inventoried, so do not publish a total-hours or completion-time estimate until the scan completes.
+
+- Probe duration first and bucket jobs by duration: short (<15 min), medium (15–45 min), long (45–90 min), and exception (>90 min).
+- Process short files first to validate the pipeline and produce early review samples. Do not discard or permanently deprioritise long files.
+- For diarisation/ASR, process long recordings in bounded windows (initial target 5–10 minutes with a small overlap, configurable after pilot evaluation). Merge adjacent-window speaker clusters only with evidence; preserve global timestamps by adding each window's source offset.
+- Avoid cutting at arbitrary word boundaries where possible. Use voice activity detection / speech boundaries to align windows, while retaining a small overlap to avoid losing words at edges.
+- Persist a per-file, per-window stage ledger. If a job is interrupted, resume from the last completed window/stage rather than restarting the full recording.
+- Keep concurrency conservative: one decode/ASR/diarisation heavy task at a time on the 8 GB laptop. The scheduler may inventory and hash files without loading neural models.
+- Report counts and total durations by bucket, estimated remaining work based on measured pilot throughput, and separate decode, diarisation, transcription, and review progress.
+- Long-call speaker drift and participant changes are high-risk; route uncertain speaker re-identification to manual review. Do not assume a speaker ID remains stable across the entire 90-minute call.
+- Pilot the window size and overlap on representative short, mixed-language and long calls before processing the full archive. A starting overlap of 1–2 seconds is a tuning parameter, not a guarantee of perfect boundary continuity.
