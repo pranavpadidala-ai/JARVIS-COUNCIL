@@ -1,0 +1,186 @@
+<Window x:Class="Council.Desktop.MainWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        Title="JARVIS Command Center" Height="900" Width="1500"
+        MinHeight="720" MinWidth="1120" WindowStartupLocation="CenterScreen"
+        Background="#050D18" Foreground="#D7F4FF">
+  <Window.Resources>
+    <Style x:Key="SectionTitle" TargetType="TextBlock">
+      <Setter Property="FontSize" Value="10"/><Setter Property="FontWeight" Value="Bold"/>
+      <Setter Property="Foreground" Value="#6F9EB5"/><Setter Property="Margin" Value="0,0,0,10"/>
+    </Style>
+    <Style x:Key="Metric" TargetType="TextBlock">
+      <Setter Property="FontSize" Value="19"/><Setter Property="FontWeight" Value="SemiBold"/>
+      <Setter Property="Foreground" Value="#36DDF5"/>
+    </Style>
+    <Style x:Key="Small" TargetType="TextBlock">
+      <Setter Property="FontSize" Value="11"/><Setter Property="Foreground" Value="#86A9BA"/>
+    </Style>
+    <Style x:Key="ActionButton" TargetType="Button">
+      <Setter Property="Background" Value="#10283A"/><Setter Property="Foreground" Value="#C9F5FF"/>
+      <Setter Property="BorderBrush" Value="#1C6075"/><Setter Property="BorderThickness" Value="1"/>
+      <Setter Property="Padding" Value="10,8"/><Setter Property="Margin" Value="0,3"/>
+      <Setter Property="HorizontalContentAlignment" Value="Left"/><Setter Property="Cursor" Value="Hand"/>
+    </Style>
+  </Window.Resources>
+  <Grid Margin="10">
+    <Grid.ColumnDefinitions><ColumnDefinition Width="190"/><ColumnDefinition Width="*"/></Grid.ColumnDefinitions>
+    <Border Grid.Column="0" Background="#071522" BorderBrush="#153C51" BorderThickness="1" CornerRadius="10" Padding="12">
+      <DockPanel>
+        <StackPanel DockPanel.Dock="Top">
+          <TextBlock Text="◉  J A R V I S" FontSize="19" FontWeight="Bold" Foreground="#35DDF5" Margin="2,8,0,0"/>
+          <TextBlock Text="COMMAND CENTER" FontSize="9" Foreground="#7197AA" Margin="5,0,0,24"/>
+          <Button Style="{StaticResource NavButton}" Content="▦   Command Center" Background="#10364A" Foreground="#42E5F7"/>
+          <Button Style="{StaticResource NavButton}" Content="◈   AI Core"/>
+          <Button Style="{StaticResource NavButton}" Content="◎   Agents"/>
+          <Button Style="{StaticResource NavButton}" Content="▤   Tasks"/>
+          <Button Style="{StaticResource NavButton}" Content="▦   Calendar"/>
+          <Button Style="{StaticResource NavButton}" Content="◷   Memory"/>
+          <Button Style="{StaticResource NavButton}" Content="▣   Conversations"/>
+          <Button Style="{StaticResource NavButton}" Content="⌕   Knowledge Base"/>
+          <Button Style="{StaticResource NavButton}" Content="⚙   Tools &amp; Skills"/>
+          <Button Style="{StaticResource NavButton}" Content="⌘   Workflows"/>
+        </StackPanel>
+        <Border DockPanel.Dock="Bottom" Style="{StaticResource Panel}" Margin="0,18,0,0">
+          <StackPanel>
+            <TextBlock Text="VOICE STATUS" Style="{StaticResource SectionTitle}"/>
+            <TextBlock Text="◉  Push-to-talk" Foreground="#3BDDF4" FontSize="15" HorizontalAlignment="Center" Margin="0,10"/>
+            <TextBlock Text="Voice engine not connected" Style="{StaticResource Small}" TextAlignment="Center"/>
+            <TextBlock Text="Microphone access will be shown here" Style="{StaticResource Small}" TextAlignment="Center" TextWrapping="Wrap" Margin="0,8,0,0"/>
+          </StackPanel>
+        </Border>
+      </DockPanel>
+    </Border>
+
+    <Grid Grid.Column="1" Margin="12,0,0,0">
+      <Grid.RowDefinitions><RowDefinition Height="48"/><RowDefinition Height="190"/><RowDefinition Height="170"/><RowDefinition Height="*"/><RowDefinition Height="62"/></Grid.RowDefinitions>
+      <Grid Grid.Row="0">
+        <Grid.ColumnDefinitions><ColumnDefinition/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
+        <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
+          <TextBlock Text="SYSTEM STATUS" Foreground="#7CA6B9" FontSize="10" FontWeight="Bold"/>
+          <TextBlock Text="   ● CORE ONLINE" Foreground="#3DE3B4" FontSize="10" FontWeight="Bold"/>
+        </StackPanel>
+        <StackPanel Grid.Column="1" Orientation="Horizontal" VerticalAlignment="Center">
+          <TextBlock x:Name="ClockText" Text="--:--:--" Foreground="#38DDF5" FontSize="17" FontWeight="SemiBold" Margin="0,0,18,0"/>
+          <TextBlock Text="LOCAL DESKTOP  •  PRIVATE SESSION" Foreground="#7896A9" FontSize="9" VerticalAlignment="Center"/>
+        </StackPanel>
+      </Grid>
+
+      <Grid Grid.Row="1" Margin="0,6,0,10">
+        <Grid.ColumnDefinitions><ColumnDefinition Width="220"/><ColumnDefinition Width="*"/><ColumnDefinition Width="260"/></Grid.ColumnDefinitions>
+        <Border Style="{StaticResource Panel}" Margin="0,0,8,0">
+          <StackPanel>
+            <TextBlock Text="AI CORE OVERVIEW" Style="{StaticResource SectionTitle}"/>
+            <TextBlock Text="◉  AI Core" FontWeight="SemiBold"/><TextBlock Text="Assistant runtime initializing" Style="{StaticResource Small}" Margin="22,0,0,9"/>
+            <TextBlock Text="◉  Memory" FontWeight="SemiBold"/><TextBlock Text="Local conversation history" Style="{StaticResource Small}" Margin="22,0,0,9"/>
+            <TextBlock Text="◉  Voice" FontWeight="SemiBold"/><TextBlock Text="Not connected" Style="{StaticResource Small}" Margin="22,0,0,9"/>
+            <TextBlock Text="◉  Agents" FontWeight="SemiBold"/><TextBlock Text="Agent runtime planned" Style="{StaticResource Small}" Margin="22,0,0,9"/>
+          </StackPanel>
+        </Border>
+        <Border Grid.Column="1" Margin="0,0,8,0" CornerRadius="10" BorderBrush="#16465F" BorderThickness="1">
+          <Border.Background>
+            <RadialGradientBrush GradientOrigin="0.5,0.48">
+              <GradientStop Color="#164B66" Offset="0"/><GradientStop Color="#0A2034" Offset="0.48"/><GradientStop Color="#071522" Offset="1"/>
+            </RadialGradientBrush>
+          </Border.Background>
+          <Grid>
+            <Ellipse Width="150" Height="150" Stroke="#237C9B" StrokeThickness="1" Opacity="0.65"/>
+            <Ellipse Width="124" Height="124" Stroke="#1C91B2" StrokeThickness="1" StrokeDashArray="2 3" Opacity="0.7"/>
+            <StackPanel HorizontalAlignment="Center" VerticalAlignment="Center">
+              <TextBlock Text="J A R V I S" FontSize="29" FontWeight="Light" Foreground="#39E6F5" HorizontalAlignment="Center"/>
+              <TextBlock Text="A I   C O R E" FontSize="10" Foreground="#A4EFFF" HorizontalAlignment="Center" Margin="0,4"/>
+              <TextBlock Text="COMMAND INTERFACE" FontSize="8" Foreground="#6EA9C2" HorizontalAlignment="Center" Margin="0,7"/>
+            </StackPanel>
+          </Grid>
+        </Border>
+        <Border Grid.Column="2" Style="{StaticResource Panel}">
+          <StackPanel>
+            <TextBlock Text="LIVE INTELLIGENCE FEED" Style="{StaticResource SectionTitle}"/>
+            <TextBlock Text="●  Desktop shell started" Foreground="#49DDB6" FontSize="11" Margin="0,4"/>
+            <TextBlock Text="○  Provider connection pending" Style="{StaticResource Small}" Margin="0,8"/>
+            <TextBlock Text="○  Task queue not connected" Style="{StaticResource Small}" Margin="0,8"/>
+            <TextBlock Text="○  Computer-use module planned" Style="{StaticResource Small}" Margin="0,8"/>
+          </StackPanel>
+        </Border>
+      </Grid>
+
+      <Grid Grid.Row="2" Margin="0,0,0,10">
+        <Grid.ColumnDefinitions><ColumnDefinition Width="2*"/><ColumnDefinition Width="1.2*"/><ColumnDefinition Width="1.1*"/></Grid.ColumnDefinitions>
+        <Border Style="{StaticResource Panel}" Margin="0,0,8,0">
+          <StackPanel>
+            <TextBlock Text="ACTIVE AGENTS" Style="{StaticResource SectionTitle}"/>
+            <UniformGrid Columns="2" Rows="2">
+              <Border Background="#102A3B" CornerRadius="6" Padding="9" Margin="3"><StackPanel><TextBlock Text="◈  Coding Agent" FontWeight="SemiBold"/><TextBlock Text="Available when enabled" Style="{StaticResource Small}"/></StackPanel></Border>
+              <Border Background="#102A3B" CornerRadius="6" Padding="9" Margin="3"><StackPanel><TextBlock Text="⌕  Research Agent" FontWeight="SemiBold"/><TextBlock Text="Planned skill" Style="{StaticResource Small}"/></StackPanel></Border>
+              <Border Background="#102A3B" CornerRadius="6" Padding="9" Margin="3"><StackPanel><TextBlock Text="▤  Memory Agent" FontWeight="SemiBold"/><TextBlock Text="Conversation store" Style="{StaticResource Small}"/></StackPanel></Border>
+              <Border Background="#102A3B" CornerRadius="6" Padding="9" Margin="3"><StackPanel><TextBlock Text="⚙  System Agent" FontWeight="SemiBold"/><TextBlock Text="Planned skill" Style="{StaticResource Small}"/></StackPanel></Border>
+            </UniformGrid>
+          </StackPanel>
+        </Border>
+        <Border Grid.Column="1" Style="{StaticResource Panel}" Margin="0,0,8,0">
+          <StackPanel>
+            <TextBlock Text="MISSION TIMELINE" Style="{StaticResource SectionTitle}"/>
+            <TextBlock Text="01   Interactive assistant foundation" FontSize="11" Margin="0,5"/>
+            <TextBlock Text="02   Persistent task orchestration" FontSize="11" Margin="0,7"/>
+            <TextBlock Text="03   Research and engineering tools" FontSize="11" Margin="0,7"/>
+            <TextBlock Text="04   Desktop vision and voice" FontSize="11" Margin="0,7"/>
+          </StackPanel>
+        </Border>
+        <Border Grid.Column="2" Style="{StaticResource Panel}">
+          <StackPanel>
+            <TextBlock Text="QUICK COMMANDS" Style="{StaticResource SectionTitle}"/>
+            <Button Style="{StaticResource ActionButton}" Content="＋  Start New Task" Click="StartTask_Click"/>
+            <Button Style="{StaticResource ActionButton}" Content="▤  Open Conversations" Click="OpenConsole_Click"/>
+            <Button Style="{StaticResource ActionButton}" Content="◉  Voice (coming soon)"/>
+            <Button Style="{StaticResource ActionButton}" Content="⌘  Run Workflow" Click="RunWorkflow_Click"/>
+          </StackPanel>
+        </Border>
+      </Grid>
+
+      <Grid Grid.Row="3">
+        <Grid.ColumnDefinitions><ColumnDefinition/><ColumnDefinition/><ColumnDefinition/></Grid.ColumnDefinitions>
+        <Border Style="{StaticResource Panel}" Margin="0,0,8,0">
+          <StackPanel>
+            <TextBlock Text="SYSTEM MONITOR" Style="{StaticResource SectionTitle}"/>
+            <Grid Margin="0,8,0,0">
+              <Grid.ColumnDefinitions><ColumnDefinition/><ColumnDefinition/></Grid.ColumnDefinitions>
+              <Grid.RowDefinitions><RowDefinition/><RowDefinition/></Grid.RowDefinitions>
+              <StackPanel Grid.Row="0" Grid.Column="0" Margin="0,0,8,12"><TextBlock Text="CPU (JARVIS)" Style="{StaticResource Small}"/><TextBlock x:Name="CpuMetric" Text="--" Style="{StaticResource Metric}"/></StackPanel>
+              <StackPanel Grid.Row="0" Grid.Column="1"><TextBlock Text="SYSTEM RAM" Style="{StaticResource Small}"/><TextBlock x:Name="RamMetric" Text="--" Style="{StaticResource Metric}"/></StackPanel>
+              <StackPanel Grid.Row="1" Grid.Column="0"><TextBlock Text="SYSTEM DRIVE FREE" Style="{StaticResource Small}"/><TextBlock x:Name="DiskMetric" Text="--" Style="{StaticResource Metric}"/></StackPanel>
+              <StackPanel Grid.Row="1" Grid.Column="1"><TextBlock Text="JARVIS PROCESS" Style="{StaticResource Small}"/><TextBlock x:Name="ProcessMetric" Text="--" Style="{StaticResource Metric}"/></StackPanel>
+            </Grid>
+            <TextBlock Text="Live local telemetry • updates every 2 seconds" Style="{StaticResource Small}" TextWrapping="Wrap" Margin="0,10,0,0"/>
+          </StackPanel>
+        </Border>
+        <Border Grid.Column="1" Style="{StaticResource Panel}" Margin="0,0,8,0">
+          <StackPanel>
+            <TextBlock Text="MEMORY INSIGHTS" Style="{StaticResource SectionTitle}"/>
+            <TextBlock x:Name="MemoryCountText" Text="Loading saved conversations..." Style="{StaticResource Metric}" FontSize="15"/>
+            <TextBlock Text="Project memory and searchable knowledge index will be connected here." Style="{StaticResource Small}" TextWrapping="Wrap" Margin="0,9"/>
+          </StackPanel>
+        </Border>
+        <Border Grid.Column="2" Style="{StaticResource Panel}">
+          <StackPanel>
+            <TextBlock Text="LLM STATUS" Style="{StaticResource SectionTitle}"/>
+            <TextBlock x:Name="ProviderStatusText" Text="Checking configured providers..." Style="{StaticResource Small}" Margin="0,5"/>
+            <TextBlock Text="OmniRoute  •  Optional gateway" Style="{StaticResource Small}" Margin="0,8"/>
+            <TextBlock Text="OpenAI  •  Optional provider" Style="{StaticResource Small}" Margin="0,8"/>
+            <TextBlock Text="Local model  •  Planned" Style="{StaticResource Small}" Margin="0,8"/>
+          </StackPanel>
+        </Border>
+      </Grid>
+
+      <Border Grid.Row="4" Margin="0,10,0,0" BorderBrush="#15536A" BorderThickness="1" CornerRadius="9" Background="#0B2233" Padding="10">
+        <Grid>
+          <Grid.ColumnDefinitions><ColumnDefinition/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
+          <StackPanel VerticalAlignment="Center">
+            <TextBlock Text="JARVIS COMMAND INPUT" Foreground="#38DDF5" FontSize="10" FontWeight="Bold"/>
+            <TextBlock Text="The desktop interface is being connected to the assistant runtime." Style="{StaticResource Small}"/>
+          </StackPanel>
+          <Button Grid.Column="1" Content="OPEN JARVIS CHAT  →" Background="#12445A" Foreground="#D9FAFF" BorderBrush="#28BBD6" Padding="16,9" Click="OpenConsole_Click"/>
+        </Grid>
+      </Border>
+    </Grid>
+  </Grid>
+</Window>
