@@ -4,7 +4,8 @@
 #   .\scripts\Install-LocalVision.ps1
 
 $ErrorActionPreference = "Stop"
-$model = if ($env:JARVIS_VISION_MODEL) { $env:JARVIS_VISION_MODEL } else { "moondream" }
+$model = if ($env:JARVIS_VISION_MODEL) { $env:JARVIS_VISION_MODEL } else { "qwen3-vl:2b" }
+$documentModel = if ($env:JARVIS_DOCUMENT_VISION_MODEL) { $env:JARVIS_DOCUMENT_VISION_MODEL } else { "glm-ocr" }
 $ollamaCommand = Get-Command ollama -ErrorAction SilentlyContinue
 
 if (-not $ollamaCommand) {
@@ -64,15 +65,22 @@ if (-not $serverReady) {
     throw "Ollama did not become available at http://localhost:11434. Start Ollama from the Start menu and rerun this script."
 }
 
-Write-Host "Pulling local vision model '$model' (the default Moondream 2 download is about 1.7 GB)..."
+Write-Host "Pulling local screen/computer vision model '$model'..."
 & $ollamaPath pull $model
 if ($LASTEXITCODE -ne 0) {
     throw "Ollama could not pull model '$model'. Check your internet connection and available disk space."
 }
 
+Write-Host "Pulling specialist document OCR model '$documentModel'..."
+& $ollamaPath pull $documentModel
+if ($LASTEXITCODE -ne 0) {
+    throw "Ollama could not pull document model '$documentModel'. Check your internet connection and available disk space."
+}
+
 Write-Host ""
 Write-Host "Local vision model installed."
-Write-Host "Model: $model"
+Write-Host "Screen/computer vision model: $model"
+Write-Host "Engineering-document OCR model: $documentModel"
 Write-Host "Endpoint: http://localhost:11434"
-Write-Host "JARVIS will use it for embedded PDF images by default. Image analysis stays local."
+Write-Host "JARVIS routes desktop screenshots to the vision model and embedded PDF raster images to the OCR model. Both remain local."
 Write-Host "To disable it, set JARVIS_LOCAL_VISION_ENABLED=false."

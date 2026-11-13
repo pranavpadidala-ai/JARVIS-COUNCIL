@@ -22,11 +22,13 @@ public sealed class OfficeWorkspaceTool : ITool
     private const long MaxDocumentBytes = 50L * 1024 * 1024;
     private readonly string _root;
     private readonly IImageUnderstandingProvider? _imageProvider;
+    private readonly IImageUnderstandingProvider? _documentImageProvider;
     private readonly IDocumentUnderstandingProvider? _documentProvider;
 
-    public OfficeWorkspaceTool(string? workspaceRoot = null, IAIProvider? provider = null, IImageUnderstandingProvider? imageProvider = null)
+    public OfficeWorkspaceTool(string? workspaceRoot = null, IAIProvider? provider = null, IImageUnderstandingProvider? imageProvider = null, IImageUnderstandingProvider? documentImageProvider = null)
     {
         _imageProvider = imageProvider;
+        _documentImageProvider = documentImageProvider ?? imageProvider;
         _documentProvider = imageProvider as IDocumentUnderstandingProvider;
         var configured = workspaceRoot ??
             Environment.GetEnvironmentVariable("JARVIS_OFFICE_WORKSPACE");
@@ -313,9 +315,9 @@ public sealed class OfficeWorkspaceTool : ITool
             {
                 if (_documentProvider is not null)
                     output.AppendLine($"[Extracted {visualCandidates.Count} embedded raster image(s); the full-PDF cloud review already received the original document, so duplicate image calls were skipped.]");
-                else if (_imageProvider is null)
+                else if (_documentImageProvider is null)
                 {
-                    output.AppendLine($"[Visual review unavailable: found {visualCandidates.Count} extractable embedded raster image(s), but the configured provider does not support image input.]");
+                    output.AppendLine($"[Visual review unavailable: found {visualCandidates.Count} extractable embedded raster image(s), but no document-image provider is configured.]");
                 }
                 else
                 {
@@ -331,7 +333,7 @@ public sealed class OfficeWorkspaceTool : ITool
                             direct visual observations from interpretation. These images may be crops/assets, not full pages.
                             """;
 
-                        var visualAnalysis = await _imageProvider.DescribeImagesAsync(
+                        var visualAnalysis = await _documentImageProvider.DescribeImagesAsync(
                             visualPrompt, visualCandidates, cancellationToken);
                         output.AppendLine();
                         output.AppendLine("VISUAL REVIEW OF EMBEDDED PDF IMAGES");

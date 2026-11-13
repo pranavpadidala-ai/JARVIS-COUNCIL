@@ -163,6 +163,7 @@ if (!args.Any(arg =>
         Environment.GetEnvironmentVariable("JARVIS_MEMORY_ENABLED"), out var enableMemory) && enableMemory;
     var memoryStore = memoryEnabled ? new ConversationMemoryStore() : null;
     IImageUnderstandingProvider? imageProvider = null;
+    IImageUnderstandingProvider? documentImageProvider = null;
     var visionProviderChoice = (Environment.GetEnvironmentVariable("JARVIS_VISION_PROVIDER") ?? "ollama").Trim().ToLowerInvariant();
     var localVisionEnabled =
         !bool.TryParse(Environment.GetEnvironmentVariable("JARVIS_LOCAL_VISION_ENABLED"), out var visionEnabled) ||
@@ -179,9 +180,13 @@ if (!args.Any(arg =>
         case "ollama":
             if (localVisionEnabled)
             {
-                var localVisionModel = Environment.GetEnvironmentVariable("JARVIS_VISION_MODEL") ?? "moondream";
-                imageProvider = new OllamaVisionProvider(localVisionModel, ollamaBaseUrl, contextTokens: 2048);
-                Console.WriteLine($"Local vision: Ollama / {localVisionModel} (install with scripts/Install-LocalModels.ps1). Full-PDF OCR is not supported locally.");
+                var localVisionModel = Environment.GetEnvironmentVariable("JARVIS_VISION_MODEL") ?? "qwen3-vl:2b";
+                imageProvider = new OllamaVisionProvider(localVisionModel, ollamaBaseUrl, contextTokens: 4096);
+                var documentVisionModel = Environment.GetEnvironmentVariable("JARVIS_DOCUMENT_VISION_MODEL") ?? "glm-ocr";
+                documentImageProvider = new OllamaVisionProvider(documentVisionModel, ollamaBaseUrl, contextTokens: 4096);
+                Console.WriteLine($"Local screen/computer vision: Ollama / {localVisionModel}.");
+                Console.WriteLine($"Local engineering-document image reader: Ollama / {documentVisionModel}.");
+                Console.WriteLine("Both models run locally and are loaded on demand. PDF page rendering/OCR for full-page scans and vector-only figures remains unavailable; embedded raster images can be analysed.");
             }
             else Console.WriteLine("Vision disabled by JARVIS_LOCAL_VISION_ENABLED=false.");
             break;
@@ -223,7 +228,7 @@ if (!args.Any(arg =>
         Console.WriteLine($"Daily Indian EOD monitor enabled for {monitorTime:HH\\:mm} IST while JARVIS is running. Set JARVIS_MARKET_MONITOR_ENABLED=false to disable.");
     }
     var assistant = new ToolCallingAssistant(
-        activeProvider, interactiveWorkspaceRoot, memoryStore, imageProvider, cloudSpeechProvider, marketTool);
+        activeProvider, interactiveWorkspaceRoot, memoryStore, imageProvider, cloudSpeechProvider, marketTool, documentImageProvider);
     await assistant.RunAsync();
     return;
 }
