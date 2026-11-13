@@ -55,6 +55,9 @@ public sealed class SafeWorkspaceExecutor : IWorkspaceExecutor
             DevelopmentActionType.SearchCode =>
                 await SearchCodeAsync(action, cancellationToken),
 
+            DevelopmentActionType.ListFiles =>
+                await ListFilesAsync(action, cancellationToken),
+
             DevelopmentActionType.CreateFile =>
                 await CreateFileAsync(action, cancellationToken),
 
@@ -120,7 +123,7 @@ public sealed class SafeWorkspaceExecutor : IWorkspaceExecutor
 
         var results = new List<string>();
 
-        foreach (var file in EnumerateWorkspaceFiles(cancellationToken))
+        foreach (var file in EnumerateWorkspaceFiles(_workspaceRoot, cancellationToken))
         {
             cancellationToken.ThrowIfCancellationRequested();
 
@@ -308,14 +311,53 @@ public sealed class SafeWorkspaceExecutor : IWorkspaceExecutor
         return (true, fullPath, null);
     }
 
-    private IEnumerable<string> EnumerateWorkspaceFiles(
+    private async Task<WorkspaceActionResult> ListFilesAsync(
+        DevelopmentAction action,
         CancellationToken cancellationToken)
+    {
+        var pathResult = ResolveSafePath(
+            string.IsNullOrWhiteSpace(action.Target) ? "." : action.Target);
+
+        if (!pathResult.Success)
+        {
+            return pathResult.Result!;
+        }
+
+        if (!Directory.Exists(pathResult.Path!))
+        {
+            return WorkspaceActionResult.Failed(
+                $"Directory does not exist: {action.Target}");
+        }
+
+        var files = EnumerateWorkspaceFiles(
+                pathResult.Path!,
+                cancellationToken,
+                codeFilesOnly: false)
+            .Select(file => Path.GetRelativePath(_workspaceRoot, file))
+            .OrderBy(file => file, StringComparer.OrdinalIgnoreCase)
+            .Take(5001)
+            .ToArray();
+
+        var truncated = files.Length > 5000;
+        var visibleFiles = files.Take(5000);
+
+        return WorkspaceActionResult.Completed(
+            truncated
+                ? "File listing completed. Output limited to 5000 files."
+                : $"File listing completed. Files: {files.Length}.",
+            string.Join(Environment.NewLine, visibleFiles));
+    }
+
+    private IEnumerable<string> EnumerateWorkspaceFiles(
+        string searchRoot,
+        CancellationToken cancellationToken,
+        bool codeFilesOnly = true)
     {
         // Traverse one directory at a time so protected folders are never
         // recursively entered. Reparse points are skipped to avoid symlink
         // loops and escapes from the workspace.
         var pending = new Stack<string>();
-        pending.Push(_workspaceRoot);
+        pending.Push(searchRoot);
 
         while (pending.Count > 0)
         {
@@ -369,7 +411,7 @@ public sealed class SafeWorkspaceExecutor : IWorkspaceExecutor
                     continue;
                 }
 
-                if (!IsProtectedPath(entry) && IsCodeFile(entry))
+                if (!IsProtectedPath(entry) && (!codeFilesOnly || IsCodeFile(entry)))
                 {
                     yield return entry;
                 }
