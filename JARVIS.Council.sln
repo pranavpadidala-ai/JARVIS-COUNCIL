@@ -25,6 +25,8 @@ Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "tests", "tests", "{6878EB04
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Council.Dev.Tests", "tests\Council.Dev.Tests\Council.Dev.Tests.csproj", "{121F2136-431D-4272-8D50-6D787C41081A}"
 EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Council.Desktop", "src\Council.Desktop\Council.Desktop.csproj", "{B6A22C1D-2E2B-4B4C-9B2B-31C7D9F4A620}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
@@ -70,6 +72,10 @@ Global
 		{121F2136-431D-4272-8D50-6D787C41081A}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{121F2136-431D-4272-8D50-6D787C41081A}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{121F2136-431D-4272-8D50-6D787C41081A}.Release|Any CPU.Build.0 = Release|Any CPU
+		{B6A22C1D-2E2B-4B4C-9B2B-31C7D9F4A620}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{B6A22C1D-2E2B-4B4C-9B2B-31C7D9F4A620}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{B6A22C1D-2E2B-4B4C-9B2B-31C7D9F4A620}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{B6A22C1D-2E2B-4B4C-9B2B-31C7D9F4A620}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(NestedProjects) = preSolution
 		{EBC52641-7253-4678-9A1B-60F67C98DAD9} = {73A80784-1A2C-495C-A357-873DF047087E}

@@ -6,6 +6,31 @@ namespace Council.Dev.Tests;
 public class TaskPersistenceTests
 {
     [Fact]
+    public async Task FailedTaskPersistenceDoesNotLeaveAnUnsavedTaskInMemory()
+    {
+        var root = Path.Combine(Path.GetTempPath(), "jarvis-task-test-" + Guid.NewGuid().ToString("N"));
+        Directory.CreateDirectory(root);
+        var directoryUsedAsFile = Path.Combine(root, "task-store.json");
+        Directory.CreateDirectory(directoryUsedAsFile);
+        try
+        {
+            var manager = new TaskManager(new TaskStore(directoryUsedAsFile));
+            await manager.InitializeAsync();
+
+            var exception = await Record.ExceptionAsync(() =>
+                manager.CreateAsync("Should not remain", "The persistence target is invalid."));
+
+            Assert.True(exception is IOException or UnauthorizedAccessException);
+            Assert.Empty(manager.Tasks);
+            Assert.Empty(Directory.GetFiles(root, "*.tmp"));
+        }
+        finally
+        {
+            Directory.Delete(root, recursive: true);
+        }
+    }
+
+    [Fact]
     public async Task Task_survives_save_and_reload()
     {
         var testFile = Path.Combine(

@@ -58,6 +58,10 @@ public class CommandPolicyTests
     [InlineData("dotnet build & whoami")]
     [InlineData("git status; Remove-Item test.txt")]
     [InlineData("git status | Out-Host")]
+    [InlineData("dotnet build\nwhoami")]
+    [InlineData("dotnet test\r\nRemove-Item test.txt")]
+    [InlineData("git status\nStart-Process powershell")]
+    [InlineData("dotnet\tbuild")]
     public void Command_composition_is_blocked(string command)
     {
         Assert.False(_policy.IsAllowed(command));
