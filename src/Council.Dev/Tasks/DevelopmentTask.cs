@@ -1,3 +1,5 @@
+using Council.Dev.Recovery;
+
 namespace Council.Dev.Tasks;
 
 public sealed class DevelopmentTask
@@ -19,4 +21,5 @@ public sealed class DevelopmentTask
     public string? TestLogPath { get; set; }
     public string? FailureClassification { get; set; }
     public string IdempotencyKey { get; set; } = Guid.NewGuid().ToString("N");
+    public List<TaskArtifactSnapshot> Artifacts { get; set; } = [];
 }
