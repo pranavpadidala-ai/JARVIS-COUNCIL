@@ -18,6 +18,17 @@ public sealed record DhanFeedTick(
     long? Volume,
     DateTimeOffset ReceivedAtUtc);
 
+public sealed record DhanLivePriceAlert(
+    string Id,
+    string ExchangeSegment,
+    int SecurityId,
+    string Label,
+    string Condition,
+    decimal ThresholdPrice,
+    bool Enabled,
+    DateTimeOffset? TriggeredAtUtc = null,
+    decimal? TriggeredPrice = null);
+
 /// <summary>
 /// Parses Dhan v2 little-endian ticker, previous-close and quote packets.
 /// </summary>
@@ -159,39 +170,82 @@ public sealed class DhanLiveFeedTool : ITool
     private string? _accessToken;
     private readonly Func<string?> _clientIdProvider;
     private readonly Func<string?> _accessTokenProvider;
+    private readonly string _alertStorePath;
+    private readonly Action<string> _notify;
+    private readonly SemaphoreSlim _alertGate = new(1, 1);
+    private readonly JsonSerializerOptions _alertJsonOptions = new() { WriteIndented = true };
+    private List<DhanLivePriceAlert> _alerts = [];
+    private bool _alertsLoaded;
 
-    public DhanLiveFeedTool(Func<string?>? clientIdProvider = null, Func<string?>? accessTokenProvider = null)
+    public DhanLiveFeedTool(
+        Func<string?>? clientIdProvider = null,
+        Func<string?>? accessTokenProvider = null,
+        string? alertStorePath = null,
+        Action<string>? notify = null)
     {
         _clientIdProvider = clientIdProvider ?? DhanCredentialStore.ReadClientId;
         _accessTokenProvider = accessTokenProvider ?? DhanCredentialStore.ReadAccessToken;
+        _alertStorePath = Path.GetFullPath(alertStorePath ??
+            Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
+                "JARVIS", "market", "dhan-live-alerts.json"));
+        _notify = notify ?? Console.WriteLine;
     }
 
     public string Name => "dhan_live_feed";
     public string Description =>
-        "Manage a read-only DhanHQ v2 live market-data WebSocket. Actions: start (instruments='NSE_EQ:1333,NSE_EQ:2885', optional mode=ticker|quote), status, stop. Resolve symbols first with dhan_instrument_lookup and pass exact exchange segments/security IDs. Start is limited to 100 instruments on one connection. Ticker mode is lightweight; quote mode adds volume and previous close. Reads credentials from Windows Credential Manager (preferred) or DHAN_CLIENT_ID / DHAN_ACCESS_TOKEN environment variables; an active Dhan Data API subscription is required. Never places or changes orders.";
+        "Manage a read-only DhanHQ v2 live market-data WebSocket and persistent one-shot price alerts. Actions: start (optional instruments='NSE_EQ:1333,NSE_EQ:2885', optional mode=ticker|quote), status, stop, set_alert (instrument, condition=above|below, price, optional label), alerts, remove_alert (alert_id). Active alert instruments are automatically subscribed when start is called without an instrument list, or added to an explicit list. Resolve symbols first with dhan_instrument_lookup. Up to 100 instruments per connection. Alerts trigger on received live ticks only and never place trades. Requires Windows Credential Manager/environment credentials and an active Dhan Data API subscription.";
 
     public async Task<ToolResult> ExecuteAsync(Dictionary<string, string> arguments, CancellationToken cancellationToken = default)
     {
         if (!arguments.TryGetValue("action", out var action) || string.IsNullOrWhiteSpace(action))
             return new ToolResult(false, "dhan_live_feed requires action=start|status|stop.");
 
-        return action.Trim().ToLowerInvariant() switch
+        try
         {
-            "start" => await StartAsync(arguments, cancellationToken),
-            "status" => await StatusAsync(arguments, cancellationToken),
-            "stop" => await StopAsync(arguments, cancellationToken),
-            _ => new ToolResult(false, "Unknown action. Use start, status, or stop.")
-        };
+            return action.Trim().ToLowerInvariant() switch
+            {
+                "start" => await StartAsync(arguments, cancellationToken),
+                "status" => await StatusAsync(arguments, cancellationToken),
+                "stop" => await StopAsync(arguments, cancellationToken),
+                "set_alert" => await SetAlertAsync(arguments, cancellationToken),
+                "alerts" => await ListAlertsAsync(arguments, cancellationToken),
+                "remove_alert" => await RemoveAlertAsync(arguments, cancellationToken),
+                _ => new ToolResult(false, "Unknown action. Use start, status, stop, set_alert, alerts, or remove_alert.")
+            };
+        }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or JsonException)
+        {
+            return new ToolResult(false, "Dhan live-alert storage failed safely: " + ex.Message);
+        }
     }
 
     private async Task<ToolResult> StartAsync(Dictionary<string, string> args, CancellationToken token)
     {
         if (!HasOnly(args, "action", "instruments", "mode"))
-            return new ToolResult(false, "start accepts action, instruments and optional mode.");
+            return new ToolResult(false, "start accepts action, optional instruments and optional mode.");
+
+        var activeAlerts = await GetActiveAlertsAsync(token);
+        DhanFeedInstrument[] requestedInstruments;
         if (!args.TryGetValue("instruments", out var raw) || string.IsNullOrWhiteSpace(raw))
-            return new ToolResult(false, "start requires instruments such as NSE_EQ:1333,NSE_EQ:2885.");
-        if (!TryParseInstruments(raw, out var instruments, out var error))
+        {
+            if (activeAlerts.Count == 0)
+                return new ToolResult(false, "start requires instruments, or create one or more live price alerts first.");
+            requestedInstruments = activeAlerts
+                .Select(alert => new DhanFeedInstrument(alert.ExchangeSegment, alert.SecurityId))
+                .Distinct()
+                .ToArray();
+        }
+        else if (!TryParseInstruments(raw, out requestedInstruments, out var error))
+        {
             return new ToolResult(false, error);
+        }
+
+        var instruments = requestedInstruments
+            .Concat(activeAlerts.Select(alert => new DhanFeedInstrument(alert.ExchangeSegment, alert.SecurityId)))
+            .Distinct()
+            .ToArray();
+        if (instruments.Length > MaxInstruments)
+            return new ToolResult(false, $"The requested instruments plus active alert instruments exceed the {MaxInstruments}-instrument connection limit.");
 
         var mode = args.TryGetValue("mode", out var rawMode) ? rawMode.Trim().ToLowerInvariant() : "ticker";
         if (mode is not ("ticker" or "quote"))
@@ -223,7 +277,7 @@ public sealed class DhanLiveFeedTool : ITool
             var runToken = _runCts.Token;
             _runTask = Task.Run(() => RunAsync(runToken), CancellationToken.None);
             return new ToolResult(true,
-                $"Dhan live {mode} feed start requested for {instruments.Length} instrument(s). It will reconnect automatically if the socket drops. Use dhan_live_feed action=status to inspect prices and connection state. Data API subscription is required.");
+                $"Dhan live {mode} feed start requested for {instruments.Length} instrument(s), including {activeAlerts.Count} active alert(s). It will reconnect automatically if the socket drops. Use status to inspect prices and alerts. Data API subscription is required; no orders are placed.");
         }
         finally { _lifecycleGate.Release(); }
     }
@@ -232,6 +286,7 @@ public sealed class DhanLiveFeedTool : ITool
     {
         if (!HasOnly(args, "action"))
             return new ToolResult(false, "status accepts only action.");
+        var activeAlerts = await GetActiveAlertsAsync(token);
         await _lifecycleGate.WaitAsync(token);
         try
         {
@@ -240,7 +295,7 @@ public sealed class DhanLiveFeedTool : ITool
             var lines = new List<string>
             {
                 $"Dhan live feed: {(running ? "running" : "stopped")}; socket: {(connected ? "connected" : "disconnected")}.",
-                $"Mode: {_mode}; subscribed instruments: {_instruments.Length}.",
+                $"Mode: {_mode}; subscribed instruments: {_instruments.Length}; active live alerts: {activeAlerts.Count}.",
                 _lastConnectedAt is null ? "No successful connection has been recorded." : $"Last connection: {_lastConnectedAt.Value:yyyy-MM-dd HH:mm:ss} UTC."
             };
             if (!string.IsNullOrWhiteSpace(_lastError)) lines.Add("Last feed note: " + _lastError);
@@ -408,8 +463,170 @@ public sealed class DhanLiveFeedTool : ITool
                         PreviousClose = tick.PreviousClose ?? previous.PreviousClose,
                         Volume = tick.Volume ?? previous.Volume
                     });
+                    await EvaluateLiveAlertsAsync(tick, token);
                 }
             }
+        }
+    }
+
+    private async Task<ToolResult> SetAlertAsync(Dictionary<string, string> args, CancellationToken token)
+    {
+        if (!HasOnly(args, "action", "instrument", "condition", "price", "label") ||
+            !args.TryGetValue("instrument", out var rawInstrument) ||
+            !args.TryGetValue("condition", out var rawCondition) ||
+            !args.TryGetValue("price", out var rawPrice))
+            return new ToolResult(false, "set_alert requires instrument=SEGMENT:SECURITY_ID, condition=above|below, and price; optional label.");
+
+        if (!TryParseInstruments(rawInstrument, out var parsed, out var parseError) || parsed.Length != 1)
+            return new ToolResult(false, "set_alert requires exactly one resolved instrument. " + (parseError.Length == 0 ? "" : parseError));
+        var condition = rawCondition.Trim().ToLowerInvariant();
+        if (condition is not ("above" or "below"))
+            return new ToolResult(false, "condition must be above or below.");
+        if (!decimal.TryParse(rawPrice, System.Globalization.NumberStyles.Number,
+                System.Globalization.CultureInfo.InvariantCulture, out var threshold) ||
+            threshold <= 0 || threshold > 100_000_000m)
+            return new ToolResult(false, "price must be a positive numeric threshold in rupees, using invariant decimal notation.");
+
+        var label = args.TryGetValue("label", out var rawLabel) && !string.IsNullOrWhiteSpace(rawLabel)
+            ? rawLabel.Trim()
+            : rawInstrument.Trim();
+        if (label.Length > 64 || label.Any(char.IsControl))
+            return new ToolResult(false, "label must be 1 to 64 printable characters.");
+
+        await _alertGate.WaitAsync(token);
+        try
+        {
+            await EnsureAlertsLoadedAsync(token);
+            if (_alerts.Count >= 100)
+                return new ToolResult(false, "The local store is limited to 100 live price alerts. Remove old alerts before adding more.");
+
+            var id = Guid.NewGuid().ToString("N")[..8].ToUpperInvariant();
+            _alerts.Add(new DhanLivePriceAlert(id, parsed[0].ExchangeSegment, parsed[0].SecurityId,
+                label, condition, threshold, true));
+            await SaveAlertsAsync(token);
+            return new ToolResult(true,
+                $"Saved one-shot live price alert ID={id}: {label} ({rawInstrument.Trim()}) {condition} ₹{threshold.ToString("N2", System.Globalization.CultureInfo.InvariantCulture)}. It triggers only when a new subscribed Dhan tick crosses the threshold. Start the feed to monitor it; no trade will be placed.");
+        }
+        finally { _alertGate.Release(); }
+    }
+
+    private async Task<ToolResult> ListAlertsAsync(Dictionary<string, string> args, CancellationToken token)
+    {
+        if (!HasOnly(args, "action"))
+            return new ToolResult(false, "alerts accepts only action.");
+        await _alertGate.WaitAsync(token);
+        try
+        {
+            await EnsureAlertsLoadedAsync(token);
+            if (_alerts.Count == 0)
+                return new ToolResult(true, "No Dhan live price alerts are saved.");
+            var lines = new List<string> { $"Saved Dhan live price alerts: {_alerts.Count}." };
+            foreach (var alert in _alerts.OrderByDescending(item => item.Enabled).ThenBy(item => item.Label))
+            {
+                var state = alert.Enabled
+                    ? "ACTIVE"
+                    : alert.TriggeredAtUtc is null ? "DISABLED" : $"TRIGGERED at {alert.TriggeredAtUtc.Value:yyyy-MM-dd HH:mm:ss} UTC, LTP ₹{alert.TriggeredPrice:N2}";
+                lines.Add($"ID={alert.Id} | {alert.Label} | {alert.ExchangeSegment}:{alert.SecurityId} | {alert.Condition} ₹{alert.ThresholdPrice:N2} | {state}");
+            }
+            return new ToolResult(true, string.Join(Environment.NewLine, lines));
+        }
+        finally { _alertGate.Release(); }
+    }
+
+    private async Task<ToolResult> RemoveAlertAsync(Dictionary<string, string> args, CancellationToken token)
+    {
+        if (!HasOnly(args, "action", "alert_id") ||
+            !args.TryGetValue("alert_id", out var id) || string.IsNullOrWhiteSpace(id))
+            return new ToolResult(false, "remove_alert requires alert_id from the alerts list.");
+        await _alertGate.WaitAsync(token);
+        try
+        {
+            await EnsureAlertsLoadedAsync(token);
+            var removed = _alerts.RemoveAll(alert => alert.Id.Equals(id.Trim(), StringComparison.OrdinalIgnoreCase));
+            if (removed == 0)
+                return new ToolResult(false, "No live price alert matched that ID.");
+            await SaveAlertsAsync(token);
+            return new ToolResult(true, $"Removed live price alert {id.Trim()}.");
+        }
+        finally { _alertGate.Release(); }
+    }
+
+    private async Task<List<DhanLivePriceAlert>> GetActiveAlertsAsync(CancellationToken token)
+    {
+        await _alertGate.WaitAsync(token);
+        try
+        {
+            await EnsureAlertsLoadedAsync(token);
+            return _alerts.Where(alert => alert.Enabled).ToList();
+        }
+        finally { _alertGate.Release(); }
+    }
+
+    private async Task EnsureAlertsLoadedAsync(CancellationToken token)
+    {
+        if (_alertsLoaded) return;
+        if (File.Exists(_alertStorePath))
+        {
+            var info = new FileInfo(_alertStorePath);
+            if (info.Length > 512 * 1024)
+                throw new InvalidDataException("The live alert file exceeds the 512 KB safety limit.");
+            var json = await File.ReadAllTextAsync(_alertStorePath, token);
+            _alerts = JsonSerializer.Deserialize<List<DhanLivePriceAlert>>(json) ?? [];
+            if (_alerts.Count > 100)
+                throw new InvalidDataException("The live alert file contains more than 100 alerts.");
+        }
+        _alertsLoaded = true;
+    }
+
+    private async Task SaveAlertsAsync(CancellationToken token)
+    {
+        var directory = Path.GetDirectoryName(_alertStorePath)!;
+        Directory.CreateDirectory(directory);
+        var temporaryPath = _alertStorePath + "." + Guid.NewGuid().ToString("N") + ".tmp";
+        try
+        {
+            var json = JsonSerializer.Serialize(_alerts, _alertJsonOptions);
+            await File.WriteAllTextAsync(temporaryPath, json, token);
+            File.Move(temporaryPath, _alertStorePath, overwrite: true);
+        }
+        finally
+        {
+            if (File.Exists(temporaryPath))
+                File.Delete(temporaryPath);
+        }
+    }
+
+    private async Task EvaluateLiveAlertsAsync(DhanFeedTick tick, CancellationToken token)
+    {
+        if (tick.LastPrice is not > 0) return;
+        var price = Convert.ToDecimal(tick.LastPrice.Value, System.Globalization.CultureInfo.InvariantCulture);
+        List<DhanLivePriceAlert> triggered = [];
+        await _alertGate.WaitAsync(token);
+        try
+        {
+            await EnsureAlertsLoadedAsync(token);
+            for (var index = 0; index < _alerts.Count; index++)
+            {
+                var alert = _alerts[index];
+                if (!alert.Enabled || alert.ExchangeSegment != tick.ExchangeSegment || alert.SecurityId != tick.SecurityId)
+                    continue;
+                var crossed = alert.Condition == "above" ? price >= alert.ThresholdPrice : price <= alert.ThresholdPrice;
+                if (!crossed) continue;
+                var updated = alert with { Enabled = false, TriggeredAtUtc = tick.ReceivedAtUtc, TriggeredPrice = price };
+                _alerts[index] = updated;
+                triggered.Add(updated);
+            }
+            if (triggered.Count > 0)
+                await SaveAlertsAsync(token);
+        }
+        finally { _alertGate.Release(); }
+
+        foreach (var alert in triggered)
+        {
+            var direction = alert.Condition == "above" ? "reached or crossed above" : "reached or crossed below";
+            var message = $"JARVIS LIVE PRICE ALERT: {alert.Label} ({alert.ExchangeSegment}:{alert.SecurityId}) {direction} ₹{alert.ThresholdPrice:N2}; received LTP ₹{price:N2} at {tick.ReceivedAtUtc:yyyy-MM-dd HH:mm:ss} UTC. This one-shot alert is now disabled. No order was placed.";
+            try { _notify(message); }
+            catch (Exception ex) when (ex is IOException or InvalidOperationException) { }
         }
     }
 

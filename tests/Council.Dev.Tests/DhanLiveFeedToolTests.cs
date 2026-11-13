@@ -100,6 +100,81 @@ public sealed class DhanLiveFeedToolTests
     }
 
     [Fact]
+    public async Task LivePriceAlertsPersistAcrossInstancesAndCanBeRemoved()
+    {
+        var root = Path.Combine(Path.GetTempPath(), "JarvisDhanAlerts", Guid.NewGuid().ToString("N"));
+        Directory.CreateDirectory(root);
+        var store = Path.Combine(root, "alerts.json");
+        try
+        {
+            var first = new DhanLiveFeedTool(() => null, () => null, store, _ => { });
+            var saved = await first.ExecuteAsync(new Dictionary<string, string>
+            {
+                ["action"] = "set_alert",
+                ["instrument"] = "NSE_EQ:1333",
+                ["condition"] = "above",
+                ["price"] = "1525.50",
+                ["label"] = "RELIANCE"
+            });
+
+            Assert.True(saved.Success, saved.Message);
+            var id = saved.Message.Split("ID=", StringSplitOptions.None)[1].Split(':', ' ')[0];
+            Assert.Equal(8, id.Length);
+
+            var second = new DhanLiveFeedTool(() => null, () => null, store, _ => { });
+            var listed = await second.ExecuteAsync(new Dictionary<string, string> { ["action"] = "alerts" });
+            Assert.True(listed.Success, listed.Message);
+            Assert.Contains("RELIANCE", listed.Message);
+            Assert.Contains("ACTIVE", listed.Message);
+            Assert.Contains("₹1,525.50", listed.Message);
+
+            var removed = await second.ExecuteAsync(new Dictionary<string, string>
+            {
+                ["action"] = "remove_alert",
+                ["alert_id"] = id
+            });
+            Assert.True(removed.Success, removed.Message);
+            var empty = await second.ExecuteAsync(new Dictionary<string, string> { ["action"] = "alerts" });
+            Assert.Contains("No Dhan live price alerts", empty.Message);
+        }
+        finally
+        {
+            Directory.Delete(root, recursive: true);
+        }
+    }
+
+    [Fact]
+    public async Task LivePriceAlertsRejectInvalidInputs()
+    {
+        var root = Path.Combine(Path.GetTempPath(), "JarvisDhanAlerts", Guid.NewGuid().ToString("N"));
+        Directory.CreateDirectory(root);
+        try
+        {
+            var tool = new DhanLiveFeedTool(() => null, () => null, Path.Combine(root, "alerts.json"), _ => { });
+            var badInstrument = await tool.ExecuteAsync(new Dictionary<string, string>
+            {
+                ["action"] = "set_alert", ["instrument"] = "NSE:1333", ["condition"] = "above", ["price"] = "1500"
+            });
+            var badCondition = await tool.ExecuteAsync(new Dictionary<string, string>
+            {
+                ["action"] = "set_alert", ["instrument"] = "NSE_EQ:1333", ["condition"] = "crosses", ["price"] = "1500"
+            });
+            var badPrice = await tool.ExecuteAsync(new Dictionary<string, string>
+            {
+                ["action"] = "set_alert", ["instrument"] = "NSE_EQ:1333", ["condition"] = "below", ["price"] = "-1"
+            });
+
+            Assert.False(badInstrument.Success);
+            Assert.False(badCondition.Success);
+            Assert.False(badPrice.Success);
+        }
+        finally
+        {
+            Directory.Delete(root, recursive: true);
+        }
+    }
+
+    [Fact]
     public async Task RejectsInvalidSubscriptionsWithoutConnecting()
     {
         var tool = new DhanLiveFeedTool();
