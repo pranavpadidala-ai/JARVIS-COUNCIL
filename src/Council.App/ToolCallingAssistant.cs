@@ -671,7 +671,6 @@ public sealed class ToolCallingAssistant
             {
                 phoneCommandResult = "JARVIS session ended before this request could finish.";
                 Console.WriteLine("JARVIS session cancelled.");
-                break;
             }
             catch (Exception ex)
             {
