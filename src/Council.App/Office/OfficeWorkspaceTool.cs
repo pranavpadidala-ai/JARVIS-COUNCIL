@@ -324,20 +324,35 @@ public sealed class OfficeWorkspaceTool : ITool
                     try
                     {
                         var visualPrompt = """
-                            Analyse the attached embedded images extracted from a research-paper PDF.
-                            For each image, use its supplied page/image label. Identify whether it is a plot, chart, schematic,
-                            photograph, scanned page, or other visual. For plots, read axis labels, units, legend series,
-                            approximate trends, peaks, and comparisons only when legible. For tables or equations, transcribe
-                            only clearly legible content. Explain structural/mechanical engineering relevance when supported.
-                            Do not invent unreadable labels or numerical values. Clearly mark uncertainty and distinguish
-                            direct visual observations from interpretation. These images may be crops/assets, not full pages.
+                            Text Recognition: Read the attached embedded images extracted from a structural/mechanical engineering PDF.
+                            For each image, use its supplied page/image label. Transcribe clearly legible text, dimensions, units,
+                            equation symbols, subscripts, signs, table headings, figure labels and annotations. Preserve decimal
+                            precision and units. Identify plots, charts, schematics or photographs when possible. Never guess
+                            illegible values; mark uncertainty and distinguish direct visual evidence from interpretation.
+                            These are embedded image assets, not necessarily complete PDF pages.
                             """;
 
                         var visualAnalysis = await _documentImageProvider.DescribeImagesAsync(
                             visualPrompt, visualCandidates, cancellationToken);
                         output.AppendLine();
-                        output.AppendLine("VISUAL REVIEW OF EMBEDDED PDF IMAGES");
+                        output.AppendLine("OCR / TEXT REVIEW OF EMBEDDED PDF IMAGES");
                         output.AppendLine(visualAnalysis);
+
+                        if (_documentImageProvider is Council.AI.Providers.OllamaVisionProvider localDocumentModel &&
+                            localDocumentModel.ModelName.Contains("glm-ocr", StringComparison.OrdinalIgnoreCase))
+                        {
+                            var tablePrompt = """
+                                Table Recognition: Extract every legible table from these engineering-document images.
+                                Preserve row and column order, merged-cell relationships when apparent, headings, units,
+                                decimal precision, signs and footnotes. Return tables as Markdown tables where possible.
+                                If an image contains no table, say so. Never infer missing cells or values.
+                                """;
+                            var tableAnalysis = await _documentImageProvider.DescribeImagesAsync(
+                                tablePrompt, visualCandidates, cancellationToken);
+                            output.AppendLine();
+                            output.AppendLine("SPECIALIST TABLE RECOGNITION");
+                            output.AppendLine(tableAnalysis);
+                        }
                     }
                     catch (Exception ex) when (ex is not OutOfMemoryException and not OperationCanceledException)
                     {

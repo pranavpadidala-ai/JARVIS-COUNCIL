@@ -17,6 +17,8 @@ public sealed class OllamaVisionProvider : IImageUnderstandingProvider
     private readonly string _model;
     private readonly int _contextTokens;
 
+    public string ModelName => _model;
+
     public OllamaVisionProvider(
         string model = "moondream",
         string baseUrl = "http://localhost:11434",
@@ -75,7 +77,7 @@ public sealed class OllamaVisionProvider : IImageUnderstandingProvider
                 }
             },
             stream = false,
-            keep_alive = Environment.GetEnvironmentVariable("JARVIS_OLLAMA_KEEP_ALIVE") ?? "30s",
+            keep_alive = Environment.GetEnvironmentVariable("JARVIS_OLLAMA_VISION_KEEP_ALIVE") ?? "0",
             options = new
             {
                 temperature = 0.1,

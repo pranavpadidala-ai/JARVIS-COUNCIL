@@ -42,6 +42,15 @@ else {
 }
 
 Write-Host "Ollama executable: $ollamaPath"
+$versionText = (& $ollamaPath --version 2>&1) -join " "
+$versionMatch = [regex]::Match($versionText, "(\d+)\.(\d+)\.(\d+)")
+if (-not $versionMatch.Success) {
+    throw "Could not determine the Ollama version. Update Ollama to version 0.12.7 or newer, then rerun this script."
+}
+$installedVersion = [version]::new([int]$versionMatch.Groups[1].Value, [int]$versionMatch.Groups[2].Value, [int]$versionMatch.Groups[3].Value)
+if ($installedVersion -lt [version]"0.12.7") {
+    throw "Qwen3-VL requires Ollama 0.12.7 or newer. Installed version: $installedVersion. Update Ollama from https://ollama.com/download."
+}
 $serverReady = $false
 try {
     Invoke-RestMethod -Uri "http://localhost:11434/api/tags" -TimeoutSec 3 | Out-Null
