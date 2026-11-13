@@ -8,7 +8,7 @@ namespace Council.Desktop;
 
 public partial class ChatWindow : Window
 {
-    private AssistantSession? _session;
+    public string? InitialPrompt { get; set; }\n\n    private AssistantSession? _session;
     private bool _sending;
 
     public ChatWindow()
