@@ -114,7 +114,7 @@ public sealed class AssistantSession
         var response = await _assistant.ProcessMessageAsync(prompt, cancellationToken);
         started.Stop();
         _history = (await _memory.LoadRecentAsync(120, cancellationToken)).ToList();
-        return new AIResponse(_provider.Name, response, _provider.Name, started.Elapsed);
+        return new AIResponse(_provider.Name, response, _assistant.LastModel ?? _provider.Name, started.Elapsed);
     }
 
     public IReadOnlyList<AIMessage> GetRecentMessages(int count = 30) =>
