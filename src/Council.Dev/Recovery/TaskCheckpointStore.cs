@@ -118,9 +118,20 @@ public sealed class TaskCheckpointStore
             throw new InvalidDataException("Checkpoint retry count cannot be negative.");
         if (string.IsNullOrWhiteSpace(checkpoint.IdempotencyKey))
             throw new InvalidDataException("Checkpoint idempotency key is required.");
+        if (checkpoint.AcceptanceCriteria is null || checkpoint.CompletedSteps is null || checkpoint.Artifacts is null)
+            throw new InvalidDataException("Checkpoint collections cannot be null.");
         if (checkpoint.AcceptanceCriteria.Count > 100 || checkpoint.CompletedSteps.Count > 500 ||
             checkpoint.Artifacts.Count > 500)
             throw new InvalidDataException("Checkpoint contains too many entries.");
+        if (checkpoint.Objective.Length > 20000 || checkpoint.NextAction.Length > 20000)
+            throw new InvalidDataException("Checkpoint text exceeds the safety limit.");
+        foreach (var artifact in checkpoint.Artifacts)
+        {
+            if (string.IsNullOrWhiteSpace(artifact.RelativePath) || Path.IsPathRooted(artifact.RelativePath) ||
+                artifact.RelativePath.Split(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar).Any(part => part == "..") ||
+                artifact.Sha256.Length != 64 || artifact.Sha256.Any(ch => !Uri.IsHexDigit(ch)) || artifact.Length < 0)
+                throw new InvalidDataException("Checkpoint contains an invalid artifact reference.");
+        }
         // Credentials and browser auth state are intentionally not represented by this schema.
     }
 }
