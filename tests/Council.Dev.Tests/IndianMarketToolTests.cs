@@ -84,6 +84,9 @@ public sealed class IndianMarketToolTests
             Assert.True(added.Success, added.Message);
             var listed = await tool.ExecuteAsync(new Dictionary<string, string> { ["action"] = "list" });
             Assert.Contains("TCS (NSE)", listed.Message);
+            Assert.Contains("separate from broker holdings", listed.Message);
+            Assert.Contains("dhan_readonly", listed.Message);
+            Assert.DoesNotContain("No broker account is connected", listed.Message);
             var removed = await tool.ExecuteAsync(new Dictionary<string, string>
             {
                 ["action"] = "remove", ["symbol"] = "TCS"

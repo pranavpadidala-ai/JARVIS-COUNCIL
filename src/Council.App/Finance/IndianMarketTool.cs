@@ -171,7 +171,7 @@ public sealed class IndianMarketTool : ITool
         if (store.Alerts.Count == 0) output.AppendLine("  (none)");
         foreach (var alert in store.Alerts.OrderBy(x => x.Symbol))
             output.AppendLine($"  {alert.Id} | {alert.Symbol} ({alert.Exchange}) | close {alert.Condition} {Money(alert.ThresholdPrice)} | {(alert.Enabled ? "ACTIVE" : $"TRIGGERED on {alert.TriggeredDate:yyyy-MM-dd} at {Money(alert.TriggeredClose ?? 0m)}")}");
-        output.AppendLine("No broker account is connected.");
+        output.AppendLine("This local TejHQ list is separate from broker holdings. Use dhan_readonly to inspect a configured Dhan account.");
         return new ToolResult(true, output.ToString().Trim());
     }
 
