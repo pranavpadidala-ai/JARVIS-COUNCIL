@@ -7,7 +7,7 @@ public sealed class PhoneCommandInboxTests
     [Fact]
     public async Task Enqueue_IsIdempotentAndSurvivesReload()
     {
-        var path = Path.Combine(Path.GetTempPath(), "jarvis-phone-" + Guid.NewGuid().ToString("N") + ".json");
+        var path = CreatePath();
         try
         {
             var inbox = new PhoneCommandInbox(path);
@@ -21,34 +21,94 @@ public sealed class PhoneCommandInboxTests
             Assert.NotNull(next);
             Assert.Equal(first.Id, next!.Id);
             Assert.Equal("Summarize my latest report", next.Text);
+
+            var claimed = await reloaded.ClaimAsync(first.Id);
+            Assert.NotNull(claimed);
+            Assert.Equal(PhoneCommandStatus.Processing, claimed!.Status);
+            Assert.Null(await inbox.GetNextAsync());
+            Assert.Null(await inbox.ClaimAsync(first.Id));
+
+            Assert.True(await inbox.CompleteAsync(first.Id, "Three key findings."));
+            Assert.False(await reloaded.CancelAsync(first.Id));
+            var history = await new PhoneCommandInbox(path).ListAsync();
+            var completed = Assert.Single(history);
+            Assert.Equal(PhoneCommandStatus.Completed, completed.Status);
+            Assert.Equal("Three key findings.", completed.Result);
         }
         finally
         {
-            if (File.Exists(path)) File.Delete(path);
+            DeleteStore(path);
         }
     }
 
     [Fact]
     public async Task CancelledCommandIsNotReturnedAsNext()
     {
-        var path = Path.Combine(Path.GetTempPath(), "jarvis-phone-" + Guid.NewGuid().ToString("N") + ".json");
+        var path = CreatePath();
         try
         {
             var inbox = new PhoneCommandInbox(path);
             var command = await inbox.EnqueueAsync("request-0002", "Open a project file");
             Assert.True(await inbox.CancelAsync(command.Id));
             Assert.Null(await inbox.GetNextAsync());
+            Assert.Null(await inbox.ClaimAsync(command.Id));
         }
         finally
         {
-            if (File.Exists(path)) File.Delete(path);
+            DeleteStore(path);
+        }
+    }
+
+    [Fact]
+    public async Task ConcurrentInboxInstances_CanClaimACommandOnlyOnce()
+    {
+        var path = CreatePath();
+        try
+        {
+            var first = new PhoneCommandInbox(path);
+            var second = new PhoneCommandInbox(path);
+            var command = await first.EnqueueAsync("request-0004", "Read my latest document");
+
+            var claims = await Task.WhenAll(
+                first.ClaimAsync(command.Id),
+                second.ClaimAsync(command.Id));
+
+            Assert.Single(claims.Where(claim => claim is not null));
+            var saved = Assert.Single(await first.ListAsync());
+            Assert.Equal(PhoneCommandStatus.Processing, saved.Status);
+        }
+        finally
+        {
+            DeleteStore(path);
+        }
+    }
+
+    [Fact]
+    public async Task FailedCommandStoresSafeResultAndIsNotClaimableAgain()
+    {
+        var path = CreatePath();
+        try
+        {
+            var inbox = new PhoneCommandInbox(path);
+            var command = await inbox.EnqueueAsync("request-0005", "Analyze this project");
+            Assert.NotNull(await inbox.ClaimAsync(command.Id));
+            Assert.True(await inbox.FailAsync(command.Id, "JARVIS could not complete the request."));
+            Assert.Null(await inbox.ClaimAsync(command.Id));
+
+            var saved = Assert.Single(await new PhoneCommandInbox(path).ListAsync());
+            Assert.Equal(PhoneCommandStatus.Failed, saved.Status);
+            Assert.Equal("JARVIS could not complete the request.", saved.Result);
+        }
+        finally
+        {
+            DeleteStore(path);
         }
     }
 
     [Fact]
     public async Task RecentHistoryReturnsOnlyTheNewestRequestedCommands()
     {
-        var path = Path.Combine(Path.GetTempPath(), "jarvis-phone-" + Guid.NewGuid().ToString("N") + ".json");
+        var path = CreatePath();
         try
         {
             var inbox = new PhoneCommandInbox(path);
@@ -65,7 +125,7 @@ public sealed class PhoneCommandInboxTests
         }
         finally
         {
-            if (File.Exists(path)) File.Delete(path);
+            DeleteStore(path);
         }
     }
 
@@ -79,11 +139,12 @@ public sealed class PhoneCommandInboxTests
     [Fact]
     public async Task CompletedCommandCannotBeCancelledAgain()
     {
-        var path = Path.Combine(Path.GetTempPath(), "jarvis-phone-" + Guid.NewGuid().ToString("N") + ".json");
+        var path = CreatePath();
         try
         {
             var inbox = new PhoneCommandInbox(path);
             var command = await inbox.EnqueueAsync("request-0003", "Explain this file");
+            Assert.NotNull(await inbox.ClaimAsync(command.Id));
             Assert.True(await inbox.CompleteAsync(command.Id, "The report contains three key findings."));
             Assert.False(await inbox.CancelAsync(command.Id));
             Assert.Null(await inbox.GetNextAsync());
@@ -95,7 +156,18 @@ public sealed class PhoneCommandInboxTests
         }
         finally
         {
-            if (File.Exists(path)) File.Delete(path);
+            DeleteStore(path);
         }
+    }
+
+    private static string CreatePath() =>
+        Path.Combine(Path.GetTempPath(), "jarvis-phone-" + Guid.NewGuid().ToString("N") + ".json");
+
+    private static void DeleteStore(string path)
+    {
+        if (File.Exists(path))
+            File.Delete(path);
+        if (File.Exists(path + ".lock"))
+            File.Delete(path + ".lock");
     }
 }
