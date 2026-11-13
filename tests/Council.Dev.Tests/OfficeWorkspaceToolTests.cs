@@ -139,6 +139,34 @@ public sealed class OfficeWorkspaceToolTests
     }
 
     [Fact]
+    public async Task AnalyzePaper_StillReviewsFiguresWhenDocumentOcrFails()
+    {
+        var root = CreateTemporaryDirectory();
+        try
+        {
+            WriteMinimalPdf(Path.Combine(root, "paper.pdf"));
+            var screenVision = new RecordingImageProvider();
+            var documentOcr = new FailingImageProvider();
+            var tool = new OfficeWorkspaceTool(root, imageProvider: screenVision, documentImageProvider: documentOcr);
+
+            var result = await tool.ExecuteAsync(new Dictionary<string, string>
+            {
+                ["action"] = "analyze_paper",
+                ["path"] = "paper.pdf"
+            });
+
+            Assert.True(result.Success, result.Message);
+            Assert.Contains("Document OCR/table review failed safely", result.Message);
+            Assert.Contains("QWEN3-VL ENGINEERING FIGURE / DIAGRAM REVIEW", result.Message);
+            Assert.Single(screenVision.Images);
+        }
+        finally
+        {
+            Directory.Delete(root, recursive: true);
+        }
+    }
+
+    [Fact]
     public async Task AnalyzePaper_RoutesEngineeringFiguresToSeparateVisionProvider()
     {
         var root = CreateTemporaryDirectory();
@@ -457,6 +485,13 @@ public sealed class OfficeWorkspaceToolTests
     }
 
 
+
+
+    private sealed class FailingImageProvider : IImageUnderstandingProvider
+    {
+        public Task<string> DescribeImagesAsync(string prompt, IReadOnlyList<AIImage> images, CancellationToken cancellationToken = default) =>
+            Task.FromException<string>(new InvalidOperationException("simulated local OCR model failure"));
+    }
 
     private sealed class FailingDocumentAndRecordingImageProvider : IImageUnderstandingProvider, IDocumentUnderstandingProvider
     {
