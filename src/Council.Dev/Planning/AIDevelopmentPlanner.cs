@@ -185,6 +185,7 @@ public sealed class AIDevelopmentPlanner : IDevelopmentPlanner
         builder.AppendLine("Allowed action types are ONLY:");
         builder.AppendLine("ReadFile");
         builder.AppendLine("SearchCode");
+        builder.AppendLine("ListFiles");
         builder.AppendLine("CreateFile");
         builder.AppendLine("ModifyFile");
         builder.AppendLine("DeleteFile");
@@ -267,7 +268,10 @@ public sealed class AIDevelopmentPlanner : IDevelopmentPlanner
                 if (!Enum.TryParse<DevelopmentActionType>(
                         action.Type,
                         true,
-                        out var actionType))
+                        out var actionType)
+                    || !Enum.IsDefined(
+                        typeof(DevelopmentActionType),
+                        actionType))
                 {
                     return DevelopmentPlan.Failed(
                         $"AI returned unsupported action type: {action.Type}");
@@ -301,7 +305,9 @@ public sealed class AIDevelopmentPlanner : IDevelopmentPlanner
     {
         var text = content.Trim();
 
-        if (text.StartsWith("`", StringComparison.Ordinal))
+        // Accept standard markdown JSON fences without relying on the model
+        // to follow the formatting instruction perfectly.
+        if (text.StartsWith("\`\`\`", StringComparison.Ordinal))
         {
             var firstNewLine = text.IndexOf('\n');
 
@@ -311,7 +317,7 @@ public sealed class AIDevelopmentPlanner : IDevelopmentPlanner
             }
 
             var closingFence = text.LastIndexOf(
-                "`",
+                "\`\`\`",
                 StringComparison.Ordinal);
 
             if (closingFence >= 0)
@@ -322,16 +328,61 @@ public sealed class AIDevelopmentPlanner : IDevelopmentPlanner
             text = text.Trim();
         }
 
+        // Extract the first complete JSON object. Braces inside quoted
+        // strings are ignored, and escaped quotes do not end a string.
         var firstBrace = text.IndexOf('{');
-        var lastBrace = text.LastIndexOf('}');
 
-        if (firstBrace < 0 ||
-            lastBrace <= firstBrace)
+        if (firstBrace < 0)
         {
             return null;
         }
 
-        return text[firstBrace..(lastBrace + 1)];
+        var depth = 0;
+        var inString = false;
+        var escaped = false;
+
+        for (var index = firstBrace; index < text.Length; index++)
+        {
+            var character = text[index];
+
+            if (inString)
+            {
+                if (escaped)
+                {
+                    escaped = false;
+                }
+                else if (character == '\\')
+                {
+                    escaped = true;
+                }
+                else if (character == '"')
+                {
+                    inString = false;
+                }
+
+                continue;
+            }
+
+            if (character == '"')
+            {
+                inString = true;
+            }
+            else if (character == '{')
+            {
+                depth++;
+            }
+            else if (character == '}')
+            {
+                depth--;
+
+                if (depth == 0)
+                {
+                    return text[firstBrace..(index + 1)];
+                }
+            }
+        }
+
+        return null;
     }
 
     private sealed record PlanPayload(
