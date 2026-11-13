@@ -71,7 +71,7 @@ public class TaskPersistenceTests
                 loadedTask!.Title);
 
             Assert.Equal(
-                CouncilTaskStatus.Running,
+                CouncilTaskStatus.Paused,
                 loadedTask.Status);
 
             Assert.Equal(
