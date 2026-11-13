@@ -441,6 +441,30 @@ public sealed class OfficeWorkspaceTool : ITool
                             output.AppendLine("SPECIALIST TABLE RECOGNITION");
                             output.AppendLine(tableAnalysis);
                         }
+
+                        if (_imageProvider is not null && !ReferenceEquals(_imageProvider, _documentImageProvider))
+                        {
+                            try
+                            {
+                                var figurePrompt = """
+                                    Review these rendered engineering-PDF pages and embedded image assets as a structural/mechanical engineering figure reader.
+                                    Describe visible structural details, section geometry, dimensions and callouts, finite-element meshes,
+                                    boundary conditions, supports, load directions, contact/interfaces, deformation and failure modes.
+                                    For plots/charts, identify axes, units, legends, series, trends and comparisons when legible.
+                                    Explain what each figure communicates, using its supplied PDF page label. Do not invent dimensions,
+                                    numerical values or labels that cannot be read. Separate direct visual observations from engineering interpretation.
+                                    """;
+                                var figureAnalysis = await _imageProvider.DescribeImagesAsync(
+                                    figurePrompt, visualCandidates, cancellationToken);
+                                output.AppendLine();
+                                output.AppendLine("QWEN3-VL ENGINEERING FIGURE / DIAGRAM REVIEW");
+                                output.AppendLine(figureAnalysis);
+                            }
+                            catch (Exception ex) when (ex is not OutOfMemoryException and not OperationCanceledException)
+                            {
+                                output.AppendLine($"[Separate figure/diagram review failed safely: {ex.Message}. OCR and table extraction remain available.]");
+                            }
+                        }
                     }
                     catch (Exception ex) when (ex is not OutOfMemoryException and not OperationCanceledException)
                     {

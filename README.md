@@ -56,8 +56,8 @@ Set-ExecutionPolicy -Scope Process Bypass
 
 The installer downloads:
 - **Brain:** Qwen 3.5 2B Q4_K_M through Ollama (about 1.9 GB).
-- **Screen eyes:** Qwen3-VL 2B through Ollama (about 1.9 GB) for desktop screenshots, GUI grounding and computer-use verification.
-- **Document eyes:** GLM-OCR through Ollama for embedded engineering-document images, OCR and table recognition. Both models are separate from the chat brain and load on demand.
+- **Screen/figure vision:** Qwen3-VL 2B through Ollama (about 1.9 GB) for desktop screenshots, GUI grounding, engineering diagrams, meshes, plots and figure interpretation.
+- **Document OCR:** GLM-OCR through Ollama for rendered PDF pages and embedded engineering-document images, with separate text and table-recognition passes. Both models are separate from the chat brain and load on demand.
 - **Ears:** Whisper small multilingual through Whisper.net (about 466 MB). It is loaded only when you use `/voice`, then disposed.
 - **Mouth:** Piper neural TTS with medium-quality English, Hindi and Telugu voices. Only the selected voice is loaded to synthesize each reply.
 
