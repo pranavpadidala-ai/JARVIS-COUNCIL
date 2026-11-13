@@ -4,7 +4,7 @@ A Windows-first personal AI assistant with a persistent chat, provider failover 
 
 ## Current build
 
-- Interactive console assistant with persistent local conversation history.
+- Interactive console assistant with persistent local conversation history.\n- Initial Windows WPF Command Center desktop shell, styled around the user's futuristic dashboard reference.
 - Gemini, OpenAI and OpenAI-compatible provider support.
 - Sequential provider fallback: an unavailable provider does not stop the session if another configured provider works.
 - OmniRoute can be used through its OpenAI-compatible `/chat/completions` endpoint.
@@ -79,4 +79,4 @@ See [docs/MASTER_PLAN.md](docs/MASTER_PLAN.md) for the staged architecture and i
 
 ## Current limitations
 
-This build is the usable assistant foundation, not the final JARVIS experience. It is a console application; graphical desktop control, Abaqus automation, specialist engineering-document parsing, offline speech, Android remote control, Google Drive integration and market-data monitoring are subsequent modules. Real-money trading and unattended broker order placement are not enabled.
+This build is the usable assistant foundation plus the first desktop Command Center shell, not the final JARVIS experience. Live dashboard integration, graphical desktop control, Abaqus automation, specialist engineering-document parsing, offline speech, Android remote control, Google Drive integration and market-data monitoring are subsequent modules. Real-money trading and unattended broker order placement are not enabled.
