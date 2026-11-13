@@ -320,13 +320,9 @@ public sealed class DhanLiveFeedTool : ITool
             {
                 _lastError = "WebSocket connection or feed transfer failed; reconnecting. Check Data API entitlement and token validity.";
             }
-            catch (HttpRequestException)
+            catch (Exception ex) when (ex is HttpRequestException or IOException or InvalidOperationException or ObjectDisposedException or JsonException)
             {
-                _lastError = "Could not establish the Dhan feed connection; reconnecting.";
-            }
-            catch (JsonException)
-            {
-                _lastError = "Dhan sent an unsupported feed message; reconnecting.";
+                _lastError = "Dhan feed encountered a connection or message error; reconnecting.";
             }
             finally
             {
