@@ -22,7 +22,6 @@ $source = @"
 using System;
 using System.ComponentModel;
 using System.Runtime.InteropServices;
-using System.Security.Cryptography;
 using System.Text;
 
 public static class JarvisDhanCredentialWriter
@@ -52,7 +51,7 @@ public static class JarvisDhanCredentialWriter
     {
         var bytes = Encoding.Unicode.GetBytes(value);
         try { WriteBlob(target, userName, bytes); }
-        finally { CryptographicOperations.ZeroMemory(bytes); }
+        finally { Array.Clear(bytes, 0, bytes.Length); }
     }
 
     public static void WriteSecure(String target, String userName, IntPtr secureString, Int32 characterCount)
@@ -63,7 +62,7 @@ public static class JarvisDhanCredentialWriter
             Marshal.Copy(secureString, bytes, 0, bytes.Length);
             WriteBlob(target, userName, bytes);
         }
-        finally { CryptographicOperations.ZeroMemory(bytes); }
+        finally { Array.Clear(bytes, 0, bytes.Length); }
     }
 
     private static void WriteBlob(String target, String userName, byte[] bytes)

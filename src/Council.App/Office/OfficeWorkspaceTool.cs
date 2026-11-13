@@ -14,7 +14,7 @@ using Council.Core.Providers;
 namespace Council.App.Office;
 
 /// <summary>
-/// Office workspace: safe inventory and inspection of Excel, Word, PowerPoint, and text-based PDF documents; creates new Excel workbooks and Word documents.
+/// Office workspace: safe inspection of Excel, Word, PowerPoint and PDFs, including selectable-text extraction and bounded visual OCR; creates new Excel workbooks and Word documents.
 /// Existing Office files are never overwritten.
 /// </summary>
 public sealed class OfficeWorkspaceTool : ITool
@@ -43,7 +43,7 @@ public sealed class OfficeWorkspaceTool : ITool
     public string Name => "office_workspace";
 
     public string Description =>
-        "Microsoft Office file tool. Actions: list_documents; inspect_document (path for .xlsx/.docx/.pptx/.pdf); analyze_paper (path, optional mode=quick|deep, start_page, end_page for selectable-text extraction plus optional Gemini full-PDF engineering/OCR review); create_workbook (path, data JSON array-of-arrays, optional sheet); create_document (new .docx path, content JSON array of paragraphs, optional title). All paths are relative to the dedicated Office workspace. Creation never overwrites existing files.";
+        "Microsoft Office file tool. Actions: list_documents; inspect_document (path for .xlsx/.docx/.pptx/.pdf); analyze_paper (path, optional mode=quick|deep, start_page, end_page for selectable-text extraction, bounded full-page rendering and local engineering OCR or optional Gemini full-PDF review); create_workbook (path, data JSON array-of-arrays, optional sheet); create_document (new .docx path, content JSON array of paragraphs, optional title). All paths are relative to the dedicated Office workspace. Creation never overwrites existing files.";
 
     public async Task<ToolResult> ExecuteAsync(
         Dictionary<string, string> arguments,

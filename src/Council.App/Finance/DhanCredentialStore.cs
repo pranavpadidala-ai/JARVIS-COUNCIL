@@ -38,7 +38,7 @@ internal static class DhanCredentialStore
                 credential.CredentialBlobSize % 2 != 0)
                 return null;
 
-            var bytes = new byte[credential.CredentialBlobSize];
+            var bytes = new byte[checked((int)credential.CredentialBlobSize)];
             try
             {
                 Marshal.Copy(credential.CredentialBlob, bytes, 0, bytes.Length);
