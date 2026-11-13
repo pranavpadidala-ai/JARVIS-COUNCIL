@@ -220,7 +220,34 @@ public sealed class TaskManager
 
     private void ReplaceTasks(List<DevelopmentTask> latest)
     {
+        // Keep references already handed to the development loop/UI alive while
+        // refreshing their fields from the cross-process store. Replacing every
+        // object made callers observe stale Pending/zero-attempt task instances.
+        var existing = _tasks.ToDictionary(task => task.Id);
+        var synchronized = new List<DevelopmentTask>(latest.Count);
+
+        foreach (var saved in latest)
+        {
+            if (existing.TryGetValue(saved.Id, out var current))
+            {
+                current.Title = saved.Title;
+                current.Description = saved.Description;
+                current.Status = saved.Status;
+                current.UpdatedAtUtc = saved.UpdatedAtUtc;
+                current.AttemptCount = saved.AttemptCount;
+                current.IsApproved = saved.IsApproved;
+                current.ApprovedAtUtc = saved.ApprovedAtUtc;
+                current.ApprovalConsumedAtUtc = saved.ApprovalConsumedAtUtc;
+                current.CurrentStep = saved.CurrentStep;
+                synchronized.Add(current);
+            }
+            else
+            {
+                synchronized.Add(saved);
+            }
+        }
+
         _tasks.Clear();
-        _tasks.AddRange(latest);
+        _tasks.AddRange(synchronized);
     }
 }
