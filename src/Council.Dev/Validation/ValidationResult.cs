@@ -22,23 +22,3 @@ public sealed record ValidationResult(
         TerminalResult failedResult)
         => new(false, message, failedResult, null);
 }
-{
-    public static ValidationResult Passed(
-        string message,
-        TerminalResult buildResult,
-        TerminalResult testResult)
-        => new(
-            true,
-            message,
-            buildResult,
-            testResult);
-
-    public static ValidationResult Failed(
-        string message,
-        TerminalResult failedResult)
-        => new(
-            false,
-            message,
-            failedResult,
-            null);
-}
