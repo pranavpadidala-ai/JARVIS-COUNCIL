@@ -1,6 +1,7 @@
 using System.Text;
 using Council.Core.Providers;
 using Council.Dev.Actions;
+using Council.Dev.Recovery;
 using Council.Dev.Execution;
 using Council.Dev.Git;
 using Council.Dev.Loop;
@@ -43,7 +44,7 @@ public sealed class AutonomousDevelopmentTool : ITool
         if (!Directory.Exists(root))
             throw new DirectoryNotFoundException("Development workspace does not exist: " + root);
 
-        _tasks = new TaskManager(new TaskStore(taskStorePath));
+        _tasks = new TaskManager(new TaskStore(taskStorePath), new TaskCheckpointStore());
         var terminal = new TerminalController();
         var workspace = new SafeWorkspaceExecutor(root);
         var actions = new DevelopmentActionExecutor(workspace, terminal, root);
