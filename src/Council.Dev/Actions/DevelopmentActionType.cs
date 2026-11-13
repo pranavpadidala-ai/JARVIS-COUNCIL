@@ -4,6 +4,7 @@ public enum DevelopmentActionType
 {
     ReadFile,
     SearchCode,
+    ListFiles,
     CreateFile,
     ModifyFile,
     DeleteFile,
