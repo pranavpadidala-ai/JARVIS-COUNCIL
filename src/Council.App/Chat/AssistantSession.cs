@@ -122,8 +122,7 @@ public sealed class AssistantSession
 
     public async Task ClearAsync()
     {
-        await _memory.ClearAsync();
-        await _facts.ClearAsync();
+        await _assistant.ClearConversationAsync();
         _history.Clear();
     }
 
@@ -148,6 +147,12 @@ public sealed class AssistantSession
                  prompt.Equals("/help", StringComparison.OrdinalIgnoreCase))
         {
             message = MemoryHelp;
+        }
+        else if (prompt.Equals("/clear", StringComparison.OrdinalIgnoreCase))
+        {
+            await _assistant.ClearConversationAsync(cancellationToken);
+            _history.Clear();
+            message = "Conversation history and explicitly saved facts were cleared. Learned project practices were retained.";
         }
         else if (prompt.Equals("/memories", StringComparison.OrdinalIgnoreCase))
         {
