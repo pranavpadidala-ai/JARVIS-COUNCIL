@@ -80,7 +80,8 @@ public class AIDevelopmentPlannerTests
             result.Steps[0]);
 
         Assert.Equal(1, provider.CallCount);
-        Assert.True(provider.LastRequest?.JsonMode);
+        Assert.NotNull(provider.LastRequest);
+        Assert.True(provider.LastRequest!.JsonMode);
     }
 
     [Fact]
