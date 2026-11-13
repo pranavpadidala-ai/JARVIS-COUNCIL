@@ -34,7 +34,7 @@ public sealed class TaskManager
             if (_checkpointStore is not null)
             {
                 try { checkpoint = await _checkpointStore.LoadAsync(task.Id, cancellationToken); }
-                catch (Exception ex) when (ex is IOException or JsonException)
+                catch (Exception ex) when (ex is IOException or JsonException or InvalidDataException)
                 {
                     checkpointIssue = " The saved checkpoint could not be read; inspect repository state before resuming.";
                     task.FailureClassification = "checkpoint_unreadable";
