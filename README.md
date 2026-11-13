@@ -43,6 +43,17 @@ $env:OMNIROUTE_MODEL = "your-model-id"
 
 Set `JARVIS_AI_PROVIDER` to `gemini`, `openai`, or `omniroute` to choose the first provider in the failover order. If no key is configured, JARVIS starts in mock/demo mode.
 
+## Open the Windows Command Center
+
+Configure a provider key in the same PowerShell session, then launch the desktop app:
+
+```powershell
+$env:GEMINI_API_KEY = Read-Host "Gemini API key"
+dotnet run --project src/Council.Desktop
+```
+
+The dashboard shows live local CPU (JARVIS process), system RAM and system-drive free space. Select **OPEN JARVIS CHAT** to use the shared AI session and persistent conversation history. The **Start New Task** and **Run Workflow** shortcuts open the chat with a planning prompt; they do not yet launch autonomous workflows.
+
 ## Commands
 
 | Command | Action |
@@ -82,4 +93,4 @@ See [docs/MASTER_PLAN.md](docs/MASTER_PLAN.md) for the staged architecture and i
 
 ## Current limitations
 
-This build is the usable assistant foundation plus the first desktop Command Center shell, not the final JARVIS experience. Live dashboard integration, graphical desktop control, Abaqus automation, specialist engineering-document parsing, offline speech, Android remote control, Google Drive integration and market-data monitoring are subsequent modules. Real-money trading and unattended broker order placement are not enabled.
+This build includes a working desktop Command Center shell, shared AI chat session and local hardware telemetry, but it is not the final JARVIS experience. Persistent task orchestration, graphical desktop control, Abaqus automation, specialist engineering-document parsing, offline speech, Android remote control, Google Drive integration and market-data monitoring are subsequent modules. Real-money trading and unattended broker order placement are not enabled.
