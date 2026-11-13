@@ -22,7 +22,9 @@ try {
 
     Write-Host "Running first-time setup, build, and tests..." -ForegroundColor Cyan
     $setup = Join-Path $installRoot "Setup-JARVIS.ps1"
-    & (Join-Path $PSHOME "powershell.exe") -NoProfile -ExecutionPolicy Bypass -File $setup
+    $windowsPowerShell = Join-Path $env:SystemRoot "System32\WindowsPowerShell\v1.0\powershell.exe"
+    if (-not (Test-Path $windowsPowerShell)) { throw "Windows PowerShell could not be located." }
+    & $windowsPowerShell -NoProfile -ExecutionPolicy Bypass -File $setup
     if ($LASTEXITCODE -ne 0) {
         throw "JARVIS setup did not complete successfully. Open '$installRoot\jarvis-setup.log' for details."
     }
