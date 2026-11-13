@@ -128,7 +128,7 @@ public sealed class OfficeWorkspaceToolTests
             Assert.Contains("Rendered 1 full PDF page", result.Message);
             Assert.Contains("OCR output from rendered page", result.Message);
             Assert.Single(vision.Images);
-            Assert.Contains("rendered full page", vision.Images[0].Name, StringComparison.OrdinalIgnoreCase);
+            Assert.Contains("rendered full page", vision.Images[0].Name.ToLowerInvariant());
             Assert.Equal("image/png", vision.Images[0].MimeType);
             Assert.Equal(new byte[] { 137, 80, 78, 71 }, vision.Images[0].Data.Take(4));
         }
