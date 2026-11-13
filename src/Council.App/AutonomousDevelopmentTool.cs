@@ -223,12 +223,14 @@ public sealed class AutonomousDevelopmentTool : ITool
                 ["task_id"] = task.Id.ToString(),
                 ["max_attempts"] = "2"
             },
-            cancellationToken);
+            cancellationToken,
+            backgroundClaimed: true);
     }
 
     private async Task<ToolResult> RunTaskAsync(
         Dictionary<string, string> args,
-        CancellationToken cancellationToken)
+        CancellationToken cancellationToken,
+        bool backgroundClaimed = false)
     {
         if (!HasOnly(args, "action", "task_id", "max_attempts") ||
             !args.TryGetValue("task_id", out var idText) ||
@@ -242,6 +244,10 @@ public sealed class AutonomousDevelopmentTool : ITool
 
         if (task.Status is DevTaskStatus.Completed or DevTaskStatus.Running)
             return new ToolResult(false, "Only Pending, Paused, or Failed tasks can be run.");
+        if (task.ApprovalConsumedAtUtc.HasValue && !backgroundClaimed)
+            return new ToolResult(false, "This task has already been claimed by the background agent. Wait for it to finish.");
+        if (backgroundClaimed && (!task.IsApproved || !task.ApprovalConsumedAtUtc.HasValue))
+            return new ToolResult(false, "The one-shot background approval is no longer valid. Approve the task again if a retry is required.");
 
         var maxAttempts = 2;
         if (args.TryGetValue("max_attempts", out var attemptsText) &&
@@ -258,6 +264,12 @@ public sealed class AutonomousDevelopmentTool : ITool
             task = _tasks.Find(id);
             if (task is null)
                 return new ToolResult(false, "The development task no longer exists.");
+            if (task.Status is DevTaskStatus.Completed or DevTaskStatus.Running)
+                return new ToolResult(false, "The task was completed or started by another JARVIS session before this run could begin.");
+            if (task.ApprovalConsumedAtUtc.HasValue && !backgroundClaimed)
+                return new ToolResult(false, "This task has already been claimed by the background agent. Wait for it to finish.");
+            if (backgroundClaimed && (!task.IsApproved || !task.ApprovalConsumedAtUtc.HasValue))
+                return new ToolResult(false, "The one-shot background approval is no longer valid. Approve the task again if a retry is required.");
 
             var preflight = await _checkpoints.CreateCheckpointAsync(cancellationToken);
             if (!preflight.Success || preflight.Checkpoint is null)
