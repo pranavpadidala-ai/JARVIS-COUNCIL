@@ -1,13 +1,18 @@
+using Council.Dev.Recovery;
+
 namespace Council.Dev.Tasks;
 
 public sealed class TaskManager
 {
     private readonly TaskStore _store;
+    private readonly TaskCheckpointStore? _checkpointStore;
     private readonly List<DevelopmentTask> _tasks = [];
 
-    public TaskManager(TaskStore store)
+    public TaskManager(TaskStore store, TaskCheckpointStore? checkpointStore = null)
     {
+        ArgumentNullException.ThrowIfNull(store);
         _store = store;
+        _checkpointStore = checkpointStore;
     }
 
     public IReadOnlyList<DevelopmentTask> Tasks => _tasks;
@@ -47,7 +52,7 @@ public sealed class TaskManager
         _tasks.Add(task);
         try
         {
-            await _store.SaveAsync(_tasks, cancellationToken);
+            await PersistAsync(cancellationToken);
             return task;
         }
         catch
@@ -76,7 +81,7 @@ public sealed class TaskManager
 
         try
         {
-            await _store.SaveAsync(_tasks, cancellationToken);
+            await PersistAsync(cancellationToken);
             return true;
         }
         catch
@@ -100,18 +105,23 @@ public sealed class TaskManager
         }
 
         var previousStep = task.CurrentStep;
+        var previousCompletedSteps = task.CompletedSteps.ToList();
         var previousUpdatedAt = task.UpdatedAtUtc;
+        if (!string.IsNullOrWhiteSpace(previousStep) &&
+            !string.Equals(previousStep, currentStep?.Trim(), StringComparison.Ordinal))
+            task.CompletedSteps.Add(previousStep);
         task.CurrentStep = currentStep?.Trim() ?? string.Empty;
         task.UpdatedAtUtc = DateTime.UtcNow;
 
         try
         {
-            await _store.SaveAsync(_tasks, cancellationToken);
+            await PersistAsync(cancellationToken);
             return true;
         }
         catch
         {
             task.CurrentStep = previousStep;
+            task.CompletedSteps = previousCompletedSteps;
             task.UpdatedAtUtc = previousUpdatedAt;
             throw;
         }
@@ -135,7 +145,7 @@ public sealed class TaskManager
 
         try
         {
-            await _store.SaveAsync(_tasks, cancellationToken);
+            await PersistAsync(cancellationToken);
             return true;
         }
         catch
@@ -143,6 +153,35 @@ public sealed class TaskManager
             task.AttemptCount = previousAttemptCount;
             task.UpdatedAtUtc = previousUpdatedAt;
             throw;
+        }
+    }
+
+    private async Task PersistAsync(CancellationToken cancellationToken)
+    {
+        await _store.SaveAsync(_tasks, cancellationToken);
+        if (_checkpointStore is null) return;
+
+        foreach (var task in _tasks.Where(t => t.Status is TaskStatus.Running or TaskStatus.Paused or TaskStatus.Failed))
+        {
+            await _checkpointStore.SaveAsync(new TaskCheckpoint
+            {
+                TaskId = task.Id,
+                Objective = string.IsNullOrWhiteSpace(task.Description)
+                    ? task.Title
+                    : task.Title + Environment.NewLine + task.Description,
+                CompletedSteps = task.CompletedSteps.ToArray(),
+                NextAction = task.CurrentStep,
+                ProviderRoute = task.ProviderRoute,
+                ModelAlias = task.ModelAlias,
+                GitCommitSha = task.GitCommitSha,
+                GitWorkingTreeStatus = task.GitWorkingTreeStatus,
+                BuildLogPath = task.BuildLogPath,
+                TestLogPath = task.TestLogPath,
+                RetryCount = task.AttemptCount,
+                FailureClassification = task.FailureClassification,
+                IdempotencyKey = task.IdempotencyKey,
+                CreatedAtUtc = DateTime.UtcNow
+            }, cancellationToken);
         }
     }
 
