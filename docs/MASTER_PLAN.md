@@ -8,7 +8,7 @@ The current laptop target is an Intel i3-1005G1 with 8 GB RAM. Do not assume a d
 
 ## Architecture layers
 
-1. **Experience** — console now; Windows desktop shell, phone remote interface and push-to-talk voice later.
+1. **Experience** — Windows Command Center desktop shell (WPF) plus chat runtime; phone remote interface and push-to-talk voice later.
 2. **Assistant runtime** — conversation loop, task router, model selection, fallback, cancellation, session state and long-running task queue.
 3. **Agent runtime** — tool registry, skills, scoped subagents, task planning, progress, retry, checkpoints and recovery.
 4. **Knowledge** — conversation memory, project memory, local file index, source citations and retrieval.
@@ -39,7 +39,7 @@ Do not copy entire projects blindly. Reuse small, auditable modules and preserve
 - [x] OpenAI-compatible gateway adapter for OmniRoute-style endpoints.
 - [x] Sequential provider fallback.
 - [x] Explicit development command with confirmation, Git checkpoint, build/test and rollback.
-- [ ] Verify on the user's Windows laptop and improve first-run setup.
+- [x] Create the first Windows Command Center desktop shell using the user's reference dashboard as the visual target.\n- [ ] Connect dashboard panels, navigation, task cards and chat input to live runtime services.\n- [ ] Verify on the user's Windows laptop and improve first-run setup.
 
 ### Phase 2 — dependable agent runtime
 - [ ] Unified tool contracts and structured tool results.
