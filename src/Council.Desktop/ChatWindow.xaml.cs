@@ -136,6 +136,22 @@ public partial class ChatWindow : Window
             var response = await _session.SendAsync(prompt);
             AddMessage("JARVIS", response.Content, true);
             ProviderStatus.Text = $"●  {response.Provider} / {response.Model}";
+            if (_speakReplies && OperatingSystem.IsWindows())
+            {
+                try
+                {
+                    _voice ??= new WindowsVoiceService();
+                    await _voice.SpeakAsync(response.Content);
+                }
+                catch (OperationCanceledException)
+                {
+                    ProviderStatus.Text = "●  " + response.Provider + " / speech stopped";
+                }
+                catch (Exception ex)
+                {
+                    ProviderStatus.Text = "●  Reply ready; speech unavailable: " + ex.GetBaseException().Message;
+                }
+            }
         }
         catch (Exception ex)
         {
