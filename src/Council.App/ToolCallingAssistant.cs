@@ -182,7 +182,7 @@ public sealed class ToolCallingAssistant
         {
             cancellationToken.ThrowIfCancellationRequested();
             var response = await _provider.AskAsync(
-                new AIRequest(await BuildMessagesForTurnAsync(input, cancellationToken), Temperature: 0.2),
+                new AIRequest(await BuildMessagesForTurnAsync(input, cancellationToken), Temperature: 0.2, JsonMode: true),
                 cancellationToken);
 
             if (string.IsNullOrWhiteSpace(response.Content))
