@@ -130,6 +130,12 @@ public partial class MainWindow : Window
         }
     }
 
+    private void OpenTasks_Click(object sender, RoutedEventArgs e)
+    {
+        var tasks = new DevelopmentTasksWindow { Owner = this };
+        tasks.Show();
+    }
+
     private void OpenConsole_Click(object sender, RoutedEventArgs e)
     {
         var chat = new ChatWindow { Owner = this };
