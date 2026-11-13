@@ -89,6 +89,8 @@ public sealed class TaskCheckpointStore
             throw new InvalidOperationException("Artifact must be inside the task workspace.");
         var info = new FileInfo(fullPath);
         if (!info.Exists) throw new FileNotFoundException("Checkpoint artifact was not found.", fullPath);
+        if (info.Length > 25 * 1024 * 1024)
+            throw new InvalidOperationException("Checkpoint artifacts are limited to 25 MB each.");
         await using var stream = File.OpenRead(fullPath);
         var hash = await SHA256.HashDataAsync(stream, cancellationToken);
         return new TaskArtifactSnapshot(relative, Convert.ToHexString(hash), info.Length);
