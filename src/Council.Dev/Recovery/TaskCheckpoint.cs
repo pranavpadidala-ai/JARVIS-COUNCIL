@@ -24,6 +24,7 @@ public sealed record TaskCheckpoint
     public string? FailureClassification { get; init; }
     public string IdempotencyKey { get; init; } = Guid.NewGuid().ToString("N");
     public DateTime CreatedAtUtc { get; init; } = DateTime.UtcNow;
+    public DateTime UpdatedAtUtc { get; init; } = DateTime.UtcNow;
     public string? BrowserProfileId { get; init; }
     public string? RecoveryNotes { get; init; }
 }
