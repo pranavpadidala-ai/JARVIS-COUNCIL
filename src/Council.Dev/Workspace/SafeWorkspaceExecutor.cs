@@ -37,6 +37,12 @@ public sealed class SafeWorkspaceExecutor : IWorkspaceExecutor
             throw new DirectoryNotFoundException(
                 $"Workspace directory does not exist: {_workspaceRoot}");
         }
+
+        if ((File.GetAttributes(_workspaceRoot) & FileAttributes.ReparsePoint) != 0)
+        {
+            throw new InvalidOperationException(
+                "Workspace root cannot be a symbolic link or reparse point.");
+        }
     }
 
     public async Task<WorkspaceActionResult> ExecuteAsync(
