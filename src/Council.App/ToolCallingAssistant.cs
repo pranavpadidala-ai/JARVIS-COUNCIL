@@ -86,6 +86,58 @@ public sealed class ToolCallingAssistant
     }
 
 
+    public IReadOnlyList<string> ListSkills() => _skills.ListSkills();
+
+    public async Task<string> ListAgentsAsync(CancellationToken cancellationToken = default)
+    {
+        var agentTool = _tools.GetAll().OfType<SpecialistAgentTool>().FirstOrDefault();
+        if (agentTool is null)
+            return "The specialist-agent runtime is unavailable.";
+        var result = await agentTool.ExecuteAsync(
+            new Dictionary<string, string> { ["action"] = "list" },
+            cancellationToken);
+        return result.Message;
+    }
+
+    public async Task<string> LearnPracticeAsync(
+        string trigger,
+        string action,
+        CancellationToken cancellationToken = default)
+    {
+        if (_instincts is null)
+            return "Project learning is unavailable because long-term memory is disabled.";
+        if (string.IsNullOrWhiteSpace(trigger) || string.IsNullOrWhiteSpace(action))
+            return "Both a trigger and an action are required.";
+        var item = await _instincts.AddOrReinforceAsync(
+            trigger.Trim(), action.Trim(), cancellationToken: cancellationToken);
+        return $"Saved project practice '{item.Id}' (confidence {item.Confidence:0.00}, evidence {item.EvidenceCount}).";
+    }
+
+    public async Task<string> ListLearnedPracticesAsync(CancellationToken cancellationToken = default)
+    {
+        if (_instincts is null)
+            return "Project learning is unavailable because long-term memory is disabled.";
+        var items = await _instincts.ListAsync(cancellationToken);
+        if (items.Count == 0)
+            return "No learned project practices have been saved yet. Use /learn <trigger> => <action>.";
+        return string.Join(Environment.NewLine, items
+            .OrderByDescending(item => item.Confidence)
+            .ThenByDescending(item => item.UpdatedAt)
+            .Select(item => $"[{item.Id}] {item.Domain} | {item.Trigger} => {item.Action} (confidence {item.Confidence:0.00}, evidence {item.EvidenceCount})"));
+    }
+
+    public async Task<string> ForgetLearnedPracticeAsync(
+        string id,
+        CancellationToken cancellationToken = default)
+    {
+        if (_instincts is null)
+            return "Project learning is unavailable because long-term memory is disabled.";
+        if (string.IsNullOrWhiteSpace(id))
+            return "A practice ID is required.";
+        var removed = await _instincts.RemoveAsync(id.Trim(), cancellationToken);
+        return removed ? "The learned project practice was removed." : "No learned practice was found with that ID.";
+    }
+
     /// <summary>
     /// Clears conversation history and explicit facts while retaining learned
     /// project practices. Used by desktop clients for the /clear command.
