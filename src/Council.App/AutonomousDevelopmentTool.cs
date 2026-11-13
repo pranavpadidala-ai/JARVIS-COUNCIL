@@ -1,6 +1,7 @@
 using System.Text;
 using Council.Core.Providers;
 using Council.Dev.Actions;
+using Council.Dev.Recovery;
 using Council.Dev.Execution;
 using Council.Dev.Git;
 using Council.Dev.Loop;
@@ -26,6 +27,7 @@ public sealed class AutonomousDevelopmentTool : ITool
     private readonly TaskManager _tasks;
     private readonly DevelopmentOrchestrator _orchestrator;
     private readonly GitCheckpointManager _checkpoints;
+    private readonly string _providerName;
     private readonly SemaphoreSlim _initializeGate = new(1, 1);
     private readonly SemaphoreSlim _runGate = new(1, 1);
     private bool _initialized;
@@ -36,6 +38,7 @@ public sealed class AutonomousDevelopmentTool : ITool
         string? taskStorePath = null)
     {
         ArgumentNullException.ThrowIfNull(provider);
+        _providerName = provider.Name;
         if (string.IsNullOrWhiteSpace(workspaceRoot))
             throw new ArgumentException("Workspace root is required.", nameof(workspaceRoot));
 
@@ -43,14 +46,15 @@ public sealed class AutonomousDevelopmentTool : ITool
         if (!Directory.Exists(root))
             throw new DirectoryNotFoundException("Development workspace does not exist: " + root);
 
-        _tasks = new TaskManager(new TaskStore(taskStorePath));
+        var checkpointRoot = taskStorePath is null ? null : Path.Combine(Path.GetDirectoryName(Path.GetFullPath(taskStorePath))!, "checkpoints");
+        _tasks = new TaskManager(new TaskStore(taskStorePath), new TaskCheckpointStore(checkpointRoot));
         var terminal = new TerminalController();
         var workspace = new SafeWorkspaceExecutor(root);
         var actions = new DevelopmentActionExecutor(workspace, terminal, root);
         var validation = new BuildTestExecutor(terminal, root);
         var context = new RepositoryContextProvider(root);
         var planner = new AIDevelopmentPlanner(provider, context);
-        var executor = new AutonomousDevelopmentExecutor(planner, actions, validation, _tasks);
+        var executor = new AutonomousDevelopmentExecutor(planner, actions, validation, _tasks, terminal, root);
         var loop = new DevelopmentLoop(_tasks, new TaskRunner(_tasks));
         _checkpoints = new GitCheckpointManager(terminal, root);
         _orchestrator = new DevelopmentOrchestrator(loop, executor, _checkpoints);
@@ -130,6 +134,7 @@ public sealed class AutonomousDevelopmentTool : ITool
             return new ToolResult(false, "Task description is limited to 8,000 characters.");
 
         var task = await _tasks.CreateAsync(title, description, cancellationToken);
+        await _tasks.UpdateExecutionContextAsync(task.Id, _providerName, null, null, null, cancellationToken);
         return new ToolResult(true,
             $"Created persistent development task {task.Id}. Status: Pending. " +
             "The task has not been run; explicitly ask JARVIS to run this task ID.");
@@ -189,6 +194,7 @@ public sealed class AutonomousDevelopmentTool : ITool
             if (!preflight.Success || preflight.Checkpoint is null)
                 return new ToolResult(false, "Autonomous execution blocked before changes: " + preflight.Message);
 
+            await _tasks.UpdateExecutionContextAsync(task.Id, _providerName, null, preflight.Checkpoint.CommitSha, "clean", cancellationToken);
             var result = await _orchestrator.ExecuteAsync(task, maxAttempts, cancellationToken);
             return new ToolResult(result.Success,
                 (result.Success ? "Development task completed. " : "Development task failed. ") +

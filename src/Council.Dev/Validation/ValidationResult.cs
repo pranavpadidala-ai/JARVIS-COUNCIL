@@ -8,22 +8,17 @@ public sealed record ValidationResult(
     TerminalResult? BuildResult,
     TerminalResult? TestResult)
 {
+    public string? BuildLogPath { get; init; }
+    public string? TestLogPath { get; init; }
+
     public static ValidationResult Passed(
         string message,
         TerminalResult buildResult,
         TerminalResult testResult)
-        => new(
-            true,
-            message,
-            buildResult,
-            testResult);
+        => new(true, message, buildResult, testResult);
 
     public static ValidationResult Failed(
         string message,
         TerminalResult failedResult)
-        => new(
-            false,
-            message,
-            failedResult,
-            null);
+        => new(false, message, failedResult, null);
 }

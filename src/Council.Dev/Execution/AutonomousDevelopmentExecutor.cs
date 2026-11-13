@@ -1,5 +1,6 @@
 using Council.Dev.Actions;
 using Council.Dev.Planning;
+using Council.Dev.Recovery;
 using Council.Dev.Tasks;
 using Council.Dev.Terminal;
 using Council.Dev.Validation;
@@ -12,12 +13,16 @@ public sealed class AutonomousDevelopmentExecutor : IDevelopmentExecutor
     private readonly DevelopmentActionExecutor _actionExecutor;
     private readonly BuildTestExecutor _buildTestExecutor;
     private readonly TaskManager _taskManager;
+    private readonly ITerminalExecutor? _terminalExecutor;
+    private readonly string? _workspaceRoot;
 
     public AutonomousDevelopmentExecutor(
         IDevelopmentPlanner planner,
         DevelopmentActionExecutor actionExecutor,
         BuildTestExecutor buildTestExecutor,
-        TaskManager taskManager)
+        TaskManager taskManager,
+        ITerminalExecutor? terminalExecutor = null,
+        string? workspaceRoot = null)
     {
         ArgumentNullException.ThrowIfNull(planner);
         ArgumentNullException.ThrowIfNull(actionExecutor);
@@ -28,6 +33,8 @@ public sealed class AutonomousDevelopmentExecutor : IDevelopmentExecutor
         _actionExecutor = actionExecutor;
         _buildTestExecutor = buildTestExecutor;
         _taskManager = taskManager;
+        _terminalExecutor = terminalExecutor;
+        _workspaceRoot = string.IsNullOrWhiteSpace(workspaceRoot) ? null : Path.GetFullPath(workspaceRoot);
     }
 
     public async Task<DevelopmentExecutionResult> ExecuteAsync(
@@ -136,9 +143,13 @@ public sealed class AutonomousDevelopmentExecutor : IDevelopmentExecutor
                 $"{action.Type} -> {action.Target}",
                 CancellationToken.None);
 
+            await PersistGitStatusAsync(task);
+
             var result = await _actionExecutor.ExecuteAsync(
                 action,
                 cancellationToken);
+
+            await PersistGitStatusAsync(task);
 
             if (!result.Success)
             {
@@ -158,6 +169,7 @@ public sealed class AutonomousDevelopmentExecutor : IDevelopmentExecutor
             }
         }
 
+        await PersistGitStatusAsync(task);
         await _taskManager.UpdateStepAsync(
             task.Id,
             $"{planName}: all actions completed. " +
@@ -166,6 +178,13 @@ public sealed class AutonomousDevelopmentExecutor : IDevelopmentExecutor
 
         var validation = await _buildTestExecutor.RunAsync(
             cancellationToken);
+
+        await _taskManager.UpdateValidationReferencesAsync(
+            task.Id,
+            validation.BuildLogPath,
+            validation.TestLogPath,
+            validation.Success ? null : "build_or_test_failure",
+            CancellationToken.None);
 
         if (!validation.Success)
         {
@@ -190,6 +209,50 @@ public sealed class AutonomousDevelopmentExecutor : IDevelopmentExecutor
             $"{planName} completed successfully. " +
             $"Executed {plan.Actions.Count} actions. " +
             $"{validation.Message}");
+    }
+
+    private async Task PersistGitStatusAsync(DevelopmentTask task)
+    {
+        if (_terminalExecutor is null || _workspaceRoot is null) return;
+        try
+        {
+            var result = await _terminalExecutor.ExecuteAsync(
+                new TerminalCommand("git status --porcelain", _workspaceRoot, TimeSpan.FromMinutes(1)),
+                CancellationToken.None);
+            if (!result.Success) return;
+            var status = string.IsNullOrWhiteSpace(result.StandardOutput)
+                ? "clean"
+                : "dirty:" + Environment.NewLine + string.Join(
+                    Environment.NewLine,
+                    result.StandardOutput.Split(new[] { "\r\n", "\n" }, StringSplitOptions.RemoveEmptyEntries).Take(500));
+            if (status.Length > 30000) status = status[..30000] + Environment.NewLine + "[truncated]";
+            await _taskManager.UpdateExecutionContextAsync(task.Id, null, null, null, status, CancellationToken.None);
+
+            var artifacts = new List<TaskArtifactSnapshot>();
+            foreach (var line in result.StandardOutput.Split(new[] { "\r\n", "\n" }, StringSplitOptions.RemoveEmptyEntries).Take(100))
+            {
+                if (line.Length <= 3) continue;
+                var relativePath = line[3..].Trim();
+                var renameIndex = relativePath.LastIndexOf(" -> ", StringComparison.Ordinal);
+                if (renameIndex >= 0) relativePath = relativePath[(renameIndex + 4)..].Trim();
+                relativePath = relativePath.Trim('"');
+                try
+                {
+                    var fullPath = Path.GetFullPath(relativePath, _workspaceRoot);
+                    if (!File.Exists(fullPath)) continue;
+                    artifacts.Add(await TaskCheckpointStore.HashArtifactAsync(_workspaceRoot, fullPath, CancellationToken.None));
+                }
+                catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or InvalidOperationException or ArgumentException)
+                {
+                    // Skip files that cannot be safely read or hashed; Git status remains in the checkpoint.
+                }
+            }
+            await _taskManager.UpdateArtifactsAsync(task.Id, artifacts, CancellationToken.None);
+        }
+        catch (Exception ex) when (ex is IOException or InvalidOperationException or UnauthorizedAccessException)
+        {
+            // A status snapshot is best-effort; the checkpoint's last known Git state is retained.
+        }
     }
 
     private static string BuildValidationFailureMessage(

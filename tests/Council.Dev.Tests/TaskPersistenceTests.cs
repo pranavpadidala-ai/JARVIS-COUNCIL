@@ -1,4 +1,5 @@
 using Council.Dev.Tasks;
+using Council.Dev.Recovery;
 using CouncilTaskStatus = Council.Dev.Tasks.TaskStatus;
 
 namespace Council.Dev.Tests;
@@ -33,15 +34,16 @@ public class TaskPersistenceTests
     [Fact]
     public async Task Task_survives_save_and_reload()
     {
-        var testFile = Path.Combine(
-            Path.GetTempPath(),
-            $"jarvis-task-test-{Guid.NewGuid():N}.json");
+        var testRoot = Path.Combine(Path.GetTempPath(), $"jarvis-task-test-{Guid.NewGuid():N}");
+        Directory.CreateDirectory(testRoot);
+        var testFile = Path.Combine(testRoot, "tasks.json");
+        var checkpointRoot = Path.Combine(testRoot, "checkpoints");
 
         try
         {
             var store = new TaskStore(testFile);
 
-            var manager = new TaskManager(store);
+            var manager = new TaskManager(store, new TaskCheckpointStore(checkpointRoot));
 
             await manager.InitializeAsync();
 
@@ -58,7 +60,7 @@ public class TaskPersistenceTests
                 "Testing persistence");
 
             var secondManager = new TaskManager(
-                new TaskStore(testFile));
+                new TaskStore(testFile), new TaskCheckpointStore(checkpointRoot));
 
             await secondManager.InitializeAsync();
 
@@ -71,7 +73,7 @@ public class TaskPersistenceTests
                 loadedTask!.Title);
 
             Assert.Equal(
-                CouncilTaskStatus.Running,
+                CouncilTaskStatus.Paused,
                 loadedTask.Status);
 
             Assert.Equal(
@@ -80,10 +82,8 @@ public class TaskPersistenceTests
         }
         finally
         {
-            if (File.Exists(testFile))
-            {
-                File.Delete(testFile);
-            }
+            if (Directory.Exists(testRoot))
+                Directory.Delete(testRoot, recursive: true);
         }
     }
 }
