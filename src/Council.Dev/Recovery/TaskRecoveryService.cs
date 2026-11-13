@@ -28,7 +28,7 @@ public sealed class TaskRecoveryService
         if (task is not null)
         {
             await _tasks.UpdateStepAsync(taskId,
-                $"Recovered checkpoint from {checkpoint.CreatedAtUtc:O}. Next: {checkpoint.NextAction}",
+                $"Recovered checkpoint from {checkpoint.UpdatedAtUtc:O}. Next: {checkpoint.NextAction}",
                 cancellationToken);
             await _tasks.UpdateStatusAsync(taskId, DevTaskStatus.Paused, cancellationToken);
         }
