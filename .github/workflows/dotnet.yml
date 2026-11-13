@@ -12,6 +12,10 @@ on:
 permissions:
   contents: read
 
+concurrency:
+  group: jarvis-dotnet-${{ github.ref }}
+  cancel-in-progress: true
+
 jobs:
   build-and-test:
     runs-on: windows-latest
@@ -25,6 +29,9 @@ jobs:
         uses: actions/setup-dotnet@v4
         with:
           dotnet-version: 8.0.x
+
+      - name: Show SDK
+        run: dotnet --info
 
       - name: Restore solution
         run: dotnet restore JARVIS.Council.sln
