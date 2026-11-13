@@ -86,8 +86,14 @@ public sealed class BraveProfileManager : IDisposable
         try
         {
             var profile = Find(profileId);
-            if (_running.TryGetValue(profileId, out var session) && !session.Process.HasExited)
-                return new BraveProfileStatus(profile, true, session.Mode, session.Process.Id);
+            if (_running.TryGetValue(profileId, out var session))
+            {
+                if (!session.Process.HasExited)
+                    return new BraveProfileStatus(profile, true, session.Mode, session.Process.Id);
+                _running.Remove(profileId);
+                session.Process.Dispose();
+                session.Lock.Dispose();
+            }
             return new BraveProfileStatus(profile, false, null, null);
         }
         finally { _gate.Release(); }
@@ -104,8 +110,14 @@ public sealed class BraveProfileManager : IDisposable
         try
         {
             var profile = Find(profileId);
-            if (_running.TryGetValue(profileId, out var existing) && !existing.Process.HasExited)
-                return new BraveProfileStatus(profile, true, existing.Mode, existing.Process.Id);
+            if (_running.TryGetValue(profileId, out var existing))
+            {
+                if (!existing.Process.HasExited)
+                    return new BraveProfileStatus(profile, true, existing.Mode, existing.Process.Id);
+                _running.Remove(profileId);
+                existing.Process.Dispose();
+                existing.Lock.Dispose();
+            }
             var executable = ResolveExecutable();
             var lockPath = Path.Combine(profile.DataDirectory, ".jarvis-profile.lock");
             FileStream profileLock;
