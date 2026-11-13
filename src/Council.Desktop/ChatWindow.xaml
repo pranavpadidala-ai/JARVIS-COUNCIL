@@ -14,7 +14,7 @@
       <TextBlock x:Name="ProviderStatus" DockPanel.Dock="Right" Text="Connecting..." Foreground="#65DAB7" FontSize="11" VerticalAlignment="Center"/>
     </DockPanel>
     <Border Grid.Row="1" Background="#0C2030" BorderBrush="#17445A" BorderThickness="1" CornerRadius="7" Padding="10" Margin="0,0,0,10">
-      <TextBlock Text="Ask JARVIS to research, inspect project files, analyze papers, create Office files, use specialist agents or work in visible desktop apps. Teach it with /remember <fact> and /learn <trigger> => <action>; review with /memories or /instincts. Use /skills, /agents, /forget <id>, /forget-instinct <id> and /clear. Local Ollama needs no cloud API key." Foreground="#9BB9C8" FontSize="11" TextWrapping="Wrap"/>
+      <TextBlock Text="Ask JARVIS to research, inspect project files, analyze papers, create Office files, use specialist agents or work in visible desktop apps. Teach it with /remember &lt;fact&gt; and /learn &lt;trigger&gt; =&gt; &lt;action&gt;; review with /memories or /instincts. Use /skills, /agents, /forget <id>, /forget-instinct <id> and /clear. Local Ollama needs no cloud API key." Foreground="#9BB9C8" FontSize="11" TextWrapping="Wrap"/>
     </Border>
     <Border Grid.Row="2" Background="#091725" BorderBrush="#17445A" BorderThickness="1" CornerRadius="8" Padding="12">
       <ScrollViewer x:Name="TranscriptScroll" VerticalScrollBarVisibility="Auto">
