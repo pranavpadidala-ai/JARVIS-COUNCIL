@@ -31,7 +31,7 @@ public sealed class WindowsComputerUseToolTests
         var result = await tool.ExecuteAsync(new Dictionary<string, string>
         {
             ["action"] = "execute", ["task"] = "Verify the section-property dialog reflects the entered value.",
-            ["steps"] = """[{"type":"click","x":200,"y":300},{"type":"type","text":"3.0"},{"type":"key","key":"ENTER"}]"""
+            ["steps"] = """[{"type":"click","x":200,"y":300,"intent":"select thickness field"},{"type":"type","text":"3.0","intent":"enter requested thickness"},{"type":"key","key":"ENTER","intent":"confirm field entry"}]"""
         });
         Assert.True(result.Success, result.Message);
         Assert.Contains("Executed 3 desktop action(s)", result.Message);
@@ -50,13 +50,30 @@ public sealed class WindowsComputerUseToolTests
         Assert.True(begin.Success);
         var observed = await tool.ExecuteAsync(new Dictionary<string, string> { ["action"] = "observe" });
         Assert.True(observed.Success);
-        var unsafeKey = await tool.ExecuteAsync(new Dictionary<string, string> { ["action"] = "execute", ["steps"] = """[{"type":"key","key":"ALT+F4"}]""" });
-        var outside = await tool.ExecuteAsync(new Dictionary<string, string> { ["action"] = "execute", ["steps"] = """[{"type":"click","x":4000,"y":10}]""" });
+        var unsafeKey = await tool.ExecuteAsync(new Dictionary<string, string> { ["action"] = "execute", ["steps"] = """[{"type":"key","key":"ALT+F4","intent":"close active window"}]""" });
+        var outside = await tool.ExecuteAsync(new Dictionary<string, string> { ["action"] = "execute", ["steps"] = """[{"type":"click","x":4000,"y":10,"intent":"select out of bounds target"}]""" });
         Assert.False(unsafeKey.Success);
         Assert.False(outside.Success);
         Assert.Empty(desktop.Actions);
     }
 
+
+    [Fact]
+    public async Task RequiresAnExplicitIntentForEveryDesktopStep()
+    {
+        var desktop = new FakeDesktop();
+        var tool = new WindowsComputerUseTool(new FakeVision(), desktop);
+        Assert.True((await tool.ExecuteAsync(new Dictionary<string, string> { ["action"] = "begin", ["purpose"] = "Inspect an Abaqus model" })).Success);
+        Assert.True((await tool.ExecuteAsync(new Dictionary<string, string> { ["action"] = "observe" })).Success);
+        var result = await tool.ExecuteAsync(new Dictionary<string, string>
+        {
+            ["action"] = "execute",
+            ["steps"] = """[{"type":"click","x":200,"y":300}]"""
+        });
+        Assert.False(result.Success);
+        Assert.Contains("requires a concise intent", result.Message);
+        Assert.Empty(desktop.Actions);
+    }
 
     [Fact]
     public async Task BlocksSaveAndDeleteKeysUntilTheUserConfirms()
@@ -68,7 +85,7 @@ public sealed class WindowsComputerUseToolTests
         var blocked = await tool.ExecuteAsync(new Dictionary<string, string>
         {
             ["action"] = "execute",
-            ["steps"] = """[{"type":"key","key":"CTRL+S"}]"""
+            ["steps"] = """[{"type":"key","key":"CTRL+S","intent":"save_existing"}]"""
         });
         Assert.False(blocked.Success);
         Assert.Empty(desktop.Actions);

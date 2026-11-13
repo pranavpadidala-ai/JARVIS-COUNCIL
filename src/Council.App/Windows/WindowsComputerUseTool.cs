@@ -45,7 +45,7 @@ public sealed class WindowsComputerUseTool : ITool
     }
 
     public string Name => "computer_use";
-    public string Description => "User-directed visible Windows GUI controller. Actions: begin (purpose), observe (optional task), execute (steps JSON array plus optional task), end. execute supports click/double_click/right_click, drag, type, key and scroll, up to 12 steps, then verifies with a screenshot. Screenshots go to the configured vision provider (local Ollama or cloud Gemini). No shell, arbitrary process launch, hidden-window control, passwords, OTPs, payments or trade orders. Save, overwrite, delete and solver-submit actions require explicit user confirmation.";
+    public string Description => "User-directed visible Windows GUI controller. Actions: begin (purpose), observe (optional task), execute (steps JSON array plus optional task), end. execute supports click/double_click/right_click, drag, type, key and scroll, up to 12 steps; every step must include a concise intent and the sequence is verified with a screenshot. Screenshots go to the configured vision provider (local Ollama or cloud Gemini). No shell, arbitrary process launch, hidden-window control, passwords, OTPs, payments or trade orders. Save, overwrite, delete and solver-submit actions require explicit user confirmation.";
 
     public async Task<ToolResult> ExecuteAsync(Dictionary<string, string> arguments, CancellationToken cancellationToken = default)
     {
@@ -138,6 +138,8 @@ public sealed class WindowsComputerUseTool : ITool
                     throw new ArgumentException("Every step must be an object with a type.");
                 var type = typeElement.GetString()?.Trim().ToLowerInvariant();
                 var intent = (OptionalString(step, "intent") ?? "").Trim().ToLowerInvariant();
+                if (intent.Length is < 3 or > 120)
+                    throw new ArgumentException("Every desktop step requires a concise intent (3 to 120 characters) describing its exact effect.");
                 if ((intent is "save_existing" or "overwrite" or "delete" or "submit_job" or "close_unsaved") &&
                     !string.Equals(OptionalString(step, "approval"), "USER_CONFIRMED", StringComparison.Ordinal))
                     throw new ArgumentException("This GUI action is irreversible or starts an Abaqus job. Ask the user first; after explicit confirmation include intent and approval=USER_CONFIRMED.");

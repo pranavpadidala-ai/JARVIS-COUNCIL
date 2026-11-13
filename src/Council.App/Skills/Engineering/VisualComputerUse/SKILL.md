@@ -10,7 +10,7 @@ Use `computer_use` only when the user explicitly asks JARVIS to inspect or opera
 ## Control loop
 1. Call `begin` with the exact user-authorised purpose.
 2. Call `observe` before acting. Read the active application, dialog, model tree, selected object and visible values. Use coordinates in the screenshot's primary-screen pixel system.
-3. Plan a short sequence of no more than 12 actions. Use `execute` with a JSON array of click, double_click, right_click, drag, type, key or scroll steps.
+3. Plan a short sequence of no more than 12 actions. Use `execute` with a JSON array of click, double_click, right_click, drag, type, key or scroll steps. Every step must include a concise `intent` field describing its exact effect. Destructive intents (`save_existing`, `overwrite`, `delete`, `submit_job`, `close_unsaved`) also require the user's explicit confirmation.
 4. Read the returned post-action screenshot analysis. Verify the expected state before the next sequence. If uncertain, observe again instead of guessing coordinates.
 5. End the session when complete. Sessions expire after five minutes of inactivity.
 
