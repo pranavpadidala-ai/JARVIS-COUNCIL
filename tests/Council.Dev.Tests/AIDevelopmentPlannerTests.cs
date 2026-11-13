@@ -83,6 +83,38 @@ public class AIDevelopmentPlannerTests
     }
 
     [Fact]
+    public async Task Planner_receives_checkpoint_context_when_resuming_a_task()
+    {
+        var provider = new FakeAIProvider("""
+        {
+          "summary": "Continue from checkpoint",
+          "actions": [
+            { "type": "ReadFile", "target": "src", "content": null }
+          ]
+        }
+        """);
+        var planner = new AIDevelopmentPlanner(provider,
+            new RepositoryContextProvider(Directory.GetCurrentDirectory()));
+        var task = new DevelopmentTask
+        {
+            Title = "Resume implementation",
+            Description = "Continue safely after interruption.",
+            CurrentStep = "Implement the next service method.",
+            CompletedSteps = ["Created checkpoint model.", "Added atomic persistence."],
+            IdempotencyKey = "test-idempotency-key",
+            GitCommitSha = new string('a', 40)
+        };
+
+        var result = await planner.CreatePlanAsync(task);
+
+        Assert.True(result.Success);
+        Assert.Contains("Created checkpoint model.", provider.LastPrompt);
+        Assert.Contains("Implement the next service method.", provider.LastPrompt);
+        Assert.Contains("test-idempotency-key", provider.LastPrompt);
+        Assert.Contains("do not restart completed work", provider.LastPrompt, StringComparison.OrdinalIgnoreCase);
+    }
+
+    [Fact]
     public async Task Unsupported_action_type_returns_failed_plan()
     {
         var provider = new FakeAIProvider("""
@@ -221,6 +253,7 @@ public class AIDevelopmentPlannerTests
         public string Name => "Fake";
 
         public int CallCount { get; private set; }
+        public string? LastPrompt { get; private set; }
 
         public FakeAIProvider(string response)
         {
@@ -234,6 +267,7 @@ public class AIDevelopmentPlannerTests
             cancellationToken.ThrowIfCancellationRequested();
 
             CallCount++;
+            LastPrompt = request.Messages.LastOrDefault()?.Content;
 
             return Task.FromResult(
                 new AIResponse(
