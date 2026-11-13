@@ -199,6 +199,31 @@ public class SafeWorkspaceExecutorTests
         Assert.DoesNotContain("appsettings.json", result.Content);
     }
 
+    [Fact]
+    public async Task List_files_returns_nested_workspace_files_and_skips_protected_folders()
+    {
+        var root = CreateWorkspace();
+        Directory.CreateDirectory(Path.Combine(root, "src"));
+        Directory.CreateDirectory(Path.Combine(root, ".git", "objects"));
+
+        await File.WriteAllTextAsync(
+            Path.Combine(root, "src", "Main.cs"),
+            "class Main {}");
+        await File.WriteAllTextAsync(
+            Path.Combine(root, ".git", "objects", "internal"),
+            "must not be listed");
+
+        var executor = new SafeWorkspaceExecutor(root);
+        var result = await executor.ExecuteAsync(
+            new DevelopmentAction(
+                DevelopmentActionType.ListFiles,
+                "."));
+
+        Assert.True(result.Success);
+        Assert.Contains(Path.Combine("src", "Main.cs"), result.Content);
+        Assert.DoesNotContain(".git", result.Content);
+    }
+
     private static string CreateWorkspace()
     {
         var root = Path.Combine(
