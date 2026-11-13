@@ -171,19 +171,21 @@ The background monitor checks saved holdings and active EOD alerts at **09:00 IS
 
 JARVIS also provides a separate read-only DhanHQ v2 connector for account verification, demat holdings, open positions and one-shot market snapshots. It does not place, modify, cancel, convert or exit orders/positions, and it does not silently copy broker holdings into the manually maintained local ledger.
 
-Set credentials locally in the PowerShell session before launching JARVIS:
+Store credentials in Windows Credential Manager (recommended) before launching JARVIS:
 
 ```powershell
-$env:DHAN_CLIENT_ID = "YOUR_DHAN_CLIENT_ID"
-$env:DHAN_ACCESS_TOKEN = "YOUR_DHAN_ACCESS_TOKEN"
+.\scripts\Set-DhanCredentials.ps1
+# Then start JARVIS
 dotnet run --project .\src\Council.App\Council.App.csproj
 ```
 
-Ask JARVIS to verify the Dhan connection, show broker holdings, show open positions, or fetch a quote using a Dhan exchange segment and numeric security ID. Never paste access tokens into chat or commit them. The connector reads credentials only from process environment variables and does not persist or print them. Dhan's manually generated access token is typically valid for 24 hours, so it must be refreshed locally when it expires.
+The script asks for the Dhan Client ID and prompts for the access token as a secure input. It stores both in the current Windows user credential vault; it does not write a `.env` file or project setting. Existing `DHAN_CLIENT_ID` and `DHAN_ACCESS_TOKEN` environment variables remain supported as a fallback.
+
+Ask JARVIS to verify the Dhan connection, show broker holdings, show open positions, or fetch a quote using a Dhan exchange segment and numeric security ID. Never paste access tokens into chat or commit them. JARVIS reads the current-user Windows Credential Manager entries first, then falls back to process environment variables; it never prints credentials. Dhan's manually generated access token is typically valid for 24 hours, so refresh it with `scripts/Set-DhanCredentials.ps1` when it expires. Automatic token renewal is not implemented.
 
 **Cost and data distinction:** Dhan's account/portfolio trading APIs are documented as free for individual users. Real-time market-data APIs, including market snapshots and WebSocket feeds, require Dhan's Data API subscription (currently ₹499 + applicable taxes/month according to Dhan support). JARVIS does not subscribe or place orders on your behalf. Without a valid Dhan data subscription, use the existing TejHQ EOD monitor or paper data workflows; the Dhan holdings and positions endpoints remain separate read-only account functions.
 
-The initial Dhan quote action uses the REST LTP snapshot endpoint and requires a numeric Dhan security ID. It is not yet an always-on WebSocket tick stream. Live streaming, symbol-to-security-ID master lookup, automatic token renewal and secure Windows credential-vault storage are follow-up work.
+The Dhan quote action uses the REST LTP snapshot endpoint and requires a numeric Dhan security ID. Symbol-to-security-ID lookup is provided by `dhan_instrument_lookup`; the optional `dhan_live_feed` tool provides a read-only WebSocket tick/quote stream. Automatic token renewal is not implemented. Live subscriptions and tick snapshots are held in memory and must be restarted after JARVIS exits.
 
 PowerShell settings:
 ~~~powershell
@@ -222,7 +224,7 @@ Store Dhan credentials in Windows Credential Manager with `scripts/Set-DhanCrede
 
 ## Dhan live market feed
 
-The optional `dhan_live_feed` tool maintains one read-only DhanHQ v2 WebSocket connection while JARVIS is running. Start it with resolved `SEGMENT:SECURITY_ID` pairs (maximum 100 instruments), use `status` to inspect recent prices, and `stop` to disconnect. Ticker mode is the lightweight default; quote mode includes additional volume information. The monitor reconnects with bounded backoff and keeps the latest received tick snapshots in memory only. Subscriptions are not restored after a JARVIS restart. It requires `DHAN_CLIENT_ID`, `DHAN_ACCESS_TOKEN`, and an active Dhan Data API subscription. It never places or modifies orders.
+The optional `dhan_live_feed` tool maintains one read-only DhanHQ v2 WebSocket connection while JARVIS is running. Start it with resolved `SEGMENT:SECURITY_ID` pairs (maximum 100 instruments), use `status` to inspect recent prices, and `stop` to disconnect. Ticker mode is the lightweight default; quote mode includes additional volume information. The monitor reconnects with bounded backoff and keeps the latest received tick snapshots in memory only. Subscriptions are not restored after a JARVIS restart. It reads credentials from Windows Credential Manager (preferred) or the two environment-variable fallbacks, and requires an active Dhan Data API subscription. It never places or modifies orders.
 
 ## Safety model
 
