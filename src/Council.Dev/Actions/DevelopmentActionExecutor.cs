@@ -47,6 +47,7 @@ public sealed class DevelopmentActionExecutor
         {
             case DevelopmentActionType.ReadFile:
             case DevelopmentActionType.SearchCode:
+            case DevelopmentActionType.ListFiles:
             case DevelopmentActionType.CreateFile:
             case DevelopmentActionType.ModifyFile:
             case DevelopmentActionType.DeleteFile:
