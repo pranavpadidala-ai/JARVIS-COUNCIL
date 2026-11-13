@@ -144,6 +144,20 @@ public sealed class DhanLiveFeedToolTests
     }
 
     [Fact]
+    public void LivePriceAlertEvaluatorUsesInclusiveThresholdsAndHonoursOneShotState()
+    {
+        var above = new DhanLivePriceAlert("A1", "NSE_EQ", 1333, "RELIANCE", "above", 1500m, true);
+        var below = new DhanLivePriceAlert("B1", "NSE_EQ", 1333, "RELIANCE", "below", 1500m, true);
+        var disabled = above with { Enabled = false };
+
+        Assert.False(DhanLiveFeedTool.IsAlertTriggered(above, 1499.99m));
+        Assert.True(DhanLiveFeedTool.IsAlertTriggered(above, 1500m));
+        Assert.False(DhanLiveFeedTool.IsAlertTriggered(below, 1500.01m));
+        Assert.True(DhanLiveFeedTool.IsAlertTriggered(below, 1500m));
+        Assert.False(DhanLiveFeedTool.IsAlertTriggered(disabled, 1600m));
+    }
+
+    [Fact]
     public async Task LivePriceAlertsRejectInvalidInputs()
     {
         var root = Path.Combine(Path.GetTempPath(), "JarvisDhanAlerts", Guid.NewGuid().ToString("N"));

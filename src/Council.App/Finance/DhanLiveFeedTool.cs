@@ -198,7 +198,7 @@ public sealed class DhanLiveFeedTool : ITool
     public async Task<ToolResult> ExecuteAsync(Dictionary<string, string> arguments, CancellationToken cancellationToken = default)
     {
         if (!arguments.TryGetValue("action", out var action) || string.IsNullOrWhiteSpace(action))
-            return new ToolResult(false, "dhan_live_feed requires action=start|status|stop.");
+            return new ToolResult(false, "dhan_live_feed requires action=start|status|stop|set_alert|alerts|remove_alert.");
 
         try
         {
@@ -213,7 +213,7 @@ public sealed class DhanLiveFeedTool : ITool
                 _ => new ToolResult(false, "Unknown action. Use start, status, stop, set_alert, alerts, or remove_alert.")
             };
         }
-        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or JsonException)
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or JsonException or InvalidDataException)
         {
             return new ToolResult(false, "Dhan live-alert storage failed safely: " + ex.Message);
         }
@@ -505,7 +505,7 @@ public sealed class DhanLiveFeedTool : ITool
                 label, condition, threshold, true));
             await SaveAlertsAsync(token);
             return new ToolResult(true,
-                $"Saved one-shot live price alert ID={id}: {label} ({rawInstrument.Trim()}) {condition} ₹{threshold.ToString("N2", System.Globalization.CultureInfo.InvariantCulture)}. It triggers only when a new subscribed Dhan tick crosses the threshold. Start the feed to monitor it; no trade will be placed.");
+                $"Saved one-shot live price alert ID={id}: {label} ({rawInstrument.Trim()}) {condition} {FormatPrice(threshold)}. It triggers when a new subscribed Dhan tick reaches or passes the threshold. Start or restart the feed with active alerts to monitor it; no trade will be placed.");
         }
         finally { _alertGate.Release(); }
     }
@@ -523,10 +523,11 @@ public sealed class DhanLiveFeedTool : ITool
             var lines = new List<string> { $"Saved Dhan live price alerts: {_alerts.Count}." };
             foreach (var alert in _alerts.OrderByDescending(item => item.Enabled).ThenBy(item => item.Label))
             {
+                var triggeredPrice = alert.TriggeredPrice is decimal value ? FormatPrice(value) : "unknown";
                 var state = alert.Enabled
                     ? "ACTIVE"
-                    : alert.TriggeredAtUtc is null ? "DISABLED" : $"TRIGGERED at {alert.TriggeredAtUtc.Value:yyyy-MM-dd HH:mm:ss} UTC, LTP ₹{alert.TriggeredPrice:N2}";
-                lines.Add($"ID={alert.Id} | {alert.Label} | {alert.ExchangeSegment}:{alert.SecurityId} | {alert.Condition} ₹{alert.ThresholdPrice:N2} | {state}");
+                    : alert.TriggeredAtUtc is null ? "DISABLED" : $"TRIGGERED at {alert.TriggeredAtUtc.Value:yyyy-MM-dd HH:mm:ss} UTC, LTP {triggeredPrice}";
+                lines.Add($"ID={alert.Id} | {alert.Label} | {alert.ExchangeSegment}:{alert.SecurityId} | {alert.Condition} {FormatPrice(alert.ThresholdPrice)} | {state}");
             }
             return new ToolResult(true, string.Join(Environment.NewLine, lines));
         }
@@ -596,10 +597,20 @@ public sealed class DhanLiveFeedTool : ITool
         }
     }
 
+    public static bool IsAlertTriggered(DhanLivePriceAlert alert, decimal price) =>
+        alert.Enabled && (alert.Condition == "above"
+            ? price >= alert.ThresholdPrice
+            : alert.Condition == "below" && price <= alert.ThresholdPrice);
+
+    private static string FormatPrice(decimal price) =>
+        price.ToString("N2", System.Globalization.CultureInfo.InvariantCulture);
+
     private async Task EvaluateLiveAlertsAsync(DhanFeedTick tick, CancellationToken token)
     {
-        if (tick.LastPrice is not > 0) return;
-        var price = Convert.ToDecimal(tick.LastPrice.Value, System.Globalization.CultureInfo.InvariantCulture);
+        if (tick.LastPrice is not > 0 ||
+            !decimal.TryParse(tick.LastPrice.Value.ToString("R", System.Globalization.CultureInfo.InvariantCulture),
+                System.Globalization.NumberStyles.Float, System.Globalization.CultureInfo.InvariantCulture, out var price))
+            return;
         List<DhanLivePriceAlert> triggered = [];
         await _alertGate.WaitAsync(token);
         try
@@ -610,8 +621,7 @@ public sealed class DhanLiveFeedTool : ITool
                 var alert = _alerts[index];
                 if (!alert.Enabled || alert.ExchangeSegment != tick.ExchangeSegment || alert.SecurityId != tick.SecurityId)
                     continue;
-                var crossed = alert.Condition == "above" ? price >= alert.ThresholdPrice : price <= alert.ThresholdPrice;
-                if (!crossed) continue;
+                if (!IsAlertTriggered(alert, price)) continue;
                 var updated = alert with { Enabled = false, TriggeredAtUtc = tick.ReceivedAtUtc, TriggeredPrice = price };
                 _alerts[index] = updated;
                 triggered.Add(updated);
@@ -624,7 +634,7 @@ public sealed class DhanLiveFeedTool : ITool
         foreach (var alert in triggered)
         {
             var direction = alert.Condition == "above" ? "reached or crossed above" : "reached or crossed below";
-            var message = $"JARVIS LIVE PRICE ALERT: {alert.Label} ({alert.ExchangeSegment}:{alert.SecurityId}) {direction} ₹{alert.ThresholdPrice:N2}; received LTP ₹{price:N2} at {tick.ReceivedAtUtc:yyyy-MM-dd HH:mm:ss} UTC. This one-shot alert is now disabled. No order was placed.";
+            var message = $"JARVIS LIVE PRICE ALERT: {alert.Label} ({alert.ExchangeSegment}:{alert.SecurityId}) {direction} {FormatPrice(alert.ThresholdPrice)}; received LTP {FormatPrice(price)} at {tick.ReceivedAtUtc:yyyy-MM-dd HH:mm:ss} UTC. This one-shot alert is now disabled. No order was placed.";
             try { _notify(message); }
             catch (Exception ex) when (ex is IOException or InvalidOperationException) { }
         }
