@@ -120,10 +120,7 @@ public sealed class SafeWorkspaceExecutor : IWorkspaceExecutor
 
         var results = new List<string>();
 
-        foreach (var file in Directory.EnumerateFiles(
-            _workspaceRoot,
-            "*.*",
-            SearchOption.AllDirectories))
+        foreach (var file in EnumerateWorkspaceFiles(cancellationToken))
         {
             cancellationToken.ThrowIfCancellationRequested();
 
@@ -299,7 +296,120 @@ public sealed class SafeWorkspaceExecutor : IWorkspaceExecutor
                     "Target path is protected."));
         }
 
+        if (HasReparsePointInPath(fullPath))
+        {
+            return (
+                false,
+                null,
+                WorkspaceActionResult.Failed(
+                    "Symbolic links and reparse-point paths are not allowed."));
+        }
+
         return (true, fullPath, null);
+    }
+
+    private IEnumerable<string> EnumerateWorkspaceFiles(
+        CancellationToken cancellationToken)
+    {
+        // Traverse one directory at a time so protected folders are never
+        // recursively entered. Reparse points are skipped to avoid symlink
+        // loops and escapes from the workspace.
+        var pending = new Stack<string>();
+        pending.Push(_workspaceRoot);
+
+        while (pending.Count > 0)
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+            var directory = pending.Pop();
+
+            IEnumerable<string> entries;
+            try
+            {
+                entries = Directory.EnumerateFileSystemEntries(directory).ToArray();
+            }
+            catch (UnauthorizedAccessException)
+            {
+                continue;
+            }
+            catch (IOException)
+            {
+                continue;
+            }
+
+            foreach (var entry in entries)
+            {
+                cancellationToken.ThrowIfCancellationRequested();
+
+                FileAttributes attributes;
+                try
+                {
+                    attributes = File.GetAttributes(entry);
+                }
+                catch (IOException)
+                {
+                    continue;
+                }
+                catch (UnauthorizedAccessException)
+                {
+                    continue;
+                }
+
+                if ((attributes & FileAttributes.ReparsePoint) != 0)
+                {
+                    continue;
+                }
+
+                if ((attributes & FileAttributes.Directory) != 0)
+                {
+                    if (!IsProtectedPath(entry))
+                    {
+                        pending.Push(entry);
+                    }
+
+                    continue;
+                }
+
+                if (!IsProtectedPath(entry) && IsCodeFile(entry))
+                {
+                    yield return entry;
+                }
+            }
+        }
+    }
+
+    private bool HasReparsePointInPath(string fullPath)
+    {
+        var current = fullPath;
+
+        while (!string.IsNullOrWhiteSpace(current)
+               && !string.Equals(
+                   current,
+                   Path.GetPathRoot(current),
+                   StringComparison.OrdinalIgnoreCase))
+        {
+            if (File.Exists(current) || Directory.Exists(current))
+            {
+                try
+                {
+                    if ((File.GetAttributes(current) & FileAttributes.ReparsePoint) != 0)
+                    {
+                        return true;
+                    }
+                }
+                catch (IOException)
+                {
+                    return true;
+                }
+                catch (UnauthorizedAccessException)
+                {
+                    return true;
+                }
+            }
+
+            current = Path.GetDirectoryName(current)!;
+        }
+
+        return false;
     }
 
     private bool IsInsideWorkspace(string fullPath)
