@@ -131,6 +131,32 @@ The OmniRoute adapter rejects the `auto` alias and any model ID not present in t
 - **Abaqus diagnostics:** reports whether a supported Abaqus launcher is detected.
 - **Phone companion:** authenticated queue-only commands over Tailscale; the laptop user must type exact `YES` before a phone request executes.
 
+## Optional persistent background developer
+
+JARVIS can keep a low-CPU development-queue worker running in the Windows user session. This is separate from the desktop chat and is not started automatically by installing JARVIS.
+
+Start it in the current PowerShell window:
+
+```powershell
+.\scripts\Start-JarvisAgent.ps1
+```
+
+Optionally register a user-level Windows logon task and start it immediately:
+
+```powershell
+.\scripts\Install-JarvisAgentTask.ps1 -StartNow
+```
+
+The scheduled task runs as the current user (no administrator privilege or stored Windows password), restarts after a failure, and logs to `%LOCALAPPDATA%\JARVIS\Agent\agent.log`. It defaults to the local Ollama model unless `JARVIS_AI_PROVIDER` is explicitly configured. It does not continuously run a language model: it polls the task queue every 30 seconds and stays idle when there is no approved work.
+
+**Approval boundary:** asking JARVIS to create a development task only queues it. A user must explicitly approve a task in JARVIS before the background worker can claim it. Approval is one-shot, can be revoked before claim, and is consumed when claimed. An interrupted or failed task requires fresh approval. Execution requires a clean Git working tree, a checkpoint, safe workspace actions, successful `dotnet build` and `dotnet test`, and a commit only after validation passes. A failed attempt is rolled back. The worker and foreground JARVIS share cross-process task and execution locks so they cannot execute two development tasks at once.
+
+Remove the logon task with:
+
+```powershell
+.\scripts\Install-JarvisAgentTask.ps1 -Uninstall
+```
+
 ## Interactive commands
 
 | Command | Action |
