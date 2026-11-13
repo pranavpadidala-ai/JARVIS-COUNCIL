@@ -142,6 +142,24 @@ public partial class MainWindow : Window
         chat.Show();
     }
 
+    private void TeachPreference_Click(object sender, RoutedEventArgs e)
+    {
+        var chat = new ChatWindow { Owner = this, InitialPrompt = "/remember " };
+        chat.Show();
+    }
+
+    private void TeachWorkflow_Click(object sender, RoutedEventArgs e)
+    {
+        var chat = new ChatWindow { Owner = this, InitialPrompt = "/learn " };
+        chat.Show();
+    }
+
+    private void ReviewMemory_Click(object sender, RoutedEventArgs e)
+    {
+        var chat = new ChatWindow { Owner = this, InitialPrompt = "/memories" };
+        chat.Show();
+    }
+
     private void RunWorkflow_Click(object sender, RoutedEventArgs e)
     {
         var chat = new ChatWindow { Owner = this, InitialPrompt = "Help me plan a workflow and identify which steps can be safely automated: " };
