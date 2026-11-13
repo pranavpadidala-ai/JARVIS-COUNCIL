@@ -21,7 +21,7 @@ public sealed class DhanLiveFeedToolTests
         Assert.Equal("NSE_EQ", tick.ExchangeSegment);
         Assert.Equal(1333, tick.SecurityId);
         Assert.Equal(1523.45, tick.LastPrice!.Value, 1);
-        Assert.Equal(DateTimeOffset.FromUnixTimeSeconds(1_762_000_000), tick.LastTradeTimeUtc);
+        Assert.Equal(DateTimeOffset.FromUnixTimeSeconds(1_762_000_000), tick.LastTradeTimeUtc!.Value);
     }
 
     [Fact]
@@ -60,7 +60,7 @@ public sealed class DhanLiveFeedToolTests
         BinaryPrimitives.WriteUInt16LittleEndian(packet.AsSpan(1, 2), 10);
         BinaryPrimitives.WriteInt16LittleEndian(packet.AsSpan(8, 2), 807);
 
-        Assert.Equal(807, DhanFeedPacketParser.TryReadDisconnectCode(packet));
+        Assert.Equal(807, DhanFeedPacketParser.TryReadDisconnectCode(packet)!.Value);
     }
 
     [Fact]
