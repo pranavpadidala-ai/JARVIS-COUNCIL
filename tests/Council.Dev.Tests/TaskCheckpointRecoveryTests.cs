@@ -20,11 +20,17 @@ public sealed class TaskCheckpointRecoveryTests
             var task = await first.CreateAsync("Implement recovery", "Persist task state across restart.");
             await first.UpdateStatusAsync(task.Id, DevTaskStatus.Running);
             await first.UpdateStepAsync(task.Id, "Applying the next code change.");
+            var artifactPath = Path.Combine(root, "result.txt");
+            await File.WriteAllTextAsync(artifactPath, "checkpointed output");
+            var artifact = await TaskCheckpointStore.HashArtifactAsync(root, artifactPath);
+            await first.UpdateArtifactsAsync(task.Id, [artifact]);
 
             var checkpoint = await new TaskCheckpointStore(checkpointRoot).LoadAsync(task.Id);
             Assert.NotNull(checkpoint);
             Assert.Equal("Applying the next code change.", checkpoint!.NextAction);
             Assert.NotEmpty(checkpoint.IdempotencyKey);
+            Assert.Single(checkpoint.Artifacts);
+            Assert.Equal("result.txt", checkpoint.Artifacts[0].RelativePath);
 
             var restarted = new TaskManager(new TaskStore(taskFile), new TaskCheckpointStore(checkpointRoot));
             await restarted.InitializeAsync();
@@ -33,6 +39,8 @@ public sealed class TaskCheckpointRecoveryTests
             Assert.NotNull(recovered);
             Assert.Equal(DevTaskStatus.Paused, recovered!.Status);
             Assert.Equal("Applying the next code change.", recovered.CurrentStep);
+            Assert.Single(recovered.Artifacts);
+            Assert.Equal(artifact.Sha256, recovered.Artifacts[0].Sha256);
         }
         finally
         {
