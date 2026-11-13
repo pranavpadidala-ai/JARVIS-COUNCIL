@@ -301,11 +301,13 @@ public sealed class DhanLiveFeedTool : ITool
                 var uri = new Uri($"{FeedBase}?version=2&token={Uri.EscapeDataString(_accessToken!)}&clientId={Uri.EscapeDataString(_clientId!)}&authType=2");
                 await socket.ConnectAsync(uri, token);
                 Volatile.Write(ref _connected, 1);
-                _lastConnectedAt = DateTimeOffset.UtcNow;
+                var connectedAt = DateTimeOffset.UtcNow;
+                _lastConnectedAt = connectedAt;
                 _lastError = null;
                 await SendSubscriptionsAsync(socket, token);
-                backoffSeconds = 2;
                 await ReceiveLoopAsync(socket, token);
+                if (DateTimeOffset.UtcNow - connectedAt >= TimeSpan.FromMinutes(1))
+                    backoffSeconds = 2;
                 if (!token.IsCancellationRequested)
                 {
                     if (_lastError?.StartsWith("Dhan sent a feed disconnect", StringComparison.Ordinal) == true)
@@ -336,7 +338,7 @@ public sealed class DhanLiveFeedTool : ITool
                         var disconnect = Encoding.UTF8.GetBytes("{\"RequestCode\":12}");
                         await socket.SendAsync(new ArraySegment<byte>(disconnect), WebSocketMessageType.Text, true, CancellationToken.None);
                     }
-                    catch (Exception ex) when (ex is WebSocketException or ObjectDisposedException or InvalidOperationException) { }
+                    catch (Exception ex) when (ex is WebSocketException or ObjectDisposedException or InvalidOperationException or OperationCanceledException) { }
                 }
             }
 
