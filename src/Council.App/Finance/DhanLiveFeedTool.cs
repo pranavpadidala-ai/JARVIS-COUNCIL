@@ -324,7 +324,7 @@ public sealed class DhanLiveFeedTool : ITool
             {
                 _lastError = "WebSocket connection or feed transfer failed; reconnecting. Check Data API entitlement and token validity.";
             }
-            catch (Exception ex) when (ex is HttpRequestException or IOException or InvalidOperationException or ObjectDisposedException or JsonException)
+            catch (Exception ex) when (ex is HttpRequestException or IOException or InvalidOperationException or JsonException)
             {
                 _lastError = "Dhan feed encountered a connection or message error; reconnecting.";
             }
@@ -338,7 +338,7 @@ public sealed class DhanLiveFeedTool : ITool
                         var disconnect = Encoding.UTF8.GetBytes("{\"RequestCode\":12}");
                         await socket.SendAsync(new ArraySegment<byte>(disconnect), WebSocketMessageType.Text, true, CancellationToken.None);
                     }
-                    catch (Exception ex) when (ex is WebSocketException or ObjectDisposedException or InvalidOperationException or OperationCanceledException) { }
+                    catch (Exception ex) when (ex is WebSocketException or InvalidOperationException or OperationCanceledException) { }
                 }
             }
 
