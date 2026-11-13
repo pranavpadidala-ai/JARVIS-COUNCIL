@@ -35,32 +35,16 @@ if (-not (Get-Command dotnet -ErrorAction SilentlyContinue)) {
 }
 
 $provider = if ([string]::IsNullOrWhiteSpace($env:JARVIS_AI_PROVIDER)) { "ollama" } else { $env:JARVIS_AI_PROVIDER.Trim().ToLowerInvariant() }
-switch ($provider) {
-    "ollama" {
-        if (-not (Get-Command ollama -ErrorAction SilentlyContinue)) {
-            throw "Ollama is not installed. Run .\scripts\Install-LocalModels.ps1 first."
-        }
-        $model = if ([string]::IsNullOrWhiteSpace($env:OLLAMA_MODEL)) { "qwen3.5:2b-q4_K_M" } else { $env:OLLAMA_MODEL }
-        $installed = (& ollama list 2>$null | Out-String)
-        if ($LASTEXITCODE -ne 0 -or $installed -notmatch [regex]::Escape($model)) {
-            throw "Local model '$model' is not installed. Run .\scripts\Install-LocalModels.ps1 or set OLLAMA_MODEL to an installed model."
-        }
-    }
-    "gemini" {
-        if ([string]::IsNullOrWhiteSpace($env:GEMINI_API_KEY)) { throw "GEMINI_API_KEY must be available to your Windows user before registering this task." }
-    }
-    "openai" {
-        if ([string]::IsNullOrWhiteSpace($env:OPENAI_API_KEY)) { throw "OPENAI_API_KEY must be available to your Windows user before registering this task." }
-    }
-    "omniroute" {
-        if ([string]::IsNullOrWhiteSpace($env:OMNIROUTE_API_KEY) -or
-            [string]::IsNullOrWhiteSpace($env:OMNIROUTE_MODEL) -or
-            [string]::IsNullOrWhiteSpace($env:OMNIROUTE_FREE_MODELS) -or
-            $env:OMNIROUTE_MODEL -eq "auto") {
-            throw "OmniRoute requires an API key, an explicit model ID, and its exact approved model allowlist."
-        }
-    }
-    default { throw "Unsupported or non-functional provider '$provider'. Configure Ollama, Gemini, OpenAI or allowlisted OmniRoute." }
+if ($provider -ne "ollama") {
+    throw "The automatic Windows logon task is local-Ollama-only so it never needs a cloud API secret stored for background use. Run .\scripts\Start-JarvisAgent.ps1 manually if you want to use a cloud provider in the current session."
+}
+if (-not (Get-Command ollama -ErrorAction SilentlyContinue)) {
+    throw "Ollama is not installed. Run .\scripts\Install-LocalModels.ps1 first."
+}
+$model = if ([string]::IsNullOrWhiteSpace($env:OLLAMA_MODEL)) { "qwen3.5:2b-q4_K_M" } else { $env:OLLAMA_MODEL }
+$installed = (& ollama list 2>$null | Out-String)
+if ($LASTEXITCODE -ne 0 -or $installed -notmatch [regex]::Escape($model)) {
+    throw "Local model '$model' is not installed. Run .\scripts\Install-LocalModels.ps1 or set OLLAMA_MODEL to an installed model."
 }
 
 Write-Host "Building JARVIS before registering the logon task..." -ForegroundColor Cyan
