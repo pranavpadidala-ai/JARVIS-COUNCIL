@@ -72,10 +72,34 @@ if (-not (Test-Path $dotnetPath)) {
 if (-not (Test-Path $dotnetPath)) {
     throw ".NET 8 was installed but dotnet.exe is not available in this session. Close and reopen PowerShell, then rerun this script."
 }
-$sdkVersion = (& $dotnetPath --version).Trim()
-if (-not $sdkVersion.StartsWith("8.")) {
-    Write-Warning "Detected .NET SDK $sdkVersion. JARVIS targets .NET 8; install the .NET 8 SDK if the build fails."
+$dotnetDirectory = Split-Path -Parent $dotnetPath
+if ($env:Path -notlike "*$dotnetDirectory*") {
+    $env:Path = $dotnetDirectory + ";" + $env:Path
 }
+$sdkList = @(& $dotnetPath --list-sdks)
+$net8Sdk = $sdkList | Where-Object { $_ -match '^8\.\d+\.\d+' } | Select-Object -First 1
+if (-not $net8Sdk) {
+    $winget = Get-Command winget -ErrorAction SilentlyContinue
+    if (-not $winget) {
+        throw "The .NET 8 SDK is not installed and winget is unavailable. Install it from https://dotnet.microsoft.com/download/dotnet/8.0 and rerun this script."
+    }
+    Write-Host "Installing the missing .NET 8 SDK..." -ForegroundColor Cyan
+    & $winget.Source install --id Microsoft.DotNet.SDK.8 -e --accept-package-agreements --accept-source-agreements
+    if ($LASTEXITCODE -ne 0) { throw "The .NET 8 SDK installation failed. Install it manually and rerun this script." }
+    Refresh-ProcessPath
+    $dotnetCommand = Get-Command dotnet -ErrorAction SilentlyContinue
+    $dotnetPath = if ($dotnetCommand) { $dotnetCommand.Source } else { Join-Path $env:ProgramFiles "dotnet\dotnet.exe" }
+    if (-not (Test-Path $dotnetPath)) {
+        throw ".NET 8 was installed but dotnet.exe is not available in this session. Close and reopen PowerShell, then rerun this script."
+    }
+    $sdkList = @(& $dotnetPath --list-sdks)
+    $net8Sdk = $sdkList | Where-Object { $_ -match '^8\.\d+\.\d+' } | Select-Object -First 1
+}
+if (-not $net8Sdk) {
+    throw "The .NET 8 SDK is still unavailable. Close and reopen PowerShell, then rerun this script."
+}
+$sdkVersion = ($net8Sdk -split '\s+')[0]
+Write-Host "Using .NET SDK $sdkVersion." -ForegroundColor Green
 
 # Ollama local inference runtime
 Refresh-ProcessPath
