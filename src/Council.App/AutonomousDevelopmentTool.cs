@@ -44,7 +44,8 @@ public sealed class AutonomousDevelopmentTool : ITool
         if (!Directory.Exists(root))
             throw new DirectoryNotFoundException("Development workspace does not exist: " + root);
 
-        _tasks = new TaskManager(new TaskStore(taskStorePath), new TaskCheckpointStore());
+        var checkpointRoot = taskStorePath is null ? null : Path.Combine(Path.GetDirectoryName(Path.GetFullPath(taskStorePath))!, "checkpoints");
+        _tasks = new TaskManager(new TaskStore(taskStorePath), new TaskCheckpointStore(checkpointRoot));
         var terminal = new TerminalController();
         var workspace = new SafeWorkspaceExecutor(root);
         var actions = new DevelopmentActionExecutor(workspace, terminal, root);
