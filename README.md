@@ -205,12 +205,17 @@ $env:JARVIS_MARKET_WATCHLIST_PATH = "$env:LOCALAPPDATA\JARVIS\market\watchlist.j
 | `JARVIS_MARKET_MONITOR_TIME` | Daily check time in IST; default `09:00` |
 | `JARVIS_MARKET_WATCHLIST_PATH` | Override local NSE/BSE holdings and watchlist file |
 | `DHAN_CLIENT_ID`, `DHAN_ACCESS_TOKEN` | Optional read-only DhanHQ account and market-data access |
+| — | Dhan symbol lookup downloads and caches the official public instrument master for six hours; no broker credentials required |
 | `JARVIS_BRIDGE_BIND` | Laptop Tailscale IPv4 address |
 | `JARVIS_BRIDGE_TOKEN` | Private phone-bridge bearer token |
 | `JARVIS_BRIDGE_PORT` | Phone bridge port; defaults to 47821 |
 | `GEMINI_API_KEY`, `OPENAI_API_KEY` | Provider credentials |
 | `OLLAMA_BASE_URL`, `OLLAMA_MODEL` | Local Ollama endpoint and model |
 | `OMNIROUTE_BASE_URL`, `OMNIROUTE_API_KEY`, `OMNIROUTE_MODEL`, `OMNIROUTE_FREE_MODELS` | OmniRoute gateway configuration |
+
+## Dhan symbol resolution and broker data
+
+JARVIS resolves exact NSE/BSE cash-equity symbols through Dhan's official compact instrument-master CSV (`dhan_instrument_lookup`). The result supplies the Dhan security ID and API exchange segment needed by `dhan_readonly` market snapshots. The public master is cached in memory for six hours and refreshed on expiry; no broker credentials are needed for symbol lookup. Quote snapshots still require locally configured Dhan credentials and an active Data API entitlement. The Dhan connector remains read-only; it cannot place, modify or cancel orders.
 
 ## Safety model
 
