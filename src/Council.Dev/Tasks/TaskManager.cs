@@ -186,6 +186,38 @@ public sealed class TaskManager
         }
     }
 
+    public async Task<bool> UpdateExecutionContextAsync(
+        Guid taskId,
+        string? providerRoute,
+        string? modelAlias,
+        string? gitCommitSha,
+        string? gitWorkingTreeStatus,
+        CancellationToken cancellationToken = default)
+    {
+        var task = Find(taskId);
+        if (task is null) return false;
+        var previous = (task.ProviderRoute, task.ModelAlias, task.GitCommitSha, task.GitWorkingTreeStatus, task.UpdatedAtUtc);
+        task.ProviderRoute = providerRoute ?? task.ProviderRoute;
+        task.ModelAlias = modelAlias ?? task.ModelAlias;
+        task.GitCommitSha = gitCommitSha ?? task.GitCommitSha;
+        task.GitWorkingTreeStatus = gitWorkingTreeStatus ?? task.GitWorkingTreeStatus;
+        task.UpdatedAtUtc = DateTime.UtcNow;
+        try
+        {
+            await PersistAsync(cancellationToken);
+            return true;
+        }
+        catch
+        {
+            task.ProviderRoute = previous.ProviderRoute;
+            task.ModelAlias = previous.ModelAlias;
+            task.GitCommitSha = previous.GitCommitSha;
+            task.GitWorkingTreeStatus = previous.GitWorkingTreeStatus;
+            task.UpdatedAtUtc = previous.UpdatedAtUtc;
+            throw;
+        }
+    }
+
     private async Task PersistAsync(CancellationToken cancellationToken)
     {
         await _store.SaveAsync(_tasks, cancellationToken);
