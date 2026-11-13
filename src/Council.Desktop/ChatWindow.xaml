@@ -22,12 +22,23 @@
       </ScrollViewer>
     </Border>
     <Grid Grid.Row="3" Margin="0,12,0,0">
-      <Grid.ColumnDefinitions><ColumnDefinition/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
+      <Grid.ColumnDefinitions>
+        <ColumnDefinition/>
+        <ColumnDefinition Width="Auto"/>
+        <ColumnDefinition Width="Auto"/>
+        <ColumnDefinition Width="Auto"/>
+      </Grid.ColumnDefinitions>
       <TextBox x:Name="MessageInput" MinHeight="46" Padding="12" FontSize="13"
                Foreground="#E0F7FF" Background="#0D2233" BorderBrush="#1A526B"
                VerticalContentAlignment="Center" AcceptsReturn="True"
                TextWrapping="Wrap" KeyDown="MessageInput_KeyDown"/>
-      <Button Grid.Column="1" Content="  SEND  ➤  " Margin="10,0,0,0" Padding="18,8"
+      <Button x:Name="VoiceButton" Grid.Column="1" Content="  VOICE  " Margin="8,0,0,0" Padding="14,8"
+              Background="#123447" Foreground="#BDEFFF" BorderBrush="#24718A"
+              Click="Voice_Click"/>
+      <Button x:Name="SpeakButton" Grid.Column="2" Content="  SPEAK: OFF  " Margin="8,0,0,0" Padding="14,8"
+              Background="#123447" Foreground="#BDEFFF" BorderBrush="#24718A"
+              Click="Speak_Click"/>
+      <Button Grid.Column="3" Content="  SEND  ➤  " Margin="8,0,0,0" Padding="18,8"
               Background="#10506A" Foreground="White" BorderBrush="#2AC6E0"
               Click="Send_Click"/>
     </Grid>
