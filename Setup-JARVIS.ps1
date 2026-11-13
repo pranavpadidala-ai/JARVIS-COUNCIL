@@ -7,7 +7,7 @@ param(
 $ErrorActionPreference = "Stop"
 $root = $PSScriptRoot
 $solution = Join-Path $root "JARVIS.Council.sln"
-$appProject = Join-Path $root "src\Council.App\Council.App.csproj"
+$appProject = Join-Path $root "src\Council.Desktop\Council.Desktop.csproj"
 $logPath = Join-Path $root "jarvis-setup.log"
 
 function Write-Step([string]$Message) {
