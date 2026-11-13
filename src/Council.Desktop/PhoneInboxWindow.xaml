@@ -65,7 +65,7 @@
               Background="#123447" Foreground="#BDEFFF" BorderBrush="#24718A"/>
       <Button x:Name="RejectButton" Content="REJECT" Click="Reject_Click" IsEnabled="False" Padding="14,8" Margin="0,0,8,0"
               Background="#38232B" Foreground="#FFD4D8" BorderBrush="#A64B5A"/>
-      <Button x:Name="ApproveButton" Content="APPROVE & RUN" Click="Approve_Click" IsEnabled="False" Padding="16,8"
+      <Button x:Name="ApproveButton" Content="APPROVE &amp; RUN" Click="Approve_Click" IsEnabled="False" Padding="16,8"
               Background="#10506A" Foreground="White" BorderBrush="#2AC6E0"/>
     </StackPanel>
   </Grid>
