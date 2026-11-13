@@ -224,6 +224,69 @@ public class SafeWorkspaceExecutorTests
         Assert.DoesNotContain(".git", result.Content);
     }
 
+    [Fact]
+    public async Task Modify_file_replaces_content_without_changing_file_path()
+    {
+        var root = CreateWorkspace();
+        var filePath = Path.Combine(root, "Existing.cs");
+        await File.WriteAllTextAsync(filePath, "old content");
+
+        var executor = new SafeWorkspaceExecutor(root);
+        var result = await executor.ExecuteAsync(
+            new DevelopmentAction(
+                DevelopmentActionType.ModifyFile,
+                "Existing.cs",
+                "new content"));
+
+        Assert.True(result.Success);
+        Assert.Equal("new content", await File.ReadAllTextAsync(filePath));
+        Assert.Empty(Directory.GetFiles(root, ".jarvis-*.tmp"));
+    }
+
+    [Fact]
+    public async Task Read_file_rejects_files_larger_than_two_megabytes()
+    {
+        var root = CreateWorkspace();
+        var filePath = Path.Combine(root, "Large.cs");
+        await File.WriteAllTextAsync(
+            filePath,
+            new string('x', 2 * 1024 * 1024 + 1));
+
+        var executor = new SafeWorkspaceExecutor(root);
+        var result = await executor.ExecuteAsync(
+            new DevelopmentAction(
+                DevelopmentActionType.ReadFile,
+                "Large.cs"));
+
+        Assert.False(result.Success);
+        Assert.Contains("2 MB", result.Message);
+    }
+
+    [Fact]
+    public async Task Search_stops_after_five_hundred_matches()
+    {
+        var root = CreateWorkspace();
+
+        for (var index = 0; index < 505; index++)
+        {
+            await File.WriteAllTextAsync(
+                Path.Combine(root, $"File{index:D3}.cs"),
+                "needle");
+        }
+
+        var executor = new SafeWorkspaceExecutor(root);
+        var result = await executor.ExecuteAsync(
+            new DevelopmentAction(
+                DevelopmentActionType.SearchCode,
+                "needle"));
+
+        Assert.True(result.Success);
+        Assert.Contains("500 match limit", result.Message);
+        Assert.Equal(500, result.Content!.Split(
+            Environment.NewLine,
+            StringSplitOptions.RemoveEmptyEntries).Length);
+    }
+
     private static string CreateWorkspace()
     {
         var root = Path.Combine(
