@@ -22,10 +22,12 @@ public sealed class OfficeWorkspaceToolTests
             {
                 ["action"] = "create_presentation",
                 ["path"] = "engineering-review.pptx",
-                ["slides"] = """[
-                    {"title":"Structural Behaviour","subtitle":"Aluminium mullion and external fin study","bullets":["Research gap","Finite element modelling","Validation programme"]},
-                    {"title":"Numerical programme","bullets":["Mullion alone","Fin alone","Mullion plus fin"]}
-                ]"""
+                ["slides"] = """
+                    [
+                        {"title":"Structural Behaviour","subtitle":"Aluminium mullion and external fin study","bullets":["Research gap","Finite element modelling","Validation programme"]},
+                        {"title":"Numerical programme","bullets":["Mullion alone","Fin alone","Mullion plus fin"]}
+                    ]
+                    """
             });
 
             Assert.True(result.Success, result.Message);
