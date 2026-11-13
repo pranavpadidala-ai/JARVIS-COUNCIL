@@ -144,6 +144,42 @@ public sealed class DhanLiveFeedToolTests
     }
 
     [Fact]
+    public void LivePriceAlertFreshnessRejectsStaleOrMissingTradeTimestamps()
+    {
+        var now = DateTimeOffset.UtcNow;
+        var fresh = new DhanFeedTick("NSE_EQ", 1333, 1500, now.AddSeconds(-30), null, null, now);
+        var stale = fresh with { LastTradeTimeUtc = now.AddMinutes(-16) };
+        var missing = fresh with { LastTradeTimeUtc = null };
+        var future = fresh with { LastTradeTimeUtc = now.AddMinutes(2) };
+
+        Assert.True(DhanLiveFeedTool.IsFreshTick(fresh));
+        Assert.False(DhanLiveFeedTool.IsFreshTick(stale));
+        Assert.False(DhanLiveFeedTool.IsFreshTick(missing));
+        Assert.False(DhanLiveFeedTool.IsFreshTick(future));
+    }
+
+    [Fact]
+    public async Task LivePriceAlertsRejectMalformedPersistentStore()
+    {
+        var root = Path.Combine(Path.GetTempPath(), "JarvisDhanAlerts", Guid.NewGuid().ToString("N"));
+        Directory.CreateDirectory(root);
+        var store = Path.Combine(root, "alerts.json");
+        try
+        {
+            await File.WriteAllTextAsync(store, "[null]");
+            var tool = new DhanLiveFeedTool(() => null, () => null, store, _ => { });
+            var result = await tool.ExecuteAsync(new Dictionary<string, string> { ["action"] = "alerts" });
+
+            Assert.False(result.Success);
+            Assert.Contains("invalid or duplicate alert entries", result.Message);
+        }
+        finally
+        {
+            Directory.Delete(root, recursive: true);
+        }
+    }
+
+    [Fact]
     public void LivePriceAlertEvaluatorUsesInclusiveThresholdsAndHonoursOneShotState()
     {
         var above = new DhanLivePriceAlert("A1", "NSE_EQ", 1333, "RELIANCE", "above", 1500m, true);

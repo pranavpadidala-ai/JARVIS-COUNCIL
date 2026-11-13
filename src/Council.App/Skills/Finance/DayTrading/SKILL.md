@@ -19,7 +19,7 @@ Adapted from the public Indian Trader skill collection. Treat its published stra
 ## JARVIS capability boundary
 - Use `indian_market` for the user's saved NSE/BSE equity holdings, watchlist and latest available EOD prices.
 - Use public web research for current market news and official exchange/regulator notices.
-- JARVIS has TejHQ daily EOD OHLCV data and an optional Dhan Data API live ticker/quote WebSocket for up to 100 resolved instruments. Persistent one-shot threshold alerts can trigger on incoming ticks. It does not aggregate live 1/5-minute candles, fetch a live option chain, or run a continuous intraday signal loop. Do not claim otherwise.
+- JARVIS has TejHQ daily EOD OHLCV data and an optional Dhan Data API live ticker/quote WebSocket for up to 100 resolved instruments. Persistent one-shot threshold alerts can trigger on fresh incoming ticks (trade timestamp within 15 minutes). It does not aggregate live 1/5-minute candles, fetch a live option chain, or run a continuous intraday signal loop. Do not claim otherwise.
 - Dhan can be connected for read-only account data and market feeds when the user configures credentials and has the required Data API subscription. There is no order-placement capability. Never submit or suggest that an order was placed.
 - Imported upstream command examples, agent names and Claude loop instructions are not executable JARVIS tools.
 

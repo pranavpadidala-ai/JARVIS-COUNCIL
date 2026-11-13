@@ -193,7 +193,7 @@ public sealed class DhanLiveFeedTool : ITool
 
     public string Name => "dhan_live_feed";
     public string Description =>
-        "Manage a read-only DhanHQ v2 live market-data WebSocket and persistent one-shot price alerts. Actions: start (optional instruments='NSE_EQ:1333,NSE_EQ:2885', optional mode=ticker|quote), status, stop, set_alert (instrument, condition=above|below, price, optional label), alerts, remove_alert (alert_id). Active alert instruments are automatically subscribed when start is called without an instrument list, or added to an explicit list. Resolve symbols first with dhan_instrument_lookup. Up to 100 instruments per connection. Alerts trigger on received live ticks only and never place trades. Requires Windows Credential Manager/environment credentials and an active Dhan Data API subscription.";
+        "Manage a read-only DhanHQ v2 live market-data WebSocket and persistent one-shot price alerts. Actions: start (optional instruments='NSE_EQ:1333,NSE_EQ:2885', optional mode=ticker|quote), status, stop, set_alert (instrument, condition=above|below, price, optional label), alerts, remove_alert (alert_id). Active alert instruments are automatically subscribed when start is called without an instrument list, or added to an explicit list. Resolve symbols first with dhan_instrument_lookup. Up to 100 instruments per connection. Alerts trigger only on fresh live trade ticks (trade timestamp within 15 minutes) and never place trades. Requires Windows Credential Manager/environment credentials and an active Dhan Data API subscription.";
 
     public async Task<ToolResult> ExecuteAsync(Dictionary<string, string> arguments, CancellationToken cancellationToken = default)
     {
@@ -505,7 +505,7 @@ public sealed class DhanLiveFeedTool : ITool
                 label, condition, threshold, true));
             await SaveAlertsAsync(token);
             return new ToolResult(true,
-                $"Saved one-shot live price alert ID={id}: {label} ({rawInstrument.Trim()}) {condition} {FormatPrice(threshold)}. It triggers when a new subscribed Dhan tick reaches or passes the threshold. Start or restart the feed with active alerts to monitor it; no trade will be placed.");
+                $"Saved one-shot live price alert ID={id}: {label} ({rawInstrument.Trim()}) {condition} {FormatPrice(threshold)}. It triggers only on a fresh subscribed Dhan trade tick (trade timestamp no more than 15 minutes old) that reaches or passes the threshold. Start or restart the feed with active alerts to monitor it; no trade will be placed.");
         }
         finally { _alertGate.Release(); }
     }
@@ -572,9 +572,24 @@ public sealed class DhanLiveFeedTool : ITool
             if (info.Length > 512 * 1024)
                 throw new InvalidDataException("The live alert file exceeds the 512 KB safety limit.");
             var json = await File.ReadAllTextAsync(_alertStorePath, token);
-            _alerts = JsonSerializer.Deserialize<List<DhanLivePriceAlert>>(json) ?? [];
-            if (_alerts.Count > 100)
+            var loaded = JsonSerializer.Deserialize<List<DhanLivePriceAlert>>(json) ?? [];
+            if (loaded.Count > 100)
                 throw new InvalidDataException("The live alert file contains more than 100 alerts.");
+
+            var ids = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+            foreach (var alert in loaded)
+            {
+                if (alert is null ||
+                    string.IsNullOrWhiteSpace(alert.Id) || alert.Id.Length != 8 || !alert.Id.All(char.IsAsciiHexDigit) ||
+                    string.IsNullOrWhiteSpace(alert.Label) || alert.Label.Length > 64 || alert.Label.Any(char.IsControl) ||
+                    alert.Condition is not ("above" or "below") ||
+                    alert.ThresholdPrice <= 0 || alert.ThresholdPrice > 100_000_000m ||
+                    (alert.TriggeredPrice is decimal triggeredPrice && (triggeredPrice <= 0 || triggeredPrice > 100_000_000m)) ||
+                    !TryParseInstruments($"{alert.ExchangeSegment}:{alert.SecurityId}", out var parsed, out _) ||
+                    parsed.Length != 1 || !ids.Add(alert.Id))
+                    throw new InvalidDataException("The live alert file contains invalid or duplicate alert entries.");
+            }
+            _alerts = loaded;
         }
         _alertsLoaded = true;
     }
@@ -602,12 +617,20 @@ public sealed class DhanLiveFeedTool : ITool
             ? price >= alert.ThresholdPrice
             : alert.Condition == "below" && price <= alert.ThresholdPrice);
 
+    public static bool IsFreshTick(DhanFeedTick tick)
+    {
+        if (tick.LastTradeTimeUtc is not DateTimeOffset tradeTime)
+            return false;
+        var age = tick.ReceivedAtUtc - tradeTime;
+        return age >= TimeSpan.FromSeconds(-30) && age <= TimeSpan.FromMinutes(15);
+    }
+
     private static string FormatPrice(decimal price) =>
         price.ToString("N2", System.Globalization.CultureInfo.InvariantCulture);
 
     private async Task EvaluateLiveAlertsAsync(DhanFeedTick tick, CancellationToken token)
     {
-        if (tick.LastPrice is not > 0 ||
+        if (tick.LastPrice is not > 0 || !IsFreshTick(tick) ||
             !decimal.TryParse(tick.LastPrice.Value.ToString("R", System.Globalization.CultureInfo.InvariantCulture),
                 System.Globalization.NumberStyles.Float, System.Globalization.CultureInfo.InvariantCulture, out var price))
             return;
