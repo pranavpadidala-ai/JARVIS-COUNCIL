@@ -47,6 +47,7 @@ public sealed class TaskManager
             if (checkpoint is not null)
             {
                 task.CompletedSteps = checkpoint.CompletedSteps.ToList();
+                task.Artifacts = checkpoint.Artifacts.ToList();
                 task.ProviderRoute = checkpoint.ProviderRoute;
                 task.ModelAlias = checkpoint.ModelAlias;
                 task.GitCommitSha = checkpoint.GitCommitSha;
