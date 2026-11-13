@@ -33,7 +33,7 @@
           <Button Style="{StaticResource NavButton}" Content="▦   Command Center" Background="#10364A" Foreground="#42E5F7"/>
           <Button Style="{StaticResource NavButton}" Content="◈   AI Core"/>
           <Button Style="{StaticResource NavButton}" Content="◎   Agents"/>
-          <Button Style="{StaticResource NavButton}" Content="▤   Tasks"/>
+          <Button Style="{StaticResource NavButton}" Content="▤   Tasks" Click="OpenTasks_Click"/>
           <Button Style="{StaticResource NavButton}" Content="▦   Calendar"/>
           <Button Style="{StaticResource NavButton}" Content="◷   Memory"/>
           <Button Style="{StaticResource NavButton}" Content="▣   Conversations"/>
@@ -130,6 +130,7 @@
           <StackPanel>
             <TextBlock Text="QUICK COMMANDS" Style="{StaticResource SectionTitle}"/>
             <Button Style="{StaticResource ActionButton}" Content="＋  Start New Task" Click="StartTask_Click"/>
+            <Button Style="{StaticResource ActionButton}" Content="▤  Open Task Queue" Click="OpenTasks_Click"/>
             <Button Style="{StaticResource ActionButton}" Content="◉  Open JARVIS Chat" Click="OpenConsole_Click"/>
             <Button Style="{StaticResource ActionButton}" Content="✎  Teach a Preference" Click="TeachPreference_Click"/>
             <Button Style="{StaticResource ActionButton}" Content="⌘  Teach a Workflow" Click="TeachWorkflow_Click"/>
