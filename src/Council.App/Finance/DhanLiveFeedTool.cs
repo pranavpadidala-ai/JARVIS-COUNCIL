@@ -23,6 +23,10 @@ public sealed record DhanFeedTick(
 /// </summary>
 public static class DhanFeedPacketParser
 {
+    public static IReadOnlyList<DhanFeedTick> Parse(byte[] data) => Parse(data.AsSpan());
+
+    public static int? TryReadDisconnectCode(byte[] data) => TryReadDisconnectCode(data.AsSpan());
+
     public static IReadOnlyList<DhanFeedTick> Parse(ReadOnlySpan<byte> data)
     {
         var ticks = new List<DhanFeedTick>();
@@ -387,7 +391,7 @@ public sealed class DhanLiveFeedTool : ITool
 
             if (result.MessageType == WebSocketMessageType.Binary)
             {
-                var packetBytes = message.GetBuffer().AsSpan(0, (int)message.Length);
+                var packetBytes = message.ToArray();
                 var disconnectCode = DhanFeedPacketParser.TryReadDisconnectCode(packetBytes);
                 if (disconnectCode is not null)
                 {
