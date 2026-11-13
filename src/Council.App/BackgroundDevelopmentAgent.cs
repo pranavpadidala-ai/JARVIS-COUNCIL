@@ -86,7 +86,7 @@ public sealed class BackgroundDevelopmentAgent
                     // not permanently terminate the user's background worker.
                     await WriteLogAsync(
                         "Development queue cycle failed; the agent will retry after its normal idle interval. " +
-                        ex.GetType().Name + ": " + ex.Message,
+                        ex.GetType().Name + ". Exception details withheld from the local log.",
                         cancellationToken);
                 }
 
@@ -100,7 +100,7 @@ public sealed class BackgroundDevelopmentAgent
         catch (Exception ex)
         {
             await WriteLogAsync(
-                "Agent stopped after an unhandled error: " + ex.GetType().Name + ": " + ex.Message,
+                "Agent stopped after an unhandled error: " + ex.GetType().Name + ". Exception details withheld from the local log.",
                 CancellationToken.None);
             throw;
         }
