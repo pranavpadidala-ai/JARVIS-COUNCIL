@@ -127,29 +127,34 @@ Console.WriteLine();
 Console.WriteLine("=== Tool Test ===");
 
 var toolRegistry = new ToolRegistry();
+var createFolderTool = new CreateFolderTool();
 
-toolRegistry.Register(new CreateFolderTool());
+toolRegistry.Register(createFolderTool);
 
-if (toolRegistry.TryGet("create_folder", out var createFolderTool))
+if (toolRegistry.TryGet("create_folder", out var registeredCreateFolderTool))
 {
-    var testPath = Path.Combine(
-        Environment.CurrentDirectory,
-        "jarvis-test-folder");
-
-    var toolResult = await createFolderTool.ExecuteAsync(
-        new Dictionary<string, string>
-        {
-            ["path"] = testPath
-        });
-
-    Console.WriteLine($"Tool    : {createFolderTool.Name}");
-    Console.WriteLine($"Success : {toolResult.Success}");
-    Console.WriteLine($"Message : {toolResult.Message}");
+    Console.WriteLine($"Registered tool: {registeredCreateFolderTool.Name}");
 }
 else
 {
-    Console.WriteLine(
-        "ERROR: create_folder tool was not found.");
+    Console.WriteLine("ERROR: create_folder tool was not found.");
+}
+
+// Optional natural-language tool execution.
+// Set JARVIS_TOOL_REQUEST to a task when you want JARVIS to choose
+// and execute one of the explicitly registered tools.
+var toolRequest = Environment.GetEnvironmentVariable("JARVIS_TOOL_REQUEST");
+
+if (!string.IsNullOrWhiteSpace(toolRequest))
+{
+    var toolAgent = new AIToolAgent(activeProvider, [createFolderTool]);
+    var toolResult = await toolAgent.ExecuteAsync(toolRequest);
+
+    Console.WriteLine();
+    Console.WriteLine("=== AI Tool Execution ===");
+    Console.WriteLine($"Request : {toolRequest}");
+    Console.WriteLine($"Success : {toolResult.Success}");
+    Console.WriteLine($"Result  : {toolResult.Message}");
 }
 
 // ============================================================
