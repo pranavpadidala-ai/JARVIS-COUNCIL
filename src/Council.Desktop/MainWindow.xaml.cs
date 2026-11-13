@@ -2,6 +2,7 @@ using System.Diagnostics;
 using System.Runtime.InteropServices;
 using System.Windows;
 using System.Windows.Threading;
+using Council.App.Chat;
 
 namespace Council.Desktop;
 
@@ -34,6 +35,7 @@ public partial class MainWindow : Window
     public MainWindow()
     {
         InitializeComponent();
+        Loaded += MainWindow_Loaded;
         _clock.Tick += (_, _) => ClockText.Text = DateTime.Now.ToString("ddd, dd MMM yyyy  •  HH:mm:ss");
         ClockText.Text = DateTime.Now.ToString("ddd, dd MMM yyyy  •  HH:mm:ss");
         _clock.Start();
@@ -49,6 +51,21 @@ public partial class MainWindow : Window
             _telemetry.Stop();
             _process.Dispose();
         };
+    }
+
+    private async void MainWindow_Loaded(object sender, RoutedEventArgs e)
+    {
+        try
+        {
+            var session = await AssistantSession.CreateAsync();
+            ProviderStatusText.Text = $"●  {session.ProviderName}";
+            MemoryCountText.Text = $"{session.MessageCount} saved messages";
+        }
+        catch
+        {
+            ProviderStatusText.Text = "●  Provider configuration issue";
+            MemoryCountText.Text = "Conversation history unavailable";
+        }
     }
 
     private void UpdateTelemetry()
