@@ -1,5 +1,6 @@
 using Council.Dev.Actions;
 using Council.Dev.Planning;
+using Council.Dev.Recovery;
 using Council.Dev.Tasks;
 using Council.Dev.Terminal;
 using Council.Dev.Validation;
@@ -226,6 +227,27 @@ public sealed class AutonomousDevelopmentExecutor : IDevelopmentExecutor
                     result.StandardOutput.Split(new[] { "\r\n", "\n" }, StringSplitOptions.RemoveEmptyEntries).Take(500));
             if (status.Length > 30000) status = status[..30000] + Environment.NewLine + "[truncated]";
             await _taskManager.UpdateExecutionContextAsync(task.Id, null, null, null, status, CancellationToken.None);
+
+            var artifacts = new List<TaskArtifactSnapshot>();
+            foreach (var line in result.StandardOutput.Split(new[] { "\r\n", "\n" }, StringSplitOptions.RemoveEmptyEntries).Take(100))
+            {
+                if (line.Length <= 3) continue;
+                var relativePath = line[3..].Trim();
+                var renameIndex = relativePath.LastIndexOf(" -> ", StringComparison.Ordinal);
+                if (renameIndex >= 0) relativePath = relativePath[(renameIndex + 4)..].Trim();
+                relativePath = relativePath.Trim('"');
+                try
+                {
+                    var fullPath = Path.GetFullPath(relativePath, _workspaceRoot);
+                    if (!File.Exists(fullPath)) continue;
+                    artifacts.Add(await TaskCheckpointStore.HashArtifactAsync(_workspaceRoot, fullPath, CancellationToken.None));
+                }
+                catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or InvalidOperationException or ArgumentException)
+                {
+                    // Skip files that cannot be safely read or hashed; Git status remains in the checkpoint.
+                }
+            }
+            await _taskManager.UpdateArtifactsAsync(task.Id, artifacts, CancellationToken.None);
         }
         catch (Exception ex) when (ex is IOException or InvalidOperationException or UnauthorizedAccessException)
         {
