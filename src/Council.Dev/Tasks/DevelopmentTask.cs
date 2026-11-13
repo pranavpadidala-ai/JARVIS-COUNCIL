@@ -16,5 +16,13 @@ public sealed class DevelopmentTask
 
     public int AttemptCount { get; set; }
 
+    /// <summary>Only tasks explicitly approved by the user may be claimed by the background agent.</summary>
+    public bool IsApproved { get; set; }
+
+    public DateTime? ApprovedAtUtc { get; set; }
+
+    /// <summary>Approval is one-shot; failed tasks need a fresh user approval before background retry.</summary>
+    public DateTime? ApprovalConsumedAtUtc { get; set; }
+
     public string CurrentStep { get; set; } = string.Empty;
 }
