@@ -144,6 +144,7 @@ public class TaskPersistenceTests
             Assert.NotNull(paused);
             Assert.Equal(CouncilTaskStatus.Paused, paused!.Status);
             Assert.False(paused.IsApproved);
+            Assert.Null(paused.ApprovalConsumedAtUtc);
             Assert.Null(await reloaded.ClaimNextApprovedTaskAsync());
 
             Assert.True(await reloaded.ApproveAsync(task.Id));
