@@ -87,6 +87,16 @@ public sealed class TaskCheckpointStore
         if (relative == ".." || relative.StartsWith(".." + Path.DirectorySeparatorChar, StringComparison.Ordinal) ||
             Path.IsPathRooted(relative))
             throw new InvalidOperationException("Artifact must be inside the task workspace.");
+        var currentPath = fullPath;
+        while (!string.Equals(currentPath, root, StringComparison.OrdinalIgnoreCase))
+        {
+            if ((File.Exists(currentPath) || Directory.Exists(currentPath)) &&
+                (File.GetAttributes(currentPath) & FileAttributes.ReparsePoint) != 0)
+                throw new InvalidOperationException("Checkpoint artifacts cannot traverse symbolic links or reparse points.");
+            currentPath = Directory.GetParent(currentPath)?.FullName
+                ?? throw new InvalidOperationException("Artifact path could not be safely resolved.");
+        }
+
         var info = new FileInfo(fullPath);
         if (!info.Exists) throw new FileNotFoundException("Checkpoint artifact was not found.", fullPath);
         if (info.Length > 25 * 1024 * 1024)
