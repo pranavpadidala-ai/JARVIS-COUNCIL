@@ -64,8 +64,8 @@ public class CommandPolicyTests
     }
 
     [Theory]
-    [InlineData("dotnet build\\nwhoami")]
-    [InlineData("git status\\rRemove-Item test.txt")]
+    [InlineData("dotnet build\nwhoami")]
+    [InlineData("git status\rRemove-Item test.txt")]
     public void Newline_command_composition_is_blocked(string command)
     {
         Assert.False(_policy.IsAllowed(command));
