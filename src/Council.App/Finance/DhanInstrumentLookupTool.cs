@@ -13,6 +13,7 @@ public sealed class DhanInstrumentLookupTool : ITool
 {
     private const string MasterUrl = "https://images.dhan.co/api-data/api-scrip-master.csv";
     private const int MaxCsvCharacters = 40_000_000;
+    private const int MaxBatchSymbols = 30;
     private static readonly TimeSpan CacheLifetime = TimeSpan.FromHours(6);
     private static readonly HttpClient SharedClient = new() { Timeout = TimeSpan.FromSeconds(30) };
     private readonly HttpClient _http;
@@ -24,19 +25,30 @@ public sealed class DhanInstrumentLookupTool : ITool
 
     public string Name => "dhan_instrument_lookup";
     public string Description =>
-        "Resolve an exact Indian cash-equity trading symbol to its current Dhan security ID and exchange segment using Dhan's official instrument master. Required: symbol. Optional: exchange=NSE|BSE (defaults NSE). Example RELIANCE. Returns at most five exact matches. No credentials or trading permissions required.";
+        "Resolve one symbol or a comma-separated symbols batch (up to 30) to exact NSE/BSE cash-equity Dhan security IDs and exchange segments using the official instrument master. Provide either symbol=RELIANCE or symbols=RELIANCE,TCS,INFY; optional exchange=NSE|BSE applies to the whole batch and defaults to NSE. Returns up to five exact matches per requested symbol and explicitly lists unresolved symbols. No credentials or trading permissions required.";
 
     public async Task<ToolResult> ExecuteAsync(Dictionary<string, string> arguments, CancellationToken cancellationToken = default)
     {
-        if (!arguments.TryGetValue("symbol", out var symbol) || string.IsNullOrWhiteSpace(symbol))
-            return new ToolResult(false, "dhan_instrument_lookup requires a non-empty symbol.");
+        var hasSingle = arguments.TryGetValue("symbol", out var singleSymbol);
+        var hasBatch = arguments.TryGetValue("symbols", out var batchSymbols);
+        if (hasSingle == hasBatch)
+            return new ToolResult(false, "Provide exactly one of symbol or symbols (comma-separated, up to 30).");
         if (arguments.Keys.Any(key => !key.Equals("symbol", StringComparison.OrdinalIgnoreCase) &&
+                                      !key.Equals("symbols", StringComparison.OrdinalIgnoreCase) &&
                                       !key.Equals("exchange", StringComparison.OrdinalIgnoreCase)))
-            return new ToolResult(false, "Unexpected argument. Supported arguments are symbol and exchange.");
+            return new ToolResult(false, "Unexpected argument. Supported arguments are symbol, symbols and exchange.");
 
-        symbol = symbol.Trim().ToUpperInvariant();
-        if (symbol.Length > 40 || symbol.Any(ch => !(char.IsAsciiLetterOrDigit(ch) || ch is '.' or '-' or '&' or ' ')))
-            return new ToolResult(false, "Symbol contains unsupported characters or is too long.");
+        var requestedSymbols = hasBatch
+            ? (batchSymbols ?? "").Split(',', StringSplitOptions.TrimEntries | StringSplitOptions.RemoveEmptyEntries)
+                .Select(value => value.ToUpperInvariant()).Distinct(StringComparer.OrdinalIgnoreCase).ToList()
+            : new List<string> { (singleSymbol ?? "").Trim().ToUpperInvariant() };
+        if (requestedSymbols.Count is < 1 or > MaxBatchSymbols || requestedSymbols.Any(string.IsNullOrWhiteSpace))
+            return new ToolResult(false, $"Provide between 1 and {MaxBatchSymbols} non-empty unique symbols.");
+        foreach (var symbol in requestedSymbols)
+        {
+            if (symbol.Length > 40 || symbol.Any(ch => !(char.IsAsciiLetterOrDigit(ch) || ch is '.' or '-' or '&' or ' ')))
+                return new ToolResult(false, $"Symbol '{symbol}' contains unsupported characters or is too long.");
+        }
 
         var exchange = arguments.TryGetValue("exchange", out var rawExchange)
             ? rawExchange.Trim().ToUpperInvariant()
@@ -60,47 +72,65 @@ public sealed class DhanInstrumentLookupTool : ITool
             string Field(List<string> row, string name) =>
                 headers.TryGetValue(name, out var index) && index < row.Count ? row[index].Trim() : "";
 
-            var matches = new List<(string Id, string Segment, string Trading, string Display, string Instrument, string Series)>();
+            var matchesBySymbol = requestedSymbols.ToDictionary(
+                symbol => symbol,
+                _ => new List<(string Id, string Segment, string Trading, string Display, string Instrument, string Series)>(),
+                StringComparer.OrdinalIgnoreCase);
+
             foreach (var row in rows.Skip(1))
             {
                 cancellationToken.ThrowIfCancellationRequested();
-                if (row.Count < required.Length) continue;
-                if (!Field(row, "SEM_EXM_EXCH_ID").Equals(exchange, StringComparison.OrdinalIgnoreCase) ||
+                if (row.Count < required.Length ||
+                    !Field(row, "SEM_EXM_EXCH_ID").Equals(exchange, StringComparison.OrdinalIgnoreCase) ||
                     !Field(row, "SEM_SEGMENT").Equals("E", StringComparison.OrdinalIgnoreCase))
-                    continue;
-
-                var trading = Field(row, "SEM_TRADING_SYMBOL");
-                var symbolName = Field(row, "SM_SYMBOL_NAME");
-                var custom = Field(row, "SEM_CUSTOM_SYMBOL");
-                if (!trading.Equals(symbol, StringComparison.OrdinalIgnoreCase) &&
-                    !symbolName.Equals(symbol, StringComparison.OrdinalIgnoreCase) &&
-                    !custom.Equals(symbol, StringComparison.OrdinalIgnoreCase))
                     continue;
 
                 var id = Field(row, "SEM_SMST_SECURITY_ID");
                 if (id.Length == 0 || id.Any(ch => !char.IsAsciiDigit(ch))) continue;
                 var segment = exchange + "_EQ";
+                var trading = Field(row, "SEM_TRADING_SYMBOL");
+                var symbolName = Field(row, "SM_SYMBOL_NAME");
+                var custom = Field(row, "SEM_CUSTOM_SYMBOL");
                 var instrument = Field(row, "SEM_INSTRUMENT_NAME");
                 var series = headers.ContainsKey("SEM_SERIES") ? Field(row, "SEM_SERIES") : "";
-                if (!matches.Any(item => item.Id == id && item.Segment == segment))
-                    matches.Add((id, segment, trading, custom, instrument, series));
-                if (matches.Count == 5) break;
-            }
 
-            if (matches.Count == 0)
-                return new ToolResult(false, $"No exact {exchange} cash-equity match found for '{symbol}'. Check the exchange or symbol spelling; derivatives are not included in this lookup.");
+                void AddExactMatch(string candidate)
+                {
+                    if (!matchesBySymbol.TryGetValue(candidate, out var matches) || matches.Count >= 5)
+                        return;
+                    if (!matches.Any(item => item.Id == id && item.Segment == segment))
+                        matches.Add((id, segment, trading, custom, instrument, series));
+                }
+
+                AddExactMatch(trading);
+                AddExactMatch(symbolName);
+                AddExactMatch(custom);
+            }
 
             var lines = new List<string>
             {
                 $"DHAN INSTRUMENT LOOKUP — {exchange} cash equities",
-                "Matched against Dhan's official instrument master. Verify the selected company before requesting a quote."
+                "Matched exact trading/display symbols against Dhan's official instrument master. Each requested symbol is reported separately."
             };
-            foreach (var match in matches)
-                lines.Add($"Symbol: {match.Trading} | Security ID: {match.Id} | Exchange segment: {match.Segment}" +
-                          (match.Display.Length > 0 ? $" | Display: {match.Display}" : "") +
-                          (match.Series.Length > 0 ? $" | Series: {match.Series}" : ""));
-            lines.Add("For a Dhan LTP snapshot, pass the exact returned security_id and exchange_segment to dhan_readonly action=quote.");
-            return new ToolResult(true, string.Join(Environment.NewLine, lines));
+            var anyMatch = false;
+            foreach (var symbol in requestedSymbols)
+            {
+                lines.Add($"Requested symbol: {symbol}");
+                var matches = matchesBySymbol[symbol];
+                if (matches.Count == 0)
+                {
+                    lines.Add($"No exact {exchange} cash-equity match found for '{symbol}'. Check the exchange or spelling; derivatives are not included.");
+                    continue;
+                }
+
+                anyMatch = true;
+                foreach (var match in matches)
+                    lines.Add($"Symbol: {match.Trading} | Security ID: {match.Id} | Exchange segment: {match.Segment}" +
+                              (match.Display.Length > 0 ? $" | Display: {match.Display}" : "") +
+                              (match.Series.Length > 0 ? $" | Series: {match.Series}" : ""));
+            }
+            lines.Add("For a Dhan LTP snapshot, pass the exact returned security_id and exchange_segment to dhan_readonly action=quote. Do not guess unresolved IDs.");
+            return new ToolResult(anyMatch, string.Join(Environment.NewLine, lines));
         }
         catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested) { throw; }
         catch (OperationCanceledException) { return new ToolResult(false, "Dhan instrument-master download timed out."); }

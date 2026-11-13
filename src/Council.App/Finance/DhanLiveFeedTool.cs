@@ -7,7 +7,7 @@ using Council.Execution.Tools;
 
 namespace Council.App.Finance;
 
-public sealed record DhanFeedInstrument(string ExchangeSegment, int SecurityId);
+public sealed record DhanFeedInstrument(string ExchangeSegment, int SecurityId, string? Label = null);
 
 public sealed record DhanFeedTick(
     string ExchangeSegment,
@@ -193,7 +193,7 @@ public sealed class DhanLiveFeedTool : ITool
 
     public string Name => "dhan_live_feed";
     public string Description =>
-        "Manage a read-only DhanHQ v2 live market-data WebSocket and persistent one-shot price alerts. Actions: start (optional instruments='NSE_EQ:1333,NSE_EQ:2885', optional mode=ticker|quote), status, stop, set_alert (instrument, condition=above|below, price, optional label), alerts, remove_alert (alert_id). Active alert instruments are automatically subscribed when start is called without an instrument list, or added to an explicit list. Resolve symbols first with dhan_instrument_lookup. Up to 100 instruments per connection. Alerts trigger only on fresh live trade ticks (trade timestamp within 15 minutes) and never place trades. Requires Windows Credential Manager/environment credentials and an active Dhan Data API subscription.";
+        "Manage a read-only DhanHQ v2 live market-data WebSocket and persistent one-shot price alerts. Actions: start (optional instruments='NSE_EQ:1333:RELIANCE,NSE_EQ:2885:TCS', optional mode=ticker|quote), status, stop, set_alert (instrument=SEGMENT:ID[:LABEL], condition=above|below, price, optional label), alerts, remove_alert (alert_id). Active alert instruments are automatically subscribed when start is called without an instrument list, or added to an explicit list. Resolve symbols first with dhan_instrument_lookup and include readable labels as the third colon-delimited field. Up to 100 instruments per connection. Alerts trigger only on fresh live trade ticks (trade timestamp within 15 minutes) and never place trades. Requires Windows Credential Manager/environment credentials and an active Dhan Data API subscription.";
 
     public async Task<ToolResult> ExecuteAsync(Dictionary<string, string> arguments, CancellationToken cancellationToken = default)
     {
@@ -231,8 +231,8 @@ public sealed class DhanLiveFeedTool : ITool
             if (activeAlerts.Count == 0)
                 return new ToolResult(false, "start requires instruments, or create one or more live price alerts first.");
             requestedInstruments = activeAlerts
-                .Select(alert => new DhanFeedInstrument(alert.ExchangeSegment, alert.SecurityId))
-                .Distinct()
+                .Select(alert => new DhanFeedInstrument(alert.ExchangeSegment, alert.SecurityId, alert.Label))
+                .DistinctBy(item => (item.ExchangeSegment, item.SecurityId))
                 .ToArray();
         }
         else if (!TryParseInstruments(raw, out requestedInstruments, out var error))
@@ -241,8 +241,9 @@ public sealed class DhanLiveFeedTool : ITool
         }
 
         var instruments = requestedInstruments
-            .Concat(activeAlerts.Select(alert => new DhanFeedInstrument(alert.ExchangeSegment, alert.SecurityId)))
-            .Distinct()
+            .Concat(activeAlerts.Select(alert => new DhanFeedInstrument(alert.ExchangeSegment, alert.SecurityId, alert.Label)))
+            .GroupBy(item => (item.ExchangeSegment, item.SecurityId))
+            .Select(group => group.FirstOrDefault(item => !string.IsNullOrWhiteSpace(item.Label)) ?? group.First())
             .ToArray();
         if (instruments.Length > MaxInstruments)
             return new ToolResult(false, $"The requested instruments plus active alert instruments exceed the {MaxInstruments}-instrument connection limit.");
@@ -306,7 +307,11 @@ public sealed class DhanLiveFeedTool : ITool
                 var time = tick.LastTradeTimeUtc is null ? "" : $" | Trade {tick.LastTradeTimeUtc.Value:HH:mm:ss} UTC";
                 var close = tick.PreviousClose is null ? "" : $" | Prev close ₹{tick.PreviousClose.Value:N2}";
                 var volume = tick.Volume is null ? "" : $" | Volume {tick.Volume.Value:N0}";
-                lines.Add($"{tick.ExchangeSegment}:{tick.SecurityId} | {price}{time}{close}{volume} | Received {tick.ReceivedAtUtc:HH:mm:ss} UTC");
+                var instrumentKey = $"{tick.ExchangeSegment}:{tick.SecurityId}";
+                var instrumentLabel = _instruments.FirstOrDefault(item =>
+                    item.ExchangeSegment == tick.ExchangeSegment && item.SecurityId == tick.SecurityId)?.Label;
+                var displayName = string.IsNullOrWhiteSpace(instrumentLabel) ? instrumentKey : $"{instrumentLabel} ({instrumentKey})";
+                lines.Add($"{displayName} | {price}{time}{close}{volume} | Received {tick.ReceivedAtUtc:HH:mm:ss} UTC");
             }
             if (_latest.Count > ticks.Length) lines.Add($"Showing latest {ticks.Length} of {_latest.Count} instruments with received data.");
             if (ticks.Length == 0) lines.Add("No market packets received yet. Check Data API entitlement, token validity and market session.");
@@ -489,7 +494,7 @@ public sealed class DhanLiveFeedTool : ITool
 
         var label = args.TryGetValue("label", out var rawLabel) && !string.IsNullOrWhiteSpace(rawLabel)
             ? rawLabel.Trim()
-            : rawInstrument.Trim();
+            : parsed[0].Label ?? rawInstrument.Trim();
         if (label.Length > 64 || label.Any(char.IsControl))
             return new ToolResult(false, "label must be 1 to 64 printable characters.");
 
@@ -682,16 +687,21 @@ public sealed class DhanLiveFeedTool : ITool
         foreach (var item in items)
         {
             var parts = item.Split(':', StringSplitOptions.TrimEntries);
-            if (parts.Length != 2 || !segments.Contains(parts[0]) ||
+            var label = parts.Length == 3 ? parts[2] : null;
+            if (parts.Length is < 2 or > 3 || !segments.Contains(parts[0]) ||
                 parts[1].Length is < 1 or > 10 ||
                 !int.TryParse(parts[1], System.Globalization.NumberStyles.None,
-                    System.Globalization.CultureInfo.InvariantCulture, out var id) || id <= 0)
+                    System.Globalization.CultureInfo.InvariantCulture, out var id) || id <= 0 ||
+                (label is not null && (label.Length is < 1 or > 40 || label.Any(char.IsControl))))
             {
-                error = $"Invalid instrument '{item}'. Use a supported segment and positive numeric security ID, for example NSE_EQ:1333.";
+                error = $"Invalid instrument '{item}'. Use SEGMENT:positive-security-ID[:LABEL], for example NSE_EQ:1333:RELIANCE.";
                 return false;
             }
-            if (!parsed.Any(existing => existing.ExchangeSegment == parts[0] && existing.SecurityId == id))
-                parsed.Add(new DhanFeedInstrument(parts[0], id));
+            var existingIndex = parsed.FindIndex(existing => existing.ExchangeSegment == parts[0] && existing.SecurityId == id);
+            if (existingIndex < 0)
+                parsed.Add(new DhanFeedInstrument(parts[0], id, label));
+            else if (string.IsNullOrWhiteSpace(parsed[existingIndex].Label) && !string.IsNullOrWhiteSpace(label))
+                parsed[existingIndex] = parsed[existingIndex] with { Label = label };
         }
         instruments = parsed.ToArray();
         if (instruments.Length == 0)

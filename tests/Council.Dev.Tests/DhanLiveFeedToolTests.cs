@@ -194,6 +194,31 @@ public sealed class DhanLiveFeedToolTests
     }
 
     [Fact]
+    public async Task LivePriceAlertUsesInstrumentLabelSuffixWhenExplicitLabelIsOmitted()
+    {
+        var root = Path.Combine(Path.GetTempPath(), "JarvisDhanAlerts", Guid.NewGuid().ToString("N"));
+        Directory.CreateDirectory(root);
+        try
+        {
+            var tool = new DhanLiveFeedTool(() => null, () => null, Path.Combine(root, "alerts.json"), _ => { });
+            var saved = await tool.ExecuteAsync(new Dictionary<string, string>
+            {
+                ["action"] = "set_alert",
+                ["instrument"] = "NSE_EQ:1333:HDFCBANK",
+                ["condition"] = "above",
+                ["price"] = "1700"
+            });
+
+            Assert.True(saved.Success, saved.Message);
+            Assert.Contains("HDFCBANK", saved.Message);
+        }
+        finally
+        {
+            Directory.Delete(root, recursive: true);
+        }
+    }
+
+    [Fact]
     public async Task LivePriceAlertsRejectInvalidInputs()
     {
         var root = Path.Combine(Path.GetTempPath(), "JarvisDhanAlerts", Guid.NewGuid().ToString("N"));

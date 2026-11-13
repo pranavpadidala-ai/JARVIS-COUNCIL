@@ -47,6 +47,61 @@ public sealed class DhanInstrumentLookupToolTests
     }
 
     [Fact]
+    public async Task ResolvesBatchOfSymbolsWithOneInstrumentMasterDownload()
+    {
+        var handler = new StubHandler();
+        var tool = new DhanInstrumentLookupTool(new HttpClient(handler));
+
+        var result = await tool.ExecuteAsync(new Dictionary<string, string>
+        {
+            ["symbols"] = "RELIANCE, HDFCBANK, RELIANCE",
+            ["exchange"] = "NSE"
+        });
+
+        Assert.True(result.Success);
+        Assert.Contains("Requested symbol: RELIANCE", result.Message);
+        Assert.Contains("Security ID: 2885", result.Message);
+        Assert.Contains("Requested symbol: HDFCBANK", result.Message);
+        Assert.Contains("Security ID: 1333", result.Message);
+        Assert.DoesNotContain("500325", result.Message);
+        Assert.Equal(1, handler.RequestCount);
+    }
+
+    [Fact]
+    public async Task BatchLookupReportsUnresolvedSymbolsAlongsideResolvedMatches()
+    {
+        var tool = new DhanInstrumentLookupTool(new HttpClient(new StubHandler()));
+
+        var result = await tool.ExecuteAsync(new Dictionary<string, string>
+        {
+            ["symbols"] = "RELIANCE,UNKNOWN",
+            ["exchange"] = "NSE"
+        });
+
+        Assert.True(result.Success);
+        Assert.Contains("Security ID: 2885", result.Message);
+        Assert.Contains("No exact NSE cash-equity match found for 'UNKNOWN'", result.Message);
+    }
+
+    [Fact]
+    public async Task RejectsOversizedBatchAndMutuallyExclusiveSymbolArgumentsWithoutNetwork()
+    {
+        var handler = new StubHandler();
+        var tool = new DhanInstrumentLookupTool(new HttpClient(handler));
+        var tooMany = string.Join(',', Enumerable.Range(1, 31).Select(i => $"S{i}"));
+        var oversized = await tool.ExecuteAsync(new Dictionary<string, string> { ["symbols"] = tooMany });
+        var both = await tool.ExecuteAsync(new Dictionary<string, string>
+        {
+            ["symbol"] = "TCS",
+            ["symbols"] = "TCS,INFY"
+        });
+
+        Assert.False(oversized.Success);
+        Assert.False(both.Success);
+        Assert.Equal(0, handler.RequestCount);
+    }
+
+    [Fact]
     public async Task RejectsUnsupportedExchangeAndExtraArgumentsWithoutNetwork()
     {
         var handler = new StubHandler();
