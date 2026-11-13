@@ -172,7 +172,7 @@
             <TextBlock Text="JARVIS COMMAND INPUT" Foreground="#38DDF5" FontSize="10" FontWeight="Bold"/>
             <TextBlock Text="The desktop interface is being connected to the assistant runtime." Style="{StaticResource Small}"/>
           </StackPanel>
-          <Button Grid.Column="1" Content="OPEN CHAT CONSOLE  →" Background="#12445A" Foreground="#D9FAFF" BorderBrush="#28BBD6" Padding="16,9" Click="OpenConsole_Click"/>
+          <Button Grid.Column="1" Content="OPEN JARVIS CHAT  →" Background="#12445A" Foreground="#D9FAFF" BorderBrush="#28BBD6" Padding="16,9" Click="OpenConsole_Click"/>
         </Grid>
       </Border>
     </Grid>
