@@ -14,7 +14,7 @@ namespace Council.App.Chat;
 public sealed class AssistantSession
 {
     private const string MemoryHelp =
-        "Teach JARVIS with /remember followed by a fact. Use /memories to review saved facts and /forget followed by an ID to remove one. Never save passwords, API keys, OTPs or other secrets.";
+        "Teach JARVIS with /remember followed by a fact. Use /memories to review saved facts and /forget followed by an ID to remove one. Never save passwords, API keys, OTPs or other secrets. Use /learn <trigger> => <action> to teach a project practice, /instincts to review practices, /forget-instinct <id> to remove one, /skills and /agents to inspect JARVIS capabilities, and /clear to clear conversation and explicit facts.";
 
     private readonly IAIProvider _provider;
     private readonly ConversationMemoryStore _memory;
@@ -153,6 +153,39 @@ public sealed class AssistantSession
             await _assistant.ClearConversationAsync(cancellationToken);
             _history.Clear();
             message = "Conversation history and explicitly saved facts were cleared. Learned project practices were retained.";
+        }
+        else if (prompt.Equals("/skills", StringComparison.OrdinalIgnoreCase))
+        {
+            var skills = _assistant.ListSkills();
+            message = skills.Count == 0
+                ? "No specialist skills were discovered. Check the installed JARVIS Skills folder."
+                : "Available specialist skills:\n" + string.Join("\n", skills.Select(skill => "- " + skill));
+        }
+        else if (prompt.Equals("/agents", StringComparison.OrdinalIgnoreCase))
+        {
+            message = await _assistant.ListAgentsAsync(cancellationToken);
+        }
+        else if (prompt.Equals("/instincts", StringComparison.OrdinalIgnoreCase))
+        {
+            message = await _assistant.ListLearnedPracticesAsync(cancellationToken);
+        }
+        else if (prompt.StartsWith("/learn ", StringComparison.OrdinalIgnoreCase))
+        {
+            var definition = prompt["/learn ".Length..].Trim();
+            var separator = definition.IndexOf("=>", StringComparison.Ordinal);
+            if (separator <= 0 || separator + 2 >= definition.Length)
+                message = "Usage: /learn <trigger> => <action>";
+            else
+                message = await _assistant.LearnPracticeAsync(
+                    definition[..separator].Trim(),
+                    definition[(separator + 2)..].Trim(),
+                    cancellationToken);
+        }
+        else if (prompt.StartsWith("/forget-instinct ", StringComparison.OrdinalIgnoreCase))
+        {
+            message = await _assistant.ForgetLearnedPracticeAsync(
+                prompt["/forget-instinct ".Length..].Trim(),
+                cancellationToken);
         }
         else if (prompt.Equals("/memories", StringComparison.OrdinalIgnoreCase))
         {
