@@ -6,6 +6,7 @@ public sealed class SafeWorkspaceExecutor : IWorkspaceExecutor
 {
     private const long MaxReadableFileBytes = 2 * 1024 * 1024;
     private const int MaxSearchMatches = 500;
+    private const int MaxSearchFilesScanned = 10000;
 
     private static readonly string[] ProtectedSegments =
     [
@@ -139,6 +140,8 @@ public sealed class SafeWorkspaceExecutor : IWorkspaceExecutor
         }
 
         var results = new List<string>();
+        var scannedFiles = 0;
+        var scanLimitReached = false;
 
         foreach (var file in EnumerateWorkspaceFiles(_workspaceRoot, cancellationToken))
         {
@@ -152,6 +155,14 @@ public sealed class SafeWorkspaceExecutor : IWorkspaceExecutor
             if (!IsCodeFile(file))
             {
                 continue;
+            }
+
+            scannedFiles++;
+
+            if (scannedFiles > MaxSearchFilesScanned)
+            {
+                scanLimitReached = true;
+                break;
             }
 
             var fileInfo = new FileInfo(file);
@@ -184,7 +195,9 @@ public sealed class SafeWorkspaceExecutor : IWorkspaceExecutor
         return WorkspaceActionResult.Completed(
             results.Count >= MaxSearchMatches
                 ? $"Search stopped at the {MaxSearchMatches} match limit."
-                : $"Search completed. Matches: {results.Count}.",
+                : scanLimitReached
+                    ? $"Search stopped after scanning {MaxSearchFilesScanned} files."
+                    : $"Search completed. Matches: {results.Count}.",
             string.Join(
                 Environment.NewLine,
                 results));
