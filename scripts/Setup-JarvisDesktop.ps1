@@ -154,7 +154,13 @@ else {
     }
 }
 
+$installedTags = Invoke-RestMethod -Uri "http://127.0.0.1:11434/api/tags" -TimeoutSec 10
+$installedModels = @($installedTags.models | ForEach-Object { $_.name })
+$visionReady = ($installedModels -contains "qwen3-vl:2b") -and ($installedModels -contains "glm-ocr")
+
 Set-UserSetting "JARVIS_AI_PROVIDER" "ollama"
+Set-UserSetting "JARVIS_VISION_PROVIDER" "ollama"
+Set-UserSetting "JARVIS_LOCAL_VISION_ENABLED" ([string]$visionReady).ToLowerInvariant()
 Set-UserSetting "OLLAMA_MODEL" $coreModel
 Set-UserSetting "JARVIS_MEMORY_ENABLED" "true"
 Set-UserSetting "JARVIS_OLLAMA_CONTEXT_TOKENS" "4096"
