@@ -186,4 +186,41 @@ public class TaskPersistenceTests
         }
     }
 
+
+    [Theory]
+    [InlineData(CouncilTaskStatus.Failed)]
+    [InlineData(CouncilTaskStatus.Paused)]
+    public async Task FailedOrPausedBackgroundRun_ReleasesApprovalForExplicitRetry(CouncilTaskStatus finalStatus)
+    {
+        var root = Path.Combine(Path.GetTempPath(), "jarvis-task-test-" + Guid.NewGuid().ToString("N"));
+        Directory.CreateDirectory(root);
+        var file = Path.Combine(root, "tasks.json");
+        try
+        {
+            var manager = new TaskManager(new TaskStore(file));
+            await manager.InitializeAsync();
+            var task = await manager.CreateAsync("Retryable work", "A failed or paused run needs a fresh approval.");
+            Assert.True(await manager.ApproveAsync(task.Id));
+            Assert.NotNull(await manager.ClaimNextApprovedTaskAsync());
+
+            Assert.True(await manager.UpdateStatusAsync(task.Id, CouncilTaskStatus.Running));
+            Assert.True(await manager.UpdateStatusAsync(task.Id, finalStatus));
+
+            var reloaded = new TaskManager(new TaskStore(file));
+            await reloaded.InitializeAsync();
+            var saved = reloaded.Find(task.Id);
+            Assert.NotNull(saved);
+            Assert.Equal(finalStatus, saved!.Status);
+            Assert.False(saved.IsApproved);
+            Assert.Null(saved.ApprovalConsumedAtUtc);
+
+            Assert.True(await reloaded.ApproveAsync(task.Id));
+            Assert.NotNull(await reloaded.ClaimNextApprovedTaskAsync());
+        }
+        finally
+        {
+            Directory.Delete(root, recursive: true);
+        }
+    }
+
 }
