@@ -1,3 +1,4 @@
+using System.Collections.Concurrent;
 using System.Net;
 using System.Net.Sockets;
 using System.Security.Cryptography;
@@ -18,6 +19,8 @@ public sealed class PhoneCommandBridgeService : IAsyncDisposable
     private readonly byte[] _tokenBytes;
     private readonly CancellationTokenSource _stop = new();
     private Task? _loop;
+    private readonly ConcurrentDictionary<int, Task> _handlers = new();
+    private int _nextHandlerId;
 
     public PhoneCommandBridgeService(string bindAddress, int port, string bearerToken, PhoneCommandInbox? inbox = null)
     {
@@ -47,7 +50,14 @@ public sealed class PhoneCommandBridgeService : IAsyncDisposable
             catch (OperationCanceledException) { break; }
             catch (HttpListenerException) when (cancellationToken.IsCancellationRequested) { break; }
 
-            _ = HandleAsync(context, cancellationToken);
+            var handlerId = Interlocked.Increment(ref _nextHandlerId);
+            var handler = HandleAsync(context, cancellationToken);
+            _handlers[handlerId] = handler;
+            _ = handler.ContinueWith(
+                completed => _handlers.TryRemove(handlerId, out var removed),
+                CancellationToken.None,
+                TaskContinuationOptions.ExecuteSynchronously,
+                TaskScheduler.Default);
         }
     }
 
@@ -174,6 +184,12 @@ public sealed class PhoneCommandBridgeService : IAsyncDisposable
         if (_loop is not null)
         {
             try { await _loop; } catch (HttpListenerException) { }
+        }
+        var activeHandlers = _handlers.Values.ToArray();
+        if (activeHandlers.Length > 0)
+        {
+            try { await Task.WhenAll(activeHandlers); }
+            catch (OperationCanceledException) { }
         }
         _listener.Close();
         _stop.Dispose();
