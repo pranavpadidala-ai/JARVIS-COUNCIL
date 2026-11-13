@@ -14,7 +14,7 @@ This implementation turns the existing persisted development-task queue into a r
 - On startup, tasks left in Running state are converted to Paused and restored from their latest checkpoint where available. The user can inspect and explicitly resume them.
 - Artifact hashing is workspace-scoped; paths escaping the configured workspace are rejected.
 
-The current autonomous executor records provider identity and the clean Git baseline. More detailed build/test log and artifact references can be populated by later executor integrations.
+The autonomous executor records provider identity and the clean Git baseline, snapshots Git status around each action, and attaches redacted build/test log files to the task checkpoint. Workspace-scoped SHA-256 artifact hashing is available for output files; automatic artifact inventory remains a follow-on refinement.
 
 ## Brave profile manager
 
