@@ -1,19 +1,24 @@
 # First-time JARVIS setup on Windows
 
-This is the beginner-friendly installation path for the Windows desktop build.
+This is the beginner-friendly installation path for the Windows desktop build. Git is not required.
 
-## 1. Download the project
+## Option A: One PowerShell command (recommended)
 
-1. Open the repository on GitHub.
-2. Select the branch **feature/windows-one-click-setup**.
-3. Choose **Code → Download ZIP**.
-4. Extract the ZIP to a folder you can find again, such as `Documents\JARVIS`.
+Open PowerShell and paste this command:
 
-Git is not required for this installation method.
+```powershell
+irm https://raw.githubusercontent.com/pranavpadidala-ai/JARVIS-COUNCIL/feature/powershell-install-desktop-shortcut/Install-JARVIS.ps1 | iex
+```
 
-## 2. Install and verify JARVIS
+The installer downloads the project to `%USERPROFILE%\\JARVIS`, checks/installs .NET 8, restores dependencies, builds the solution, runs tests, creates a **JARVIS** shortcut on your Windows Desktop, and starts the app. It stops rather than overwriting an existing `%USERPROFILE%\\JARVIS` folder.
 
-Double-click **Setup-JARVIS.bat** in the extracted folder. It will:
+## Option B: Download ZIP manually
+
+1. Download the ZIP for branch **feature/powershell-install-desktop-shortcut**.
+2. Extract it to a folder you can find again.
+3. Run **Setup-JARVIS.bat** in the extracted folder.
+
+The setup script will:
 
 - Check for the .NET 8 SDK and install it if missing (using winget or Microsoft's official installer).
 - Restore project dependencies.
@@ -23,9 +28,9 @@ Double-click **Setup-JARVIS.bat** in the extracted folder. It will:
 
 The first run needs an internet connection. Setup writes a diagnostic log named `jarvis-setup.log` in the project folder.
 
-## 3. Start JARVIS later
+## Start JARVIS later
 
-Double-click **Start-JARVIS.bat**. You do not need to repeat setup unless the project is updated or the build is damaged.
+Double-click the **JARVIS** icon on your Desktop. You can also double-click **Start-JARVIS.bat** inside the installation folder. You do not need to repeat setup unless the project is updated or the build is damaged.
 
 ## AI provider and costs
 
