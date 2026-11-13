@@ -12,6 +12,7 @@ using Council.Dev.Execution;
 using Council.Dev.Git;
 using Council.Dev.Loop;
 using Council.Dev.Planning;
+using Council.Dev.Recovery;
 using Council.Dev.Runner;
 using Council.Dev.Tasks;
 using Council.Dev.Terminal;
@@ -330,7 +331,7 @@ Console.WriteLine($"Workspace : {workspaceRoot}");
 
 var taskStore = new TaskStore();
 
-var taskManager = new TaskManager(taskStore);
+var taskManager = new TaskManager(taskStore, new TaskCheckpointStore());
 
 await taskManager.InitializeAsync();
 
