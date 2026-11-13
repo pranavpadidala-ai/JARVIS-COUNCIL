@@ -38,6 +38,18 @@ public sealed class ActionInterpreter
                 continue;
             }
 
+            if (LooksLikeListFiles(normalized))
+            {
+                actions.Add(
+                    new DevelopmentAction(
+                        DevelopmentActionType.ListFiles,
+                        ExtractPath(normalized) is var path && path == normalized
+                            ? "."
+                            : ExtractPath(normalized)));
+
+                continue;
+            }
+
             if (LooksLikeSearch(normalized))
             {
                 actions.Add(
@@ -126,6 +138,15 @@ public sealed class ActionInterpreter
                || step.Equals(
                    "test",
                    StringComparison.OrdinalIgnoreCase);
+    }
+
+    private static bool LooksLikeListFiles(string step)
+    {
+        return step.Contains("list files", StringComparison.OrdinalIgnoreCase)
+               || step.Contains("show files", StringComparison.OrdinalIgnoreCase)
+               || step.Contains("list directory", StringComparison.OrdinalIgnoreCase)
+               || step.Contains("directory tree", StringComparison.OrdinalIgnoreCase)
+               || step.Equals("list", StringComparison.OrdinalIgnoreCase);
     }
 
     private static bool LooksLikeSearch(string step)
