@@ -149,8 +149,14 @@ public sealed class TaskManager
         var previousUpdatedAt = task.UpdatedAtUtc;
         if (!string.IsNullOrWhiteSpace(previousStep) &&
             !string.Equals(previousStep, currentStep?.Trim(), StringComparison.Ordinal))
-            task.CompletedSteps.Add(previousStep);
-        task.CurrentStep = currentStep?.Trim() ?? string.Empty;
+        {
+            var completed = previousStep.Length > 2000 ? previousStep[..2000] + " [truncated]" : previousStep;
+            task.CompletedSteps.Add(completed);
+            if (task.CompletedSteps.Count > 100)
+                task.CompletedSteps.RemoveRange(0, task.CompletedSteps.Count - 100);
+        }
+        var nextStep = currentStep?.Trim() ?? string.Empty;
+        task.CurrentStep = nextStep.Length > 8000 ? nextStep[..8000] + " [truncated; see validation logs]" : nextStep;
         task.UpdatedAtUtc = DateTime.UtcNow;
 
         try
