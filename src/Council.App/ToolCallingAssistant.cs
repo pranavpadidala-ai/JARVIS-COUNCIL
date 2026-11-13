@@ -31,6 +31,7 @@ public sealed class ToolCallingAssistant
     private readonly MemoryFactStore? _facts;
     private readonly InstinctStore? _instincts;
     private bool _memoryLoaded;
+    public string? LastModel { get; private set; }
     private readonly ToolRegistry _tools = new();
     private readonly AgentSkillLibrary _skills = new();
     private readonly List<AIMessage> _history = [];
@@ -149,7 +150,11 @@ public sealed class ToolCallingAssistant
             }
 
             if (calls.Count == 0 || toolExecutions + calls.Count > MaxToolExecutionsPerTurn)
-                return "This request needs too many tool operations. Please split it into smaller steps.";
+            {
+                const string limitMessage = "This request needs too many tool operations. Please split it into smaller steps.";
+                await AddHistoryAsync(new AIMessage("assistant", limitMessage), cancellationToken);
+                return limitMessage;
+            }
 
             await AddHistoryAsync(new AIMessage("assistant", response.Content), cancellationToken);
             foreach (var call in calls)
@@ -175,7 +180,9 @@ public sealed class ToolCallingAssistant
             }
         }
 
-        return "JARVIS reached its maximum reasoning rounds without producing a final response. Please retry with a smaller request.";
+        const string roundsMessage = "JARVIS reached its maximum reasoning rounds without producing a final response. Please retry with a smaller request.";
+        await AddHistoryAsync(new AIMessage("assistant", roundsMessage), cancellationToken);
+        return roundsMessage;
     }
 
     public async Task RunAsync(CancellationToken cancellationToken = default)
