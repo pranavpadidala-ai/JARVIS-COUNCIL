@@ -81,7 +81,7 @@
         <Button Content="REFRESH" Click="Refresh_Click" Padding="13,8" Margin="0,0,8,0" Background="#123447" Foreground="#BDEFFF" BorderBrush="#24718A"/>
         <Button x:Name="RevokeButton" Content="REVOKE APPROVAL" Click="Revoke_Click" IsEnabled="False" Padding="13,8" Margin="0,0,8,0" Background="#38232B" Foreground="#FFD4D8" BorderBrush="#A64B5A"/>
         <Button x:Name="ApproveButton" Content="APPROVE FOR BACKGROUND" Click="Approve_Click" IsEnabled="False" Padding="13,8" Margin="0,0,8,0" Background="#123F3B" Foreground="#C9FFF0" BorderBrush="#287B69"/>
-        <Button x:Name="RunButton" Content="RUN NOW IN JARVIS" Click="RunNow_Click" IsEnabled="False" Padding="14,8" Background="#10506A" Foreground="White" BorderBrush="#2AC6E0"/>
+        <Button x:Name="RunButton" Content="OPEN RUN REQUEST IN CHAT" Click="RunNow_Click" IsEnabled="False" Padding="14,8" Background="#10506A" Foreground="White" BorderBrush="#2AC6E0"/>
       </StackPanel>
     </StackPanel>
   </Grid>
