@@ -1,6 +1,7 @@
 using Council.AI.Providers;
 using Council.App;
 using Council.App.Finance;
+using Council.App.Phone;
 using Council.Core.Models;
 using Council.Core.Providers;
 using Council.Memory;
@@ -11,7 +12,7 @@ namespace Council.App.Chat;
 /// Desktop facade over the same full tool-calling JARVIS runtime used by the
 /// console app. Conversation and teaching memory are stored locally with DPAPI.
 /// </summary>
-public sealed class AssistantSession
+public sealed class AssistantSession : IAsyncDisposable
 {
     private const string MemoryHelp =
         "Teach JARVIS with /remember followed by a fact. Use /memories to review saved facts and /forget followed by an ID to remove one. Never save passwords, API keys, OTPs or other secrets. Use /learn <trigger> => <action> to teach a project practice, /instincts to review practices, /forget-instinct <id> to remove one, /skills and /agents to inspect JARVIS capabilities, and /clear to clear conversation and explicit facts.";
@@ -20,7 +21,11 @@ public sealed class AssistantSession
     private readonly ConversationMemoryStore _memory;
     private readonly MemoryFactStore _facts;
     private readonly ToolCallingAssistant _assistant;
+    private readonly PhoneCommandInbox _phoneInbox;
+    private readonly PhoneCommandBridgeService? _phoneBridge;
     private List<AIMessage> _history;
+
+    public string PhoneBridgeStatus { get; }
 
     public string ProviderName => _provider.Name;
     public int MessageCount => _history.Count;
@@ -30,12 +35,18 @@ public sealed class AssistantSession
         ConversationMemoryStore memory,
         MemoryFactStore facts,
         ToolCallingAssistant assistant,
+        PhoneCommandInbox phoneInbox,
+        PhoneCommandBridgeService? phoneBridge,
+        string phoneBridgeStatus,
         List<AIMessage> history)
     {
         _provider = provider;
         _memory = memory;
         _facts = facts;
         _assistant = assistant;
+        _phoneInbox = phoneInbox;
+        _phoneBridge = phoneBridge;
+        PhoneBridgeStatus = phoneBridgeStatus;
         _history = history;
     }
 
@@ -97,7 +108,34 @@ public sealed class AssistantSession
             indianMarketTool: new IndianMarketTool(),
             documentImageProvider: documentImageProvider);
 
-        return new AssistantSession(provider, memory, facts, assistant, history);
+        var phoneInbox = new PhoneCommandInbox();
+        PhoneCommandBridgeService? phoneBridge = null;
+        var bridgeBind = Environment.GetEnvironmentVariable("JARVIS_BRIDGE_BIND");
+        var bridgeToken = Environment.GetEnvironmentVariable("JARVIS_BRIDGE_TOKEN");
+        var phoneBridgeStatus = "Disabled. Configure JARVIS_BRIDGE_BIND and JARVIS_BRIDGE_TOKEN to enable the Tailscale-only phone inbox.";
+        if (!string.IsNullOrWhiteSpace(bridgeBind) && !string.IsNullOrWhiteSpace(bridgeToken))
+        {
+            try
+            {
+                var bridgePort = int.TryParse(Environment.GetEnvironmentVariable("JARVIS_BRIDGE_PORT"), out var configuredPort)
+                    ? configuredPort
+                    : 47821;
+                phoneBridge = new PhoneCommandBridgeService(bridgeBind, bridgePort, bridgeToken, phoneInbox);
+                phoneBridge.Start();
+                phoneBridgeStatus = $"Listening on {bridgeBind}:{bridgePort}. Phone requests are queued and require approval in JARVIS.";
+            }
+            catch (Exception ex) when (ex is ArgumentException or InvalidOperationException or
+                                       System.Net.HttpListenerException or UnauthorizedAccessException)
+            {
+                phoneBridgeStatus = "Not started: " + ex.Message;
+                if (phoneBridge is not null)
+                    await phoneBridge.DisposeAsync();
+                phoneBridge = null;
+            }
+        }
+
+        return new AssistantSession(
+            provider, memory, facts, assistant, phoneInbox, phoneBridge, phoneBridgeStatus, history);
     }
 
     public async Task<AIResponse> SendAsync(string text, CancellationToken cancellationToken = default)
@@ -115,6 +153,57 @@ public sealed class AssistantSession
         started.Stop();
         _history = (await _memory.LoadRecentAsync(120, cancellationToken)).ToList();
         return new AIResponse(_provider.Name, response, _assistant.LastModel ?? _provider.Name, started.Elapsed);
+    }
+
+    public Task<IReadOnlyList<PhoneCommand>> ListPhoneCommandsAsync(CancellationToken cancellationToken = default) =>
+        _phoneInbox.ListRecentAsync(100, cancellationToken);
+
+    public async Task<AIResponse> ApprovePhoneCommandAsync(
+        Guid commandId,
+        CancellationToken cancellationToken = default)
+    {
+        var command = await _phoneInbox.ClaimAsync(commandId, cancellationToken);
+        if (command is null)
+            return new AIResponse(
+                "JARVIS Phone",
+                "This request is no longer waiting for approval. It may have been cancelled or claimed by another JARVIS session.",
+                "phone-inbox",
+                TimeSpan.Zero);
+
+        var timer = System.Diagnostics.Stopwatch.StartNew();
+        try
+        {
+            var result = await _assistant.ProcessMessageAsync(command.Text, cancellationToken);
+            await _phoneInbox.CompleteAsync(command.Id, result, CancellationToken.None);
+            _history = (await _memory.LoadRecentAsync(120, CancellationToken.None)).ToList();
+            timer.Stop();
+            return new AIResponse(_provider.Name, result, _assistant.LastModel ?? _provider.Name, timer.Elapsed);
+        }
+        catch (OperationCanceledException)
+        {
+            await _phoneInbox.FailAsync(
+                command.Id,
+                "Request cancelled on the laptop. Any work completed before cancellation remains completed.",
+                CancellationToken.None);
+            _history = (await _memory.LoadRecentAsync(120, CancellationToken.None)).ToList();
+            throw;
+        }
+        catch (Exception)
+        {
+            const string failure = "JARVIS encountered an error while processing this phone request. Please retry from the laptop.";
+            await _phoneInbox.FailAsync(command.Id, failure, CancellationToken.None);
+            timer.Stop();
+            return new AIResponse(_provider.Name, failure, _assistant.LastModel ?? _provider.Name, timer.Elapsed);
+        }
+    }
+
+    public Task<bool> RejectPhoneCommandAsync(Guid commandId, CancellationToken cancellationToken = default) =>
+        _phoneInbox.CancelAsync(commandId, cancellationToken);
+
+    public async ValueTask DisposeAsync()
+    {
+        if (_phoneBridge is not null)
+            await _phoneBridge.DisposeAsync();
     }
 
     public IReadOnlyList<AIMessage> GetRecentMessages(int count = 30) =>
