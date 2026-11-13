@@ -4,7 +4,10 @@ A Windows-first personal AI assistant with a persistent chat, provider failover 
 
 ## Current build
 
-- Interactive console assistant with persistent local conversation history.\n- Windows WPF Command Center desktop shell, styled around the user's futuristic dashboard reference.\n- Desktop chat window connected to the same AI provider fallback and persistent conversation store as the console.\n- Live Windows CPU (JARVIS process), system RAM and system-drive free-space telemetry.
+- Interactive console assistant with persistent local conversation history.
+- Windows WPF Command Center desktop shell, styled around the user's futuristic dashboard reference.
+- Desktop chat window connected to the same AI provider fallback and persistent conversation store as the console.
+- Live Windows CPU (JARVIS process), system RAM and system-drive free-space telemetry.
 - Gemini, OpenAI and OpenAI-compatible provider support.
 - Sequential provider fallback: an unavailable provider does not stop the session if another configured provider works.
 - OmniRoute can be used through its OpenAI-compatible `/chat/completions` endpoint.
