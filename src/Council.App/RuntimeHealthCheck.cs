@@ -111,7 +111,7 @@ public static class RuntimeHealthCheck
                                !string.IsNullOrWhiteSpace(get("OMNIROUTE_FREE_MODELS"))
                     ? new("OmniRoute provider", "READY", "API key, explicit model and free-model allowlist are configured.")
                     : new("OmniRoute provider", "NOT READY", "Configure OMNIROUTE_API_KEY, OMNIROUTE_MODEL and OMNIROUTE_FREE_MODELS locally."),
-                "ollama" => ModelCheck("Ollama chat provider", brainModel, installedModels, ollamaError),
+                "ollama" => ModelCheck("Ollama chat provider", brainModel, installedModels, ollamaError, required: true),
                 "mock" => new("AI provider", "OPTIONAL", "Mock provider explicitly selected; model responses are simulated."),
                 "" => !string.IsNullOrWhiteSpace(get("GEMINI_API_KEY"))
                     ? new("AI provider", "READY", "Gemini will be selected automatically.")
