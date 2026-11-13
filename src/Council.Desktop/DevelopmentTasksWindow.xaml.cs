@@ -24,9 +24,9 @@ public partial class DevelopmentTasksWindow : Window
         Closed += (_, _) => _refreshTimer.Stop();
     }
 
-    private async Task RefreshAsync(Guid? preserveSelection = null)
+    private async Task RefreshAsync(Guid? preserveSelection = null, bool force = false)
     {
-        if (_busy)
+        if (_busy && !force)
             return;
 
         try
@@ -105,7 +105,7 @@ public partial class DevelopmentTasksWindow : Window
             NewTaskTitle.Clear();
             NewTaskDescription.Clear();
             StatusText.Text = $"Created '{created.Title}'. It is Pending and has NOT been approved or run.";
-            await RefreshAsync(created.Id);
+            await RefreshAsync(created.Id, force: true);
         }
         catch (Exception ex)
         {
@@ -138,7 +138,7 @@ public partial class DevelopmentTasksWindow : Window
             StatusText.Text = approved
                 ? "Approved for one background run. Start the optional JARVIS development agent if it is not already running."
                 : "Approval was not applied. The task may have been claimed, completed or removed.";
-            await RefreshAsync(task.Id);
+            await RefreshAsync(task.Id, force: true);
         }
         catch (Exception ex)
         {
