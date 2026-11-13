@@ -4,6 +4,9 @@ namespace Council.Dev.Workspace;
 
 public sealed class SafeWorkspaceExecutor : IWorkspaceExecutor
 {
+    private const long MaxReadableFileBytes = 2 * 1024 * 1024;
+    private const int MaxSearchMatches = 500;
+
     private static readonly string[] ProtectedSegments =
     [
         ".git",
@@ -108,6 +111,14 @@ public sealed class SafeWorkspaceExecutor : IWorkspaceExecutor
                 $"File does not exist: {action.Target}");
         }
 
+        var fileInfo = new FileInfo(pathResult.Path!);
+
+        if (fileInfo.Length > MaxReadableFileBytes)
+        {
+            return WorkspaceActionResult.Failed(
+                $"File exceeds the 2 MB read limit: {action.Target}");
+        }
+
         var content = await File.ReadAllTextAsync(
             pathResult.Path!,
             cancellationToken);
@@ -143,6 +154,13 @@ public sealed class SafeWorkspaceExecutor : IWorkspaceExecutor
                 continue;
             }
 
+            var fileInfo = new FileInfo(file);
+
+            if (fileInfo.Length > MaxReadableFileBytes)
+            {
+                continue;
+            }
+
             var content = await File.ReadAllTextAsync(
                 file,
                 cancellationToken);
@@ -155,11 +173,18 @@ public sealed class SafeWorkspaceExecutor : IWorkspaceExecutor
                     Path.GetRelativePath(
                         _workspaceRoot,
                         file));
+
+                if (results.Count >= MaxSearchMatches)
+                {
+                    break;
+                }
             }
         }
 
         return WorkspaceActionResult.Completed(
-            $"Search completed. Matches: {results.Count}.",
+            results.Count >= MaxSearchMatches
+                ? $"Search stopped at the {MaxSearchMatches} match limit."
+                : $"Search completed. Matches: {results.Count}.",
             string.Join(
                 Environment.NewLine,
                 results));
@@ -195,13 +220,15 @@ public sealed class SafeWorkspaceExecutor : IWorkspaceExecutor
             Directory.CreateDirectory(directory);
         }
 
-        await File.WriteAllTextAsync(
+        var writeResult = await WriteFileAtomicallyAsync(
             pathResult.Path!,
             action.Content,
+            overwrite: false,
             cancellationToken);
 
-        return WorkspaceActionResult.Completed(
-            $"Created file: {action.Target}");
+        return writeResult
+            ? WorkspaceActionResult.Completed($"Created file: {action.Target}")
+            : WorkspaceActionResult.Failed($"File already exists: {action.Target}");
     }
 
     private async Task<WorkspaceActionResult> ModifyFileAsync(
@@ -227,13 +254,71 @@ public sealed class SafeWorkspaceExecutor : IWorkspaceExecutor
                 $"File does not exist: {action.Target}");
         }
 
-        await File.WriteAllTextAsync(
+        await WriteFileAtomicallyAsync(
             pathResult.Path!,
             action.Content,
+            overwrite: true,
             cancellationToken);
 
         return WorkspaceActionResult.Completed(
             $"Modified file: {action.Target}");
+    }
+
+    private static async Task<bool> WriteFileAtomicallyAsync(
+        string destinationPath,
+        string content,
+        bool overwrite,
+        CancellationToken cancellationToken)
+    {
+        var directory = Path.GetDirectoryName(destinationPath)
+            ?? throw new InvalidOperationException(
+                "Destination directory could not be resolved.");
+
+        var temporaryPath = Path.Combine(
+            directory,
+            $".jarvis-{Guid.NewGuid():N}.tmp");
+
+        try
+        {
+            await File.WriteAllTextAsync(
+                temporaryPath,
+                content,
+                cancellationToken);
+
+            cancellationToken.ThrowIfCancellationRequested();
+
+            // The temporary file is created beside the destination so the
+            // final rename stays on the same volume.
+            File.Move(
+                temporaryPath,
+                destinationPath,
+                overwrite);
+
+            return true;
+        }
+        catch (IOException) when (!overwrite && File.Exists(destinationPath))
+        {
+            return false;
+        }
+        finally
+        {
+            try
+            {
+                if (File.Exists(temporaryPath))
+                {
+                    File.Delete(temporaryPath);
+                }
+            }
+            catch (IOException)
+            {
+                // Preserve the primary write result; a stale temp file is
+                // safer than masking the original exception.
+            }
+            catch (UnauthorizedAccessException)
+            {
+                // Best-effort cleanup only.
+            }
+        }
     }
 
     private Task<WorkspaceActionResult> DeleteFileAsync(
