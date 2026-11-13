@@ -218,6 +218,35 @@ public sealed class TaskManager
         }
     }
 
+    public async Task<bool> UpdateValidationReferencesAsync(
+        Guid taskId,
+        string? buildLogPath,
+        string? testLogPath,
+        string? failureClassification,
+        CancellationToken cancellationToken = default)
+    {
+        var task = Find(taskId);
+        if (task is null) return false;
+        var previous = (task.BuildLogPath, task.TestLogPath, task.FailureClassification, task.UpdatedAtUtc);
+        task.BuildLogPath = buildLogPath ?? task.BuildLogPath;
+        task.TestLogPath = testLogPath ?? task.TestLogPath;
+        task.FailureClassification = failureClassification;
+        task.UpdatedAtUtc = DateTime.UtcNow;
+        try
+        {
+            await PersistAsync(cancellationToken);
+            return true;
+        }
+        catch
+        {
+            task.BuildLogPath = previous.BuildLogPath;
+            task.TestLogPath = previous.TestLogPath;
+            task.FailureClassification = previous.FailureClassification;
+            task.UpdatedAtUtc = previous.UpdatedAtUtc;
+            throw;
+        }
+    }
+
     private async Task PersistAsync(CancellationToken cancellationToken)
     {
         await _store.SaveAsync(_tasks, cancellationToken);
