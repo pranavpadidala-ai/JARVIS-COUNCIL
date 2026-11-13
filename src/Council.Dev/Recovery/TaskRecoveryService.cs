@@ -1,4 +1,5 @@
 using Council.Dev.Tasks;
+using DevTaskStatus = Council.Dev.Tasks.TaskStatus;
 
 namespace Council.Dev.Recovery;
 
@@ -29,7 +30,7 @@ public sealed class TaskRecoveryService
             await _tasks.UpdateStepAsync(taskId,
                 $"Recovered checkpoint from {checkpoint.CreatedAtUtc:O}. Next: {checkpoint.NextAction}",
                 cancellationToken);
-            await _tasks.UpdateStatusAsync(taskId, TaskStatus.Paused, cancellationToken);
+            await _tasks.UpdateStatusAsync(taskId, DevTaskStatus.Paused, cancellationToken);
         }
         return checkpoint;
     }
