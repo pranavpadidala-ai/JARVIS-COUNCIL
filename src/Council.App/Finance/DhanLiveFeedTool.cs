@@ -88,6 +88,23 @@ public static class DhanFeedPacketParser
         return ticks;
     }
 
+    public static int? TryReadDisconnectCode(ReadOnlySpan<byte> data)
+    {
+        var offset = 0;
+        while (data.Length - offset >= 10)
+        {
+            var packet = data[offset..];
+            var code = packet[0];
+            var declaredLength = BinaryPrimitives.ReadUInt16LittleEndian(packet.Slice(1, 2));
+            var length = declaredLength >= 10 && declaredLength <= packet.Length ? declaredLength : code == 50 ? 10 : 0;
+            if (length < 10 || length > packet.Length) return null;
+            if (code == 50)
+                return BinaryPrimitives.ReadInt16LittleEndian(packet.Slice(8, 2));
+            offset += length;
+        }
+        return null;
+    }
+
     private static double? ReadFloat(ReadOnlySpan<byte> packet, int offset)
     {
         var value = BitConverter.Int32BitsToSingle(BinaryPrimitives.ReadInt32LittleEndian(packet.Slice(offset, 4)));
@@ -290,7 +307,11 @@ public sealed class DhanLiveFeedTool : ITool
                 backoffSeconds = 2;
                 await ReceiveLoopAsync(socket, token);
                 if (!token.IsCancellationRequested)
+                {
+                    if (_lastError?.StartsWith("Dhan sent a feed disconnect", StringComparison.Ordinal) == true)
+                        break;
                     _lastError = "Dhan closed the feed connection; reconnecting.";
+                }
             }
             catch (OperationCanceledException) when (token.IsCancellationRequested) { break; }
             catch (WebSocketException)
@@ -368,7 +389,14 @@ public sealed class DhanLiveFeedTool : ITool
 
             if (result.MessageType == WebSocketMessageType.Binary)
             {
-                foreach (var tick in DhanFeedPacketParser.Parse(message.GetBuffer().AsSpan(0, (int)message.Length)))
+                var packetBytes = message.GetBuffer().AsSpan(0, (int)message.Length);
+                var disconnectCode = DhanFeedPacketParser.TryReadDisconnectCode(packetBytes);
+                if (disconnectCode is not null)
+                {
+                    _lastError = $"Dhan sent a feed disconnect packet (code {disconnectCode.Value}). Check the Data API entitlement, access token and connection limit before restarting.";
+                    return;
+                }
+                foreach (var tick in DhanFeedPacketParser.Parse(packetBytes))
                 {
                     var key = $"{tick.ExchangeSegment}:{tick.SecurityId}";
                     _latest.AddOrUpdate(key, tick, (_, previous) => tick with
