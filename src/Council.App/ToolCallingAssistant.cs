@@ -31,6 +31,7 @@ public sealed class ToolCallingAssistant
     private readonly MemoryFactStore? _facts;
     private readonly InstinctStore? _instincts;
     private bool _memoryLoaded;
+    public string? LastModel { get; private set; }
     private readonly ToolRegistry _tools = new();
     private readonly AgentSkillLibrary _skills = new();
     private readonly List<AIMessage> _history = [];
@@ -82,6 +83,158 @@ public sealed class ToolCallingAssistant
         _tools.Register(new SpecialistAgentTool(_provider, _tools));
         _history.Add(new AIMessage("system", SystemPrompt + "\n\nAvailable tools:\n" +
             string.Join("\n", _tools.GetAll().Select(t => t.Name + ": " + t.Description))));
+    }
+
+
+    public IReadOnlyList<string> ListSkills() => _skills.ListSkills();
+
+    public async Task<string> ListAgentsAsync(CancellationToken cancellationToken = default)
+    {
+        var agentTool = _tools.GetAll().OfType<SpecialistAgentTool>().FirstOrDefault();
+        if (agentTool is null)
+            return "The specialist-agent runtime is unavailable.";
+        var result = await agentTool.ExecuteAsync(
+            new Dictionary<string, string> { ["action"] = "list" },
+            cancellationToken);
+        return result.Message;
+    }
+
+    public async Task<string> LearnPracticeAsync(
+        string trigger,
+        string action,
+        CancellationToken cancellationToken = default)
+    {
+        if (_instincts is null)
+            return "Project learning is unavailable because long-term memory is disabled.";
+        if (string.IsNullOrWhiteSpace(trigger) || string.IsNullOrWhiteSpace(action))
+            return "Both a trigger and an action are required.";
+        var item = await _instincts.AddOrReinforceAsync(
+            trigger.Trim(), action.Trim(), cancellationToken: cancellationToken);
+        return $"Saved project practice '{item.Id}' (confidence {item.Confidence:0.00}, evidence {item.EvidenceCount}).";
+    }
+
+    public async Task<string> ListLearnedPracticesAsync(CancellationToken cancellationToken = default)
+    {
+        if (_instincts is null)
+            return "Project learning is unavailable because long-term memory is disabled.";
+        var items = await _instincts.ListAsync(cancellationToken);
+        if (items.Count == 0)
+            return "No learned project practices have been saved yet. Use /learn <trigger> => <action>.";
+        return string.Join(Environment.NewLine, items
+            .OrderByDescending(item => item.Confidence)
+            .ThenByDescending(item => item.UpdatedAt)
+            .Select(item => $"[{item.Id}] {item.Domain} | {item.Trigger} => {item.Action} (confidence {item.Confidence:0.00}, evidence {item.EvidenceCount})"));
+    }
+
+    public async Task<string> ForgetLearnedPracticeAsync(
+        string id,
+        CancellationToken cancellationToken = default)
+    {
+        if (_instincts is null)
+            return "Project learning is unavailable because long-term memory is disabled.";
+        if (string.IsNullOrWhiteSpace(id))
+            return "A practice ID is required.";
+        var removed = await _instincts.RemoveAsync(id.Trim(), cancellationToken);
+        return removed ? "The learned project practice was removed." : "No learned practice was found with that ID.";
+    }
+
+    /// <summary>
+    /// Clears conversation history and explicit facts while retaining learned
+    /// project practices. Used by desktop clients for the /clear command.
+    /// </summary>
+    public async Task ClearConversationAsync(CancellationToken cancellationToken = default)
+    {
+        if (_history.Count > 1)
+            _history.RemoveRange(1, _history.Count - 1);
+        if (_memory is not null)
+            await _memory.ClearAsync(cancellationToken);
+        if (_facts is not null)
+            await _facts.ClearAsync(cancellationToken);
+        _memoryLoaded = true;
+    }
+
+    /// <summary>
+    /// Processes one user turn for desktop, phone and other non-console clients.
+    /// Uses the same registered tools, specialist skills, memory retrieval and
+    /// bounded tool-execution loop as the interactive JARVIS console.
+    /// </summary>
+    public async Task<string> ProcessMessageAsync(
+        string input,
+        CancellationToken cancellationToken = default)
+    {
+        if (string.IsNullOrWhiteSpace(input))
+            throw new ArgumentException("A message is required.", nameof(input));
+
+        input = input.Trim();
+        if (!_memoryLoaded && _memory is not null)
+        {
+            var restored = await _memory.LoadRecentAsync(MaxHistoryMessages, cancellationToken);
+            _history.InsertRange(1, restored);
+            TrimHistory();
+        }
+        _memoryLoaded = true;
+
+        await AddHistoryAsync(new AIMessage("user", input), cancellationToken);
+        TrimHistory();
+
+        var toolExecutions = 0;
+        for (var round = 0; round < MaxModelRoundsPerTurn; round++)
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+            var response = await _provider.AskAsync(
+                new AIRequest(await BuildMessagesForTurnAsync(input, cancellationToken), Temperature: 0.2),
+                cancellationToken);
+
+            if (string.IsNullOrWhiteSpace(response.Content))
+                return "The AI provider returned an empty response. Please try again.";
+
+            if (!TryParseEnvelope(response.Content, out var type, out var calls, out var message))
+            {
+                var cleanText = response.Content.Trim();
+                await AddHistoryAsync(new AIMessage("assistant", cleanText), cancellationToken);
+                return cleanText;
+            }
+
+            if (type == "message")
+            {
+                await AddHistoryAsync(new AIMessage("assistant", message), cancellationToken);
+                return message;
+            }
+
+            if (calls.Count == 0 || toolExecutions + calls.Count > MaxToolExecutionsPerTurn)
+            {
+                const string limitMessage = "This request needs too many tool operations. Please split it into smaller steps.";
+                await AddHistoryAsync(new AIMessage("assistant", limitMessage), cancellationToken);
+                return limitMessage;
+            }
+
+            await AddHistoryAsync(new AIMessage("assistant", response.Content), cancellationToken);
+            foreach (var call in calls)
+            {
+                cancellationToken.ThrowIfCancellationRequested();
+                if (!_tools.TryGet(call.Name, out var tool))
+                {
+                    await AddHistoryAsync(
+                        new AIMessage("user", "Tool result: FAILED: Unknown tool name; operation blocked."),
+                        cancellationToken);
+                }
+                else
+                {
+                    var result = await tool.ExecuteAsync(call.Arguments, cancellationToken);
+                    await AddHistoryAsync(
+                        new AIMessage("user", "Tool result (" + tool.Name + "): " +
+                            (result.Success ? "SUCCESS: " : "FAILED: ") + result.Message),
+                        cancellationToken);
+                }
+
+                toolExecutions++;
+                TrimHistory();
+            }
+        }
+
+        const string roundsMessage = "JARVIS reached its maximum reasoning rounds without producing a final response. Please retry with a smaller request.";
+        await AddHistoryAsync(new AIMessage("assistant", roundsMessage), cancellationToken);
+        return roundsMessage;
     }
 
     public async Task RunAsync(CancellationToken cancellationToken = default)

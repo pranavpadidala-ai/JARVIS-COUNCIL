@@ -45,8 +45,8 @@
           <StackPanel>
             <TextBlock Text="VOICE STATUS" Style="{StaticResource SectionTitle}"/>
             <TextBlock Text="◉  Push-to-talk" Foreground="#3BDDF4" FontSize="15" HorizontalAlignment="Center" Margin="0,10"/>
-            <TextBlock Text="Voice engine not connected" Style="{StaticResource Small}" TextAlignment="Center"/>
-            <TextBlock Text="Microphone access will be shown here" Style="{StaticResource Small}" TextAlignment="Center" TextWrapping="Wrap" Margin="0,8,0,0"/>
+            <TextBlock Text="Voice controls available in chat" Style="{StaticResource Small}" TextAlignment="Center"/>
+            <TextBlock Text="Push-to-talk; microphone opens only when requested" Style="{StaticResource Small}" TextAlignment="Center" TextWrapping="Wrap" Margin="0,8,0,0"/>
           </StackPanel>
         </Border>
       </DockPanel>
@@ -131,7 +131,7 @@
             <TextBlock Text="QUICK COMMANDS" Style="{StaticResource SectionTitle}"/>
             <Button Style="{StaticResource ActionButton}" Content="＋  Start New Task" Click="StartTask_Click"/>
             <Button Style="{StaticResource ActionButton}" Content="▤  Open Conversations" Click="OpenConsole_Click"/>
-            <Button Style="{StaticResource ActionButton}" Content="◉  Voice (coming soon)"/>
+            <Button Style="{StaticResource ActionButton}" Content="◉  Voice &amp; Chat" Click="OpenConsole_Click"/>
             <Button Style="{StaticResource ActionButton}" Content="⌘  Run Workflow" Click="RunWorkflow_Click"/>
           </StackPanel>
         </Border>
@@ -157,7 +157,7 @@
           <StackPanel>
             <TextBlock Text="MEMORY INSIGHTS" Style="{StaticResource SectionTitle}"/>
             <TextBlock x:Name="MemoryCountText" Text="Loading saved conversations..." Style="{StaticResource Metric}" FontSize="15"/>
-            <TextBlock Text="Project memory and searchable knowledge index will be connected here." Style="{StaticResource Small}" TextWrapping="Wrap" Margin="0,9"/>
+            <TextBlock Text="Encrypted conversation memory and explicitly taught facts are available in chat." Style="{StaticResource Small}" TextWrapping="Wrap" Margin="0,9"/>
           </StackPanel>
         </Border>
         <Border Grid.Column="2" Style="{StaticResource Panel}">
@@ -166,7 +166,7 @@
             <TextBlock x:Name="ProviderStatusText" Text="Checking configured providers..." Style="{StaticResource Small}" Margin="0,5"/>
             <TextBlock Text="OmniRoute  •  Optional gateway" Style="{StaticResource Small}" Margin="0,8"/>
             <TextBlock Text="OpenAI  •  Optional provider" Style="{StaticResource Small}" Margin="0,8"/>
-            <TextBlock Text="Local model  •  Planned" Style="{StaticResource Small}" Margin="0,8"/>
+            <TextBlock Text="Local Ollama  •  Optional" Style="{StaticResource Small}" Margin="0,8"/>
           </StackPanel>
         </Border>
       </Grid>
@@ -176,7 +176,7 @@
           <Grid.ColumnDefinitions><ColumnDefinition/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
           <StackPanel VerticalAlignment="Center">
             <TextBlock Text="JARVIS COMMAND INPUT" Foreground="#38DDF5" FontSize="10" FontWeight="Bold"/>
-            <TextBlock Text="The desktop interface is being connected to the assistant runtime." Style="{StaticResource Small}"/>
+            <TextBlock Text="Full JARVIS tools, specialist skills, agents and memory are available in chat." Style="{StaticResource Small}"/>
           </StackPanel>
           <Button Grid.Column="1" Content="OPEN JARVIS CHAT  →" Background="#12445A" Foreground="#D9FAFF" BorderBrush="#28BBD6" Padding="16,9" Click="OpenConsole_Click"/>
         </Grid>

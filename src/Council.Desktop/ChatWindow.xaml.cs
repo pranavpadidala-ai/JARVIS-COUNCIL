@@ -3,6 +3,7 @@ using System.Windows.Controls;
 using System.Windows.Input;
 using System.Windows.Media;
 using Council.App.Chat;
+using Council.App.Voice;
 
 namespace Council.Desktop;
 
@@ -12,11 +13,24 @@ public partial class ChatWindow : Window
 
     private AssistantSession? _session;
     private bool _sending;
+    private bool _speakReplies;
+    private WindowsVoiceService? _voice;
+    private CancellationTokenSource? _voiceCapture;
+    private CancellationTokenSource? _turnCancellation;
 
     public ChatWindow()
     {
         InitializeComponent();
         Loaded += ChatWindow_Loaded;
+        Closed += (_, _) =>
+        {
+            _voiceCapture?.Cancel();
+            _voice?.StopAll();
+            _voice?.Dispose();
+            _voiceCapture?.Dispose();
+            _turnCancellation?.Cancel();
+            _turnCancellation?.Dispose();
+        };
     }
 
     private async void ChatWindow_Loaded(object sender, RoutedEventArgs e)
@@ -41,6 +55,76 @@ public partial class ChatWindow : Window
 
     private async void Send_Click(object sender, RoutedEventArgs e) => await SendMessageAsync();
 
+    private async void Voice_Click(object sender, RoutedEventArgs e)
+    {
+        if (_voiceCapture is not null)
+        {
+            _voiceCapture.Cancel();
+            _voice?.StopAll();
+            ProviderStatus.Text = "●  Stopping microphone...";
+            return;
+        }
+
+        if (!OperatingSystem.IsWindows())
+        {
+            ProviderStatus.Text = "●  Voice input requires Windows";
+            return;
+        }
+
+        var capture = new CancellationTokenSource();
+        _voiceCapture = capture;
+        VoiceButton.Content = "  STOP  ";
+        StopButton.IsEnabled = true;
+        ProviderStatus.Text = "●  Listening... speak now";
+        try
+        {
+            _voice ??= new WindowsVoiceService();
+            var recognized = await _voice.ListenOnceAsync(capture.Token);
+            if (string.IsNullOrWhiteSpace(recognized))
+            {
+                ProviderStatus.Text = "●  No speech recognized";
+                return;
+            }
+            MessageInput.Text = recognized.Trim();
+            await SendMessageAsync();
+        }
+        catch (OperationCanceledException)
+        {
+            ProviderStatus.Text = "●  Voice capture stopped";
+        }
+        catch (Exception ex)
+        {
+            ProviderStatus.Text = "●  Voice unavailable: " + ex.GetBaseException().Message;
+        }
+        finally
+        {
+            if (ReferenceEquals(_voiceCapture, capture)) _voiceCapture = null;
+            capture.Dispose();
+            VoiceButton.Content = "  VOICE  ";
+            StopButton.IsEnabled = _turnCancellation is not null;
+        }
+    }
+
+    private void Stop_Click(object sender, RoutedEventArgs e)
+    {
+        _voiceCapture?.Cancel();
+        _turnCancellation?.Cancel();
+        _voice?.StopAll();
+        ProviderStatus.Text = "●  Cancellation requested";
+    }
+
+    private void Speak_Click(object sender, RoutedEventArgs e)
+    {
+        _speakReplies = !_speakReplies;
+        SpeakButton.Content = _speakReplies ? "  SPEAK: ON  " : "  SPEAK: OFF  ";
+        if (!_speakReplies)
+        {
+            _voice?.StopAll();
+            ProviderStatus.Text = "●  " + (_session?.ProviderName ?? "Assistant not connected");
+        }
+    }
+
+
     private async void MessageInput_KeyDown(object sender, KeyEventArgs e)
     {
         if (e.Key == Key.Enter && Keyboard.Modifiers == ModifierKeys.Control)
@@ -59,12 +143,36 @@ public partial class ChatWindow : Window
         MessageInput.Clear();
         AddMessage("YOU", prompt, false);
         _sending = true;
+        using var turnCancellation = new CancellationTokenSource();
+        _turnCancellation = turnCancellation;
+        StopButton.IsEnabled = true;
         ProviderStatus.Text = "●  Thinking...";
         try
         {
-            var response = await _session.SendAsync(prompt);
+            var response = await _session.SendAsync(prompt, turnCancellation.Token);
             AddMessage("JARVIS", response.Content, true);
             ProviderStatus.Text = $"●  {response.Provider} / {response.Model}";
+            if (_speakReplies && OperatingSystem.IsWindows())
+            {
+                try
+                {
+                    _voice ??= new WindowsVoiceService();
+                    await _voice.SpeakAsync(response.Content);
+                }
+                catch (OperationCanceledException)
+                {
+                    ProviderStatus.Text = "●  " + response.Provider + " / speech stopped";
+                }
+                catch (Exception ex)
+                {
+                    ProviderStatus.Text = "●  Reply ready; speech unavailable: " + ex.GetBaseException().Message;
+                }
+            }
+        }
+        catch (OperationCanceledException) when (turnCancellation.IsCancellationRequested)
+        {
+            AddMessage("JARVIS", "I stopped the active request. Any action already completed before cancellation remains completed.", true);
+            ProviderStatus.Text = "●  Request cancelled";
         }
         catch (Exception ex)
         {
@@ -73,7 +181,10 @@ public partial class ChatWindow : Window
         }
         finally
         {
+            if (ReferenceEquals(_turnCancellation, turnCancellation))
+                _turnCancellation = null;
             _sending = false;
+            StopButton.IsEnabled = _voiceCapture is not null;
             MessageInput.Focus();
         }
     }

@@ -24,6 +24,28 @@ dotnet run --project .\src\Council.App\Council.App.csproj -- --doctor
 
 The normal startup is the interactive JARVIS assistant. `--doctor` checks the configured AI provider, Ollama models, local vision/OCR, Dhan credential presence, Abaqus launcher, voice runtimes and phone-bridge configuration. It never displays secrets or starts feeds, GUI actions or solver jobs. If no provider key is configured, it starts in mock mode so the local application and tools can still be exercised.
 
+## Windows desktop app (first usable build)
+
+Launch the WPF Command Center and chat window from PowerShell:
+
+```powershell
+.\scripts\Start-JarvisDesktop.ps1
+```
+
+The desktop chat uses the same provider setting as the main application. For a private, no-API-credit local setup, install Ollama and the small local model stack once:
+
+```powershell
+Set-ExecutionPolicy -Scope Process Bypass
+.\scripts\Install-LocalModels.ps1
+$env:JARVIS_AI_PROVIDER = "ollama"
+$env:OLLAMA_MODEL = "qwen3.5:2b-q4_K_M"
+dotnet run --project .\src\Council.Desktop\Council.Desktop.csproj
+```
+
+The desktop conversation history is stored locally under `%LOCALAPPDATA%\JARVIS\Memory\desktop-conversation.jsonl` and protected with Windows DPAPI. The desktop chat now calls the same bounded tool-calling runtime as the console assistant, including workspace file tools, public web research, Office document tools, Indian equity monitoring, Abaqus diagnostics, specialist agents, and explicitly requested visible-desktop computer use. Voice is on-demand: press VOICE to open the microphone, press STOP to cancel capture, and toggle SPEAK to read replies aloud. The dashboard provides system telemetry and launches the chat; some dashboard cards are informational and do not imply a background agent or market feed is running.
+
+You can begin teaching the desktop assistant immediately: send `/remember I prefer concise answers with worked engineering examples` to save a personal fact. Use `/memories` to review facts and `/forget <id>` to remove one. To teach a repeatable project practice, use `/learn when I ask for a four-point bending setup => first confirm whether the support span is divided into three equal parts`; use `/instincts` to review learned practices and `/forget-instinct <id>` to remove one. `/skills` and `/agents` list JARVIS capabilities; `/clear` clears conversation history and explicit facts but retains learned project practices. Facts and practices are encrypted with Windows DPAPI for the current Windows account and are included as context when relevant. This is explicit memory-based personalization, not fine-tuning the underlying language model. Do not store passwords, API keys, OTPs or other secrets.
+
 ## Choose an AI provider
 
 Set configuration in the current PowerShell session. Do not commit API keys or place them in the project workspace.

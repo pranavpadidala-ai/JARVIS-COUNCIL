@@ -4,6 +4,7 @@ using System.Runtime.InteropServices;
 using System.Windows;
 using System.Windows.Threading;
 using Council.App.Chat;
+using Council.Memory;
 
 namespace Council.Desktop;
 
@@ -58,14 +59,33 @@ public partial class MainWindow : Window
     {
         try
         {
-            var session = await AssistantSession.CreateAsync();
-            ProviderStatusText.Text = $"●  {session.ProviderName}";
-            MemoryCountText.Text = $"{session.MessageCount} saved messages";
+            var selected = Environment.GetEnvironmentVariable("JARVIS_AI_PROVIDER")?.Trim().ToLowerInvariant();
+            var providerLabel = selected switch
+            {
+                "ollama" => "Local Ollama",
+                "gemini" => "Google Gemini",
+                "openai" => "OpenAI",
+                "omniroute" => "OmniRoute (allowlisted)",
+                "mock" => "Mock / test mode",
+                null or "" when !string.IsNullOrWhiteSpace(Environment.GetEnvironmentVariable("GEMINI_API_KEY")) => "Google Gemini (auto)",
+                null or "" when !string.IsNullOrWhiteSpace(Environment.GetEnvironmentVariable("OPENAI_API_KEY")) => "OpenAI (auto)",
+                null or "" => "Mock / test mode (configure a provider)",
+                _ => "Unknown provider setting"
+            };
+            ProviderStatusText.Text = "●  " + providerLabel;
+
+            var localData = Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData);
+            if (string.IsNullOrWhiteSpace(localData))
+                localData = AppContext.BaseDirectory;
+            var memory = new ConversationMemoryStore(
+                Path.Combine(localData, "JARVIS", "Memory", "desktop-conversation.jsonl"));
+            var history = await memory.LoadRecentAsync(120);
+            MemoryCountText.Text = $"{history.Count} saved messages";
         }
         catch
         {
-            ProviderStatusText.Text = "●  Provider configuration issue";
-            MemoryCountText.Text = "Conversation history unavailable";
+            ProviderStatusText.Text = "●  Check provider configuration";
+            MemoryCountText.Text = "Memory status unavailable";
         }
     }
 
