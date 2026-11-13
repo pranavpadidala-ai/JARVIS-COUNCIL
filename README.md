@@ -211,7 +211,9 @@ $env:JARVIS_MARKET_WATCHLIST_PATH = "$env:LOCALAPPDATA\JARVIS\market\watchlist.j
 | `JARVIS_BRIDGE_TOKEN` | Private phone-bridge bearer token |
 | `JARVIS_BRIDGE_PORT` | Phone bridge port; defaults to 47821 |
 | `GEMINI_API_KEY`, `OPENAI_API_KEY` | Provider credentials |
-| `OLLAMA_BASE_URL`, `OLLAMA_MODEL` | Local Ollama endpoint and model |
+| `OLLAMA_BASE_URL`, `OLLAMA_MODEL` | Local Ollama endpoint and chat model |
+| `JARVIS_VISION_MODEL`, `JARVIS_DOCUMENT_VISION_MODEL` | Separate local desktop-vision and engineering-document OCR models |
+| `JARVIS_OLLAMA_VISION_KEEP_ALIVE` | Vision-model unload policy; defaults to `0` to conserve RAM |
 | `OMNIROUTE_BASE_URL`, `OMNIROUTE_API_KEY`, `OMNIROUTE_MODEL`, `OMNIROUTE_FREE_MODELS` | OmniRoute gateway configuration |
 
 ## Dhan symbol resolution and broker data

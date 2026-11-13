@@ -22,6 +22,12 @@ if (-not $ollama) {
     }
 }
 
+$versionText = (& $ollama.Source --version 2>&1) -join " "
+$versionMatch = [regex]::Match($versionText, "(\d+)\.(\d+)\.(\d+)")
+if (-not $versionMatch.Success) { throw "Could not determine Ollama version. Update to 0.12.7 or newer." }
+$installedVersion = [version]::new([int]$versionMatch.Groups[1].Value, [int]$versionMatch.Groups[2].Value, [int]$versionMatch.Groups[3].Value)
+if ($installedVersion -lt [version]"0.12.7") { throw "Qwen3-VL requires Ollama 0.12.7 or newer. Update Ollama from https://ollama.com/download." }
+
 $ollamaSettings = @{
     OLLAMA_MAX_LOADED_MODELS = "1"
     OLLAMA_NUM_PARALLEL = "1"
@@ -34,15 +40,21 @@ foreach ($entry in $ollamaSettings.GetEnumerator()) {
     Set-Item -Path ("Env:" + $entry.Key) -Value $entry.Value
 }
 $env:JARVIS_OLLAMA_KEEP_ALIVE = "30s"
+$env:JARVIS_OLLAMA_VISION_KEEP_ALIVE = "0"
 $env:JARVIS_OLLAMA_CONTEXT_TOKENS = "4096"
+[Environment]::SetEnvironmentVariable("JARVIS_OLLAMA_VISION_KEEP_ALIVE", "0", "User")
 
 Write-Host "Pulling Qwen 3.5 2B Q4_K_M local brain..."
 & $ollama.Source pull "qwen3.5:2b-q4_K_M"
 if ($LASTEXITCODE -ne 0) { throw "Could not pull the Qwen brain model." }
 
-Write-Host "Pulling Moondream 2 local vision model..."
-& $ollama.Source pull "moondream"
-if ($LASTEXITCODE -ne 0) { throw "Could not pull the Moondream vision model." }
+Write-Host "Pulling Qwen3-VL 2B desktop/computer vision model..."
+& $ollama.Source pull "qwen3-vl:2b"
+if ($LASTEXITCODE -ne 0) { throw "Could not pull the Qwen3-VL vision model." }
+
+Write-Host "Pulling GLM-OCR specialist engineering-document model..."
+& $ollama.Source pull "glm-ocr"
+if ($LASTEXITCODE -ne 0) { throw "Could not pull the GLM-OCR document model." }
 
 $whisperPath = Join-Path $models "ggml-small.bin"
 if (-not (Test-Path $whisperPath) -or (Get-Item $whisperPath).Length -lt 100MB) {
@@ -85,10 +97,12 @@ if ($LASTEXITCODE -ne 0) { throw "Could not download one or more Piper voices." 
 Write-Host ""
 Write-Host "Local JARVIS model stack installed."
 Write-Host "Brain : qwen3.5:2b-q4_K_M (Ollama)"
-Write-Host "Eyes  : moondream (Ollama)"
+Write-Host "Screen eyes  : qwen3-vl:2b (Ollama)"
+Write-Host "Document OCR : glm-ocr (Ollama)"
 Write-Host "Ears  : Whisper small multilingual (CPU, loaded only for /voice)"
 Write-Host "Mouth : Piper medium English + Telugu + Hindi voices"
 Write-Host "Storage: $root"
 Write-Host ""
 Write-Host "Close and reopen Ollama so its one-model/one-parallel/Q8-KV memory settings take effect."
+Write-Host "Vision models unload after each request by default to preserve RAM; change JARVIS_OLLAMA_VISION_KEEP_ALIVE only if you have spare memory."
 Write-Host "Then set JARVIS_AI_PROVIDER=ollama to use the local brain, or keep Gemini/OpenAI as your cloud brain."
