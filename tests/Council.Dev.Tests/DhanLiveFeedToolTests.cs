@@ -1,5 +1,4 @@
 using System.Buffers.Binary;
-using System.Net;
 using Council.App.Finance;
 
 namespace Council.Dev.Tests;
@@ -48,9 +47,9 @@ public sealed class DhanLiveFeedToolTests
 
         Assert.Equal(2, parsed.Count);
         Assert.Equal("BSE_EQ", parsed[0].ExchangeSegment);
-        Assert.Equal(2500, parsed[0].LastPrice);
-        Assert.Equal(123456, parsed[0].Volume);
-        Assert.Equal(2475, parsed[1].PreviousClose);
+        Assert.Equal(2500d, parsed[0].LastPrice!.Value);
+        Assert.Equal(123456L, parsed[0].Volume!.Value);
+        Assert.Equal(2475d, parsed[1].PreviousClose!.Value);
     }
 
     [Fact]
@@ -70,35 +69,23 @@ public sealed class DhanLiveFeedToolTests
     [Fact]
     public async Task StartRequiresCredentialsAndDoesNotAcceptTradingArguments()
     {
-        var previousId = Environment.GetEnvironmentVariable("DHAN_CLIENT_ID");
-        var previousToken = Environment.GetEnvironmentVariable("DHAN_ACCESS_TOKEN");
-        try
-        {
-            Environment.SetEnvironmentVariable("DHAN_CLIENT_ID", null);
-            Environment.SetEnvironmentVariable("DHAN_ACCESS_TOKEN", null);
-            var tool = new DhanLiveFeedTool();
+        var tool = new DhanLiveFeedTool(() => null, () => null);
 
-            var noCredentials = await tool.ExecuteAsync(new Dictionary<string, string>
-            {
-                ["action"] = "start",
-                ["instruments"] = "NSE_EQ:1333"
-            });
-            var orderArgument = await tool.ExecuteAsync(new Dictionary<string, string>
-            {
-                ["action"] = "start",
-                ["instruments"] = "NSE_EQ:1333",
-                ["order"] = "BUY"
-            });
-
-            Assert.False(noCredentials.Success);
-            Assert.Contains("not connected", noCredentials.Message, StringComparison.OrdinalIgnoreCase);
-            Assert.False(orderArgument.Success);
-        }
-        finally
+        var noCredentials = await tool.ExecuteAsync(new Dictionary<string, string>
         {
-            Environment.SetEnvironmentVariable("DHAN_CLIENT_ID", previousId);
-            Environment.SetEnvironmentVariable("DHAN_ACCESS_TOKEN", previousToken);
-        }
+            ["action"] = "start",
+            ["instruments"] = "NSE_EQ:1333"
+        });
+        var orderArgument = await tool.ExecuteAsync(new Dictionary<string, string>
+        {
+            ["action"] = "start",
+            ["instruments"] = "NSE_EQ:1333",
+            ["order"] = "BUY"
+        });
+
+        Assert.False(noCredentials.Success);
+        Assert.Contains("not connected", noCredentials.Message, StringComparison.OrdinalIgnoreCase);
+        Assert.False(orderArgument.Success);
     }
 
     [Fact]
