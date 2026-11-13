@@ -256,6 +256,30 @@ public sealed class TaskManager
         }
     }
 
+    public async Task<bool> UpdateArtifactsAsync(
+        Guid taskId,
+        IReadOnlyList<TaskArtifactSnapshot> artifacts,
+        CancellationToken cancellationToken = default)
+    {
+        ArgumentNullException.ThrowIfNull(artifacts);
+        if (artifacts.Count > 500) throw new ArgumentException("At most 500 artifact references may be checkpointed.", nameof(artifacts));
+        var task = Find(taskId);
+        if (task is null) return false;
+        var previous = task.Artifacts;
+        task.Artifacts = artifacts.ToList();
+        task.UpdatedAtUtc = DateTime.UtcNow;
+        try
+        {
+            await PersistAsync(cancellationToken);
+            return true;
+        }
+        catch
+        {
+            task.Artifacts = previous;
+            throw;
+        }
+    }
+
     private async Task PersistAsync(CancellationToken cancellationToken)
     {
         await _store.SaveAsync(_tasks, cancellationToken);
@@ -278,6 +302,7 @@ public sealed class TaskManager
                 BuildLogPath = task.BuildLogPath,
                 TestLogPath = task.TestLogPath,
                 RetryCount = task.AttemptCount,
+                Artifacts = task.Artifacts.ToArray(),
                 FailureClassification = task.FailureClassification,
                 IdempotencyKey = task.IdempotencyKey,
                 CreatedAtUtc = task.CreatedAtUtc,
