@@ -1,0 +1,35 @@
+<Window x:Class="Council.Desktop.ChatWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        Title="JARVIS — Conversation" Height="760" Width="900"
+        MinHeight="560" MinWidth="620" Background="#06111D"
+        WindowStartupLocation="CenterOwner">
+  <Grid Margin="18">
+    <Grid.RowDefinitions><RowDefinition Height="Auto"/><RowDefinition Height="Auto"/><RowDefinition Height="*"/><RowDefinition Height="Auto"/></Grid.RowDefinitions>
+    <DockPanel Grid.Row="0" Margin="0,0,0,12">
+      <StackPanel>
+        <TextBlock Text="J A R V I S" Foreground="#39DDF4" FontSize="22" FontWeight="Light"/>
+        <TextBlock Text="PERSONAL AI ASSISTANT" Foreground="#7398AB" FontSize="9" Margin="2,0,0,0"/>
+      </StackPanel>
+      <TextBlock x:Name="ProviderStatus" DockPanel.Dock="Right" Text="Connecting..." Foreground="#65DAB7" FontSize="11" VerticalAlignment="Center"/>
+    </DockPanel>
+    <Border Grid.Row="1" Background="#0C2030" BorderBrush="#17445A" BorderThickness="1" CornerRadius="7" Padding="10" Margin="0,0,0,10">
+      <TextBlock Text="Your messages and replies are saved locally on this Windows account. Configure an AI provider key to enable live responses." Foreground="#9BB9C8" FontSize="11" TextWrapping="Wrap"/>
+    </Border>
+    <Border Grid.Row="2" Background="#091725" BorderBrush="#17445A" BorderThickness="1" CornerRadius="8" Padding="12">
+      <ScrollViewer x:Name="TranscriptScroll" VerticalScrollBarVisibility="Auto">
+        <StackPanel x:Name="Transcript" />
+      </ScrollViewer>
+    </Border>
+    <Grid Grid.Row="3" Margin="0,12,0,0">
+      <Grid.ColumnDefinitions><ColumnDefinition/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
+      <TextBox x:Name="MessageInput" MinHeight="46" Padding="12" FontSize="13"
+               Foreground="#E0F7FF" Background="#0D2233" BorderBrush="#1A526B"
+               VerticalContentAlignment="Center" AcceptsReturn="True"
+               TextWrapping="Wrap" KeyDown="MessageInput_KeyDown"/>
+      <Button Grid.Column="1" Content="  SEND  ➤  " Margin="10,0,0,0" Padding="18,8"
+              Background="#10506A" Foreground="White" BorderBrush="#2AC6E0"
+              Click="Send_Click"/>
+    </Grid>
+  </Grid>
+</Window>
