@@ -133,6 +133,8 @@ public class TaskPersistenceTests
             Assert.NotNull(claimed);
             Assert.Equal(task.Id, claimed!.Id);
             Assert.NotNull(claimed.ApprovalConsumedAtUtc);
+            Assert.False(await manager.RevokeApprovalAsync(task.Id));
+            Assert.False(await manager.ApproveAsync(task.Id));
             Assert.Null(await manager.ClaimNextApprovedTaskAsync());
 
             Assert.Equal(1, await manager.RecoverInterruptedTasksAsync());
