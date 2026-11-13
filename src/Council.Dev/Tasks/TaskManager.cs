@@ -24,6 +24,36 @@ public sealed class TaskManager
 
         _tasks.Clear();
         _tasks.AddRange(loadedTasks);
+
+        var recoveredInterruptedTask = false;
+        foreach (var task in _tasks.Where(t => t.Status == TaskStatus.Running))
+        {
+            var checkpoint = _checkpointStore is null
+                ? null
+                : await _checkpointStore.LoadAsync(task.Id, cancellationToken);
+            task.Status = TaskStatus.Paused;
+            task.CurrentStep = checkpoint is null
+                ? "Recovered after an unexpected shutdown. Review the task state before resuming."
+                : checkpoint.NextAction;
+            if (checkpoint is not null)
+            {
+                task.CompletedSteps = checkpoint.CompletedSteps.ToList();
+                task.ProviderRoute = checkpoint.ProviderRoute;
+                task.ModelAlias = checkpoint.ModelAlias;
+                task.GitCommitSha = checkpoint.GitCommitSha;
+                task.GitWorkingTreeStatus = checkpoint.GitWorkingTreeStatus;
+                task.BuildLogPath = checkpoint.BuildLogPath;
+                task.TestLogPath = checkpoint.TestLogPath;
+                task.FailureClassification = checkpoint.FailureClassification;
+                task.IdempotencyKey = checkpoint.IdempotencyKey;
+                task.AttemptCount = Math.Max(task.AttemptCount, checkpoint.RetryCount);
+            }
+            task.UpdatedAtUtc = DateTime.UtcNow;
+            recoveredInterruptedTask = true;
+        }
+
+        if (recoveredInterruptedTask)
+            await PersistAsync(cancellationToken);
     }
 
     public async Task<DevelopmentTask> CreateAsync(
