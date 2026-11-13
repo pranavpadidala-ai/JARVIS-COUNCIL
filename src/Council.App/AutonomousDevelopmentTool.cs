@@ -54,7 +54,7 @@ public sealed class AutonomousDevelopmentTool : ITool
         var validation = new BuildTestExecutor(terminal, root);
         var context = new RepositoryContextProvider(root);
         var planner = new AIDevelopmentPlanner(provider, context);
-        var executor = new AutonomousDevelopmentExecutor(planner, actions, validation, _tasks);
+        var executor = new AutonomousDevelopmentExecutor(planner, actions, validation, _tasks, terminal, root);
         var loop = new DevelopmentLoop(_tasks, new TaskRunner(_tasks));
         _checkpoints = new GitCheckpointManager(terminal, root);
         _orchestrator = new DevelopmentOrchestrator(loop, executor, _checkpoints);
