@@ -3,6 +3,7 @@ using System.Windows.Controls;
 using System.Windows.Input;
 using System.Windows.Media;
 using Council.App.Chat;
+using Council.App.Voice;
 
 namespace Council.Desktop;
 
@@ -12,11 +13,21 @@ public partial class ChatWindow : Window
 
     private AssistantSession? _session;
     private bool _sending;
+    private bool _speakReplies;
+    private WindowsVoiceService? _voice;
+    private CancellationTokenSource? _voiceCapture;
 
     public ChatWindow()
     {
         InitializeComponent();
         Loaded += ChatWindow_Loaded;
+        Closed += (_, _) =>
+        {
+            _voiceCapture?.Cancel();
+            _voice?.StopAll();
+            _voice?.Dispose();
+            _voiceCapture?.Dispose();
+        };
     }
 
     private async void ChatWindow_Loaded(object sender, RoutedEventArgs e)
