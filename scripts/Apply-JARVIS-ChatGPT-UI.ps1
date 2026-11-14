@@ -1,6 +1,7 @@
 #requires -Version 5.1
 param(
-    [string]$RepoRoot
+    [string]$RepoRoot,
+    [switch]$SkipBuildAndTests
 )
 $ErrorActionPreference = 'Stop'
 
@@ -830,43 +831,49 @@ Move-Item -LiteralPath $codeTemp -Destination $codePath -Force
 
 Write-Host "ChatGPT-style layout applied. Original files backed up to $backup" -ForegroundColor Green
 
-Write-Host ''
-Write-Host '=== RELEASE BUILD ===' -ForegroundColor Cyan
-$buildCode = Invoke-Native 'dotnet' @('build', '.\src\Council.Desktop\Council.Desktop.csproj', '-c', 'Release', '--verbosity', 'minimal')
-if ($buildCode -ne 0) {
-    Write-Host "Build failed (exit $buildCode). Original chat files are backed up." -ForegroundColor Red
-    exit $buildCode
-}
-
-Write-Host ''
-Write-Host '=== TEST ALL PROJECTS ===' -ForegroundColor Cyan
-$testProjects = @(Get-ChildItem (Join-Path $root 'tests') -Filter '*.csproj' -Recurse -ErrorAction SilentlyContinue)
-$failedTests = 0
-foreach ($project in $testProjects) {
-    Write-Host ("Running {0}" -f $project.Name)
-    $testCode = Invoke-Native 'dotnet' @('test', $project.FullName, '-c', 'Release', '--verbosity', 'minimal')
-    if ($testCode -ne 0) {
-        $failedTests++
-        Write-Host ("FAILED: {0} (exit {1})" -f $project.Name, $testCode) -ForegroundColor Red
-    } else {
-        Write-Host ("PASSED: {0}" -f $project.Name) -ForegroundColor Green
+if (-not $SkipBuildAndTests) {
+    Write-Host ''
+    Write-Host '=== RELEASE BUILD ===' -ForegroundColor Cyan
+    $buildCode = Invoke-Native 'dotnet' @('build', '.\src\Council.Desktop\Council.Desktop.csproj', '-c', 'Release', '--verbosity', 'minimal')
+    if ($buildCode -ne 0) {
+        Write-Host "Build failed (exit $buildCode). Original chat files are backed up." -ForegroundColor Red
+        exit $buildCode
     }
-}
-if ($testProjects.Count -eq 0) { Write-Host 'No test projects found under .\tests.' }
-
-Write-Host ''
-Write-Host '=== LAUNCH JARVIS ===' -ForegroundColor Cyan
-$exe = Join-Path $root 'src\Council.Desktop\bin\Release\net8.0-windows\Council.Desktop.exe'
-if (Test-Path $exe) {
-    $running = @(Get-Process -Name 'Council.Desktop' -ErrorAction SilentlyContinue)
-    if ($running.Count -eq 0) {
-        Start-Process -FilePath $exe
-        Write-Host 'JARVIS desktop launched.' -ForegroundColor Green
-    } else {
-        Write-Host 'JARVIS desktop is already running. Close and reopen it to load the updated chat UI.'
+    
+    Write-Host ''
+    Write-Host '=== TEST ALL PROJECTS ===' -ForegroundColor Cyan
+    $testProjects = @(Get-ChildItem (Join-Path $root 'tests') -Filter '*.csproj' -Recurse -ErrorAction SilentlyContinue)
+    $failedTests = 0
+    foreach ($project in $testProjects) {
+        Write-Host ("Running {0}" -f $project.Name)
+        $testCode = Invoke-Native 'dotnet' @('test', $project.FullName, '-c', 'Release', '--verbosity', 'minimal')
+        if ($testCode -ne 0) {
+            $failedTests++
+            Write-Host ("FAILED: {0} (exit {1})" -f $project.Name, $testCode) -ForegroundColor Red
+        } else {
+            Write-Host ("PASSED: {0}" -f $project.Name) -ForegroundColor Green
+        }
     }
+    if ($testProjects.Count -eq 0) { Write-Host 'No test projects found under .\tests.' }
+    
+    Write-Host ''
+    Write-Host '=== LAUNCH JARVIS ===' -ForegroundColor Cyan
+    $exe = Join-Path $root 'src\Council.Desktop\bin\Release\net8.0-windows\Council.Desktop.exe'
+    if (Test-Path $exe) {
+        $running = @(Get-Process -Name 'Council.Desktop' -ErrorAction SilentlyContinue)
+        if ($running.Count -eq 0) {
+            Start-Process -FilePath $exe
+            Write-Host 'JARVIS desktop launched.' -ForegroundColor Green
+        } else {
+            Write-Host 'JARVIS desktop is already running. Close and reopen it to load the updated chat UI.'
+        }
+    } else {
+        Write-Host 'Desktop executable was not found.' -ForegroundColor Yellow
+    }
+    
+    
 } else {
-    Write-Host 'Desktop executable was not found.' -ForegroundColor Yellow
+    Write-Host 'Chat UI sources updated; build and tests deferred to the combined UI pass.'
 }
 
 Write-Host ''
