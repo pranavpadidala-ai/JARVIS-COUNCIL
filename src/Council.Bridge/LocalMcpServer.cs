@@ -38,7 +38,7 @@ public sealed class LocalMcpServer : IAsyncDisposable
         _ollamaHttp = new HttpClient
         {
             BaseAddress = new Uri("http://127.0.0.1:11434/"),
-            Timeout = TimeSpan.FromMinutes(3)
+            Timeout = TimeSpan.FromMinutes(10)
         };
         _token = Encoding.UTF8.GetBytes(bearerToken);
         Port = port;
@@ -378,12 +378,8 @@ public sealed class LocalMcpServer : IAsyncDisposable
 
     private static string NegotiateProtocolVersion(JsonElement parameters)
     {
-        if (parameters.ValueKind == JsonValueKind.Object &&
-            parameters.TryGetProperty("protocolVersion", out var requested) &&
-            requested.ValueKind == JsonValueKind.String &&
-            requested.GetString() == "2024-11-05")
-            return "2024-11-05";
-
+        // This implementation currently supports the stable 2024-11-05 protocol.
+        // MCP initialization requires the server to return a version it implements.
         return "2024-11-05";
     }
 
