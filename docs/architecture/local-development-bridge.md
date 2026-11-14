@@ -20,7 +20,7 @@ The script generates a fresh 256-bit bearer token for that run and starts the br
 - MCP endpoint: `http://127.0.0.1:47822/mcp`
 - Health endpoint: `http://127.0.0.1:47822/healthz`
 
-The token is printed once so it can be entered into a compatible local MCP client. Keep it private. Stopping the bridge invalidates the token; the next start generates a new one.
+The token is printed once so it can be entered into a compatible local MCP client. Keep it private. Stopping the bridge invalidates the token; the next start generates a new one. In a second PowerShell window, run `scripts/Test-JarvisDevBridge.ps1`; it securely prompts for the token, checks MCP and Ollama, selects an installed Qwen model when available, and runs a short local chat smoke test.
 
 ## Available tools
 
