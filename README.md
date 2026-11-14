@@ -170,7 +170,7 @@ Optionally register a user-level Windows logon task and start it immediately:
 
 The scheduled task runs as the current user (no administrator privilege or stored Windows password), uses local Ollama only so no cloud API secret is needed for background use, restarts after a failure, and logs to `%LOCALAPPDATA%\JARVIS\Agent\agent.log`. It does not continuously run a language model: it polls the task queue every 30 seconds and stays idle when there is no approved work. For a foreground worker using a cloud provider from the current PowerShell session, run `Start-JarvisAgent.ps1` directly instead.
 
-**Approval boundary:** asking JARVIS to create a development task only queues it. A user must explicitly approve a task in JARVIS before the background worker can claim it. Approval is one-shot, can be revoked before claim, and is consumed when claimed. An interrupted or failed task requires fresh approval. Execution requires a clean Git working tree, a checkpoint, safe workspace actions, successful `dotnet build` and `dotnet test`, and a commit only after validation passes. A failed attempt is rolled back. The worker and foreground JARVIS share cross-process task and execution locks so they cannot execute two development tasks at once.
+**Approval boundary:** asking JARVIS to create a development task only queues it. A user must explicitly approve a task in JARVIS before the background worker can claim it. Approval is one-shot, can be revoked before claim, and is consumed when claimed. An interrupted or failed task requires fresh approval. Execution requires a clean Git working tree, a checkpoint, safe workspace actions, successful `dotnet build` and `dotnet test`, then (when `tests/python` exists) Python syntax compilation with `py -3.11 -m compileall` and the Python unit-test suite. Only the two exact Python validation commands are allowlisted; arbitrary Python scripts and shell commands remain blocked. A commit is created only after all applicable validation passes. A failed attempt is rolled back. The worker and foreground JARVIS share cross-process task and execution locks so they cannot execute two development tasks at once.
 
 Remove the logon task with:
 
@@ -187,7 +187,7 @@ Set-ExecutionPolicy -Scope Process Bypass
 .\scripts\Install-WakeWord.ps1
 ```
 
-The model and its tiny SentencePiece helper environment are stored under `Models\LocalAI` on the JARVIS drive. The installer checks the model's Apache-2.0 declaration and does not add model weights to Git. To enable listening, right-click the JARVIS tray icon and select **Listen for Hey JARVIS**. Uncheck it to mute. The wake-word detector stops and releases the microphone before the existing Whisper command capture starts; the listener is re-armed after the voice turn. Audio is processed locally and is not recorded or uploaded by this detector.
+The model and a dedicated Python 3.11 environment containing CPU-only Sherpa-ONNX, SoundDevice and SentencePiece are stored under `Models\LocalAI` on the JARVIS drive. The installer checks the model's Apache-2.0 declaration and does not add model weights to Git. To enable listening, right-click the JARVIS tray icon and select **Listen for Hey JARVIS**. Uncheck it to mute. The wake-word detector stops and releases the microphone before the existing Whisper command capture starts; the listener is re-armed after the voice turn. Audio is processed locally and is not recorded or uploaded by this detector.
 
 ## Local development bridge (MCP)
 
