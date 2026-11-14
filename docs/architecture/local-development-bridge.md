@@ -32,7 +32,7 @@ The token is printed once so it can be entered into a compatible local MCP clien
 | `dotnet_restore` | Fixed solution restore |
 | `dotnet_build` | Fixed Release solution build |
 | `dotnet_test` | Fixed Release solution test |
-| `development_task_create` | Adds a task to the existing JARVIS queue; does not approve or execute it |
+| `development_task_list` | Reads recent tasks and their status from the existing JARVIS queue |\n| `development_task_create` | Adds a task to the existing JARVIS queue; does not approve or execute it |
 | `ollama_status` | Checks local Ollama and lists installed models |
 | `ollama_chat` | Sends a prompt to an installed local Ollama model and returns its response |
 
