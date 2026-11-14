@@ -60,6 +60,89 @@ public sealed class RuntimeHealthCheckTests
         Assert.DoesNotContain(checks, x => x.Detail.Contains("secret-test-value", StringComparison.Ordinal));
     }
 
+
+    [Fact]
+    public async Task ReportsWakeWordOptionalWhenNotInstalled()
+    {
+        using var client = new HttpClient(new StubHandler((_, _) => Task.FromResult(new HttpResponseMessage(HttpStatusCode.OK)
+        {
+            Content = new StringContent("""{"models":[]}""", Encoding.UTF8, "application/json")
+        })));
+        var workspace = Path.Combine(Path.GetTempPath(), "JARVIS-Doctor", Guid.NewGuid().ToString("N"));
+        Directory.CreateDirectory(workspace);
+        try
+        {
+            var env = new Dictionary<string, string?>
+            {
+                ["JARVIS_WORKSPACE_ROOT"] = workspace,
+                ["JARVIS_AI_PROVIDER"] = "mock",
+                ["JARVIS_VISION_PROVIDER"] = "none"
+            };
+            var checks = await RuntimeHealthCheck.RunAsync(
+                client, key => env.GetValueOrDefault(key),
+                hasDhanCredentials: () => false,
+                detectAbaqus: () => new AbaqusInstallationInfo(false, null, "not found"));
+
+            Assert.Contains(checks, x =>
+                x.Component == "Offline wake-word listener" && x.Status == "OPTIONAL");
+        }
+        finally
+        {
+            Directory.Delete(workspace, recursive: true);
+        }
+    }
+
+    [Fact]
+    public async Task ReportsWakeWordReadyWhenModelAndPythonRuntimeAreInstalled()
+    {
+        using var client = new HttpClient(new StubHandler((_, _) => Task.FromResult(new HttpResponseMessage(HttpStatusCode.OK)
+        {
+            Content = new StringContent("""{"models":[]}""", Encoding.UTF8, "application/json")
+        })));
+        var workspace = Path.Combine(Path.GetTempPath(), "JARVIS-Doctor", Guid.NewGuid().ToString("N"));
+        var model = Path.Combine(workspace, "Models", "LocalAI", "WakeWord", "model");
+        var runtime = Path.Combine(workspace, "Models", "LocalAI", "wakeword-venv", "Scripts");
+        var script = Path.Combine(workspace, "python", "jarvis_runtime");
+        Directory.CreateDirectory(model);
+        Directory.CreateDirectory(runtime);
+        Directory.CreateDirectory(script);
+
+        try
+        {
+            foreach (var name in new[]
+            {
+                "encoder-epoch-12-avg-2-chunk-16-left-64.int8.onnx",
+                "decoder-epoch-12-avg-2-chunk-16-left-64.int8.onnx",
+                "joiner-epoch-12-avg-2-chunk-16-left-64.int8.onnx",
+                "tokens.txt",
+                "keywords.txt"
+            })
+                await File.WriteAllTextAsync(Path.Combine(model, name), "ready");
+
+            var python = Path.Combine(runtime, "python.exe");
+            await File.WriteAllTextAsync(python, "test");
+            await File.WriteAllTextAsync(Path.Combine(script, "listen_wake_word.py"), "test");
+
+            var env = new Dictionary<string, string?>
+            {
+                ["JARVIS_WORKSPACE_ROOT"] = workspace,
+                ["JARVIS_AI_PROVIDER"] = "mock",
+                ["JARVIS_VISION_PROVIDER"] = "none"
+            };
+            var checks = await RuntimeHealthCheck.RunAsync(
+                client, key => env.GetValueOrDefault(key),
+                hasDhanCredentials: () => false,
+                detectAbaqus: () => new AbaqusInstallationInfo(false, null, "not found"));
+
+            Assert.Contains(checks, x =>
+                x.Component == "Offline wake-word listener" && x.Status == "READY");
+        }
+        finally
+        {
+            Directory.Delete(workspace, recursive: true);
+        }
+    }
+
     private sealed class StubHandler(Func<HttpRequestMessage, CancellationToken, Task<HttpResponseMessage>> send) : HttpMessageHandler
     {
         protected override Task<HttpResponseMessage> SendAsync(HttpRequestMessage request, CancellationToken cancellationToken) =>
