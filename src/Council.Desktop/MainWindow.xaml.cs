@@ -6,6 +6,7 @@ using System.Runtime.InteropServices;
 using System.Windows;
 using System.Windows.Threading;
 using WpfApplication = System.Windows.Application;
+using Council.App;
 using Council.App.Chat;
 using Council.Memory;
 using Council.Desktop.Voice;
@@ -43,6 +44,7 @@ public partial class MainWindow : Window
     private Task? _wakeWordLoopTask;
     private TimeSpan _lastCpu;
     private DateTime _lastCpuAt = DateTime.UtcNow;
+    private bool _providerControlsReady;
 
     public MainWindow()
     {
@@ -256,20 +258,20 @@ public partial class MainWindow : Window
     {
         try
         {
-            var selected = Environment.GetEnvironmentVariable("JARVIS_AI_PROVIDER")?.Trim().ToLowerInvariant();
-            var providerLabel = selected switch
-            {
-                "ollama" => "Local Ollama",
-                "gemini" => "Google Gemini",
-                "openai" => "OpenAI",
-                "omniroute" => "OmniRoute (allowlisted)",
-                "mock" => "Mock / test mode",
-                null or "" when !string.IsNullOrWhiteSpace(Environment.GetEnvironmentVariable("GEMINI_API_KEY")) => "Google Gemini (auto)",
-                null or "" when !string.IsNullOrWhiteSpace(Environment.GetEnvironmentVariable("OPENAI_API_KEY")) => "OpenAI (auto)",
-                null or "" => "Mock / test mode (configure a provider)",
-                _ => "Unknown provider setting"
-            };
-            ProviderStatusText.Text = "●  " + providerLabel;
+            var saved = DesktopProviderSettingsStore.TryLoadAndApplySaved(out var settingsMessage);
+            var current = DesktopProviderSettingsStore.GetCurrent();
+            ProviderSelector.SelectedValue = current.Provider;
+            ProviderModelInput.Text = current.Model;
+            ProviderModelInput.IsEnabled = current.Provider != "mock";
+            _providerControlsReady = true;
+
+            var providerLabel = DesktopProviderSettingsStore.GetDisplayName(current.Provider);
+            ProviderStatusText.Text = saved is null
+                ? "Using " + providerLabel + " from the current environment."
+                : "Loaded saved " + providerLabel + " selection.";
+            if (!string.IsNullOrWhiteSpace(settingsMessage) &&
+                settingsMessage.StartsWith("Warning:", StringComparison.Ordinal))
+                ProviderStatusText.Text = settingsMessage;
 
             var localData = Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData);
             if (string.IsNullOrWhiteSpace(localData))
@@ -278,11 +280,81 @@ public partial class MainWindow : Window
                 Path.Combine(localData, "JARVIS", "Memory", "desktop-conversation.jsonl"));
             var history = await memory.LoadRecentAsync(120);
             MemoryCountText.Text = $"{history.Count} saved messages";
+
+            await RefreshRuntimeReadinessAsync();
         }
-        catch
+        catch (Exception ex)
         {
-            ProviderStatusText.Text = "●  Check provider configuration";
+            ProviderStatusText.Text = "Provider settings unavailable: " + ex.GetBaseException().Message;
+            RuntimeReadinessText.Text = "Runtime status unavailable.";
             MemoryCountText.Text = "Memory status unavailable";
+        }
+    }
+
+    private void ProviderSelector_SelectionChanged(object sender, System.Windows.Controls.SelectionChangedEventArgs e)
+    {
+        if (!_providerControlsReady || ProviderSelector.SelectedValue is not string provider)
+            return;
+
+        ProviderModelInput.Text = DesktopProviderSettingsStore.GetDefaultModel(provider);
+        ProviderModelInput.IsEnabled = provider != "mock";
+        ProviderStatusText.Text = "Selected " + DesktopProviderSettingsStore.GetDisplayName(provider) +
+            ". Apply to use it in new chat windows.";
+    }
+
+    private async void ApplyProviderSettings_Click(object sender, RoutedEventArgs e)
+    {
+        try
+        {
+            var provider = ProviderSelector.SelectedValue as string
+                ?? throw new InvalidOperationException("Choose an AI provider first.");
+            DesktopProviderSettingsStore.SaveAndApply(provider, ProviderModelInput.Text);
+            var current = DesktopProviderSettingsStore.GetCurrent();
+            ProviderStatusText.Text = "Saved " + DesktopProviderSettingsStore.GetDisplayName(current.Provider) +
+                " / " + (string.IsNullOrWhiteSpace(current.Model) ? "no model" : current.Model) +
+                ". New chat windows will use this selection; existing chats are unchanged.";
+            await RefreshRuntimeReadinessAsync();
+        }
+        catch (Exception ex)
+        {
+            ProviderStatusText.Text = "Provider settings were not applied: " + ex.GetBaseException().Message;
+        }
+    }
+
+    private async void RefreshRuntimeStatus_Click(object sender, RoutedEventArgs e) =>
+        await RefreshRuntimeReadinessAsync();
+
+    private async Task RefreshRuntimeReadinessAsync()
+    {
+        RuntimeReadinessText.Text = "Checking local services and provider configuration...";
+        try
+        {
+            var checks = await RuntimeHealthCheck.RunAsync();
+            var ready = checks.Count(check => check.Status == "READY");
+            var optional = checks.Count(check => check.Status == "OPTIONAL");
+            var attention = checks
+                .Where(check => check.Status is "NOT READY" or "UNSUPPORTED")
+                .Select(check => check.Component)
+                .Take(3)
+                .ToArray();
+
+            if (attention.Length == 0)
+            {
+                RuntimeReadinessText.Foreground = new System.Windows.Media.SolidColorBrush(
+                    System.Windows.Media.Color.FromRgb(73, 221, 182));
+                RuntimeReadinessText.Text = $"Runtime: {ready} ready · {optional} optional";
+            }
+            else
+            {
+                RuntimeReadinessText.Foreground = System.Windows.Media.Brushes.Orange;
+                RuntimeReadinessText.Text = $"{attention.Length} checks need attention: " +
+                    string.Join(", ", attention);
+            }
+        }
+        catch (Exception ex)
+        {
+            RuntimeReadinessText.Foreground = System.Windows.Media.Brushes.Orange;
+            RuntimeReadinessText.Text = "Runtime check failed: " + ex.GetBaseException().Message;
         }
     }
 

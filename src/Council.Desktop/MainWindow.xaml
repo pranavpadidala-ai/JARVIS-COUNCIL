@@ -164,11 +164,29 @@
         </Border>
         <Border Grid.Column="2" Style="{StaticResource Panel}">
           <StackPanel>
-            <TextBlock Text="LLM STATUS" Style="{StaticResource SectionTitle}"/>
-            <TextBlock x:Name="ProviderStatusText" Text="Checking configured providers..." Style="{StaticResource Small}" Margin="0,5"/>
-            <TextBlock Text="OmniRoute  •  Optional gateway" Style="{StaticResource Small}" Margin="0,8"/>
-            <TextBlock Text="OpenAI  •  Optional provider" Style="{StaticResource Small}" Margin="0,8"/>
-            <TextBlock Text="Local Ollama  •  Optional" Style="{StaticResource Small}" Margin="0,8"/>
+            <TextBlock Text="AI PROVIDER &amp; MODEL" Style="{StaticResource SectionTitle}"/>
+            <ComboBox x:Name="ProviderSelector" Height="29" Margin="0,0,0,7"
+                      SelectedValuePath="Tag" SelectionChanged="ProviderSelector_SelectionChanged"
+                      Background="#10283A" Foreground="#D7F4FF" BorderBrush="#1C6075">
+              <ComboBoxItem Content="Local Ollama (recommended)" Tag="ollama"/>
+              <ComboBoxItem Content="Google Gemini" Tag="gemini"/>
+              <ComboBoxItem Content="OpenAI" Tag="openai"/>
+              <ComboBoxItem Content="OmniRoute (allowlisted)" Tag="omniroute"/>
+              <ComboBoxItem Content="Mock / test mode" Tag="mock"/>
+            </ComboBox>
+            <TextBlock Text="MODEL ID (EDITABLE)" Style="{StaticResource Small}" Margin="0,0,0,3"/>
+            <TextBox x:Name="ProviderModelInput" Height="27" Padding="6,3" Margin="0,0,0,6"
+                     Background="#0D2233" Foreground="#E0F7FF" BorderBrush="#1A526B"
+                     ToolTip="Enter the exact model ID installed or enabled with your selected provider."/>
+            <Grid Margin="0,0,0,4">
+              <Grid.ColumnDefinitions><ColumnDefinition/><ColumnDefinition Width="8"/><ColumnDefinition/></Grid.ColumnDefinitions>
+              <Button Grid.Column="0" Content="APPLY FOR NEW CHATS" Click="ApplyProviderSettings_Click"
+                      Padding="5,5" FontSize="9" Background="#12445A" Foreground="#D9FAFF" BorderBrush="#28BBD6"/>
+              <Button Grid.Column="2" Content="REFRESH STATUS" Click="RefreshRuntimeStatus_Click"
+                      Padding="5,5" FontSize="9" Background="#10283A" Foreground="#C9F5FF" BorderBrush="#1C6075"/>
+            </Grid>
+            <TextBlock x:Name="ProviderStatusText" Text="Loading provider settings..." Style="{StaticResource Small}" Margin="0,3" TextWrapping="Wrap"/>
+            <TextBlock x:Name="RuntimeReadinessText" Text="Checking local services..." Style="{StaticResource Small}" Margin="0,3" TextWrapping="Wrap"/>
           </StackPanel>
         </Border>
       </Grid>
