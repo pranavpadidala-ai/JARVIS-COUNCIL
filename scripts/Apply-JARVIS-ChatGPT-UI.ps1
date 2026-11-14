@@ -514,7 +514,7 @@ $newMethods = @'
 
             var actions = new StackPanel
             {
-                Orientation = Orientation.Horizontal,
+                Orientation = System.Windows.Controls.Orientation.Horizontal,
                 Margin = new Thickness(-6, 7, 0, 0)
             };
             var copyButton = new System.Windows.Controls.Button
@@ -724,7 +724,7 @@ $newMethods = @'
         {
             Content = "Copy code",
             Style = (Style)FindResource("MessageActionButton"),
-            HorizontalAlignment = HorizontalAlignment.Right
+            HorizontalAlignment = WpfHorizontalAlignment.Right
         };
         copyCode.Click += (_, _) => CopyText(code);
         DockPanel.SetDock(copyCode, Dock.Right);
