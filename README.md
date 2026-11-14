@@ -187,7 +187,7 @@ Set-ExecutionPolicy -Scope Process Bypass
 .\scripts\Start-JarvisDevBridge.ps1
 ```
 
-The bridge listens at `http://127.0.0.1:47822/mcp` and prints a fresh per-run bearer token. It provides restricted workspace listing/reading, Git status, fixed `dotnet restore/build/test` commands, and development-task creation in the existing queue. It does not expose arbitrary shell commands or direct file writes. Tasks created through the bridge are not approved or executed automatically.
+The bridge listens at `http://127.0.0.1:47822/mcp` and prints a fresh per-run bearer token. It provides restricted workspace listing/reading, Git status, fixed `dotnet restore/build/test` commands, development-task creation in the existing queue, and direct local Ollama health/model/chat tools for testing Qwen without a cloud API. Ollama access is restricted to `127.0.0.1:11434` and installed models. It does not expose arbitrary shell commands or direct file writes. Tasks created through the bridge are not approved or executed automatically.
 
 **Important:** this first version is reachable only from the same Windows PC. It is not yet connected to ChatGPT's cloud. A separate supported remote MCP connector and authenticated TLS relay are required before this chat can invoke it. Never expose the local port through router forwarding or an unauthenticated tunnel. See [the bridge architecture and security notes](docs/architecture/local-development-bridge.md).
 
