@@ -88,11 +88,12 @@ public sealed class LocalMcpServer : IAsyncDisposable
         if (!string.Equals(context.Request.ContentType?.Split(';')[0].Trim(), "application/json", StringComparison.OrdinalIgnoreCase))
             return Results.Json(new { error = "Content-Type must be application/json." }, statusCode: StatusCodes.Status415UnsupportedMediaType);
 
-        if (context.Request.ContentLength is null)
-            return Results.Json(new { error = "Content-Length is required." }, statusCode: StatusCodes.Status411LengthRequired);
-
-        if (context.Request.ContentLength > MaxRequestBytes)
-            return Results.Json(new { error = "Request body is too large." }, statusCode: StatusCodes.Status413PayloadTooLarge);
+        var acceptsJson = context.Request.Headers.Accept.Any(value =>
+            value?.Split(',').Any(item => item.Trim().StartsWith("application/json", StringComparison.OrdinalIgnoreCase)) == true);
+        var acceptsEventStream = context.Request.Headers.Accept.Any(value =>
+            value?.Split(',').Any(item => item.Trim().StartsWith("text/event-stream", StringComparison.OrdinalIgnoreCase)) == true);
+        if (!acceptsJson || !acceptsEventStream)
+            return Results.Json(new { error = "Accept must include application/json and text/event-stream." }, statusCode: StatusCodes.Status406NotAcceptable);
 
         JsonDocument document;
         try
@@ -111,16 +112,29 @@ public sealed class LocalMcpServer : IAsyncDisposable
         {
             var root = document.RootElement;
             if (root.ValueKind != JsonValueKind.Object ||
+                !root.TryGetProperty("jsonrpc", out var versionNode) ||
+                versionNode.ValueKind != JsonValueKind.String ||
+                versionNode.GetString() != "2.0" ||
                 !root.TryGetProperty("method", out var methodNode) ||
                 methodNode.ValueKind != JsonValueKind.String)
-                return Results.Json(new { error = "Invalid JSON-RPC request." }, statusCode: StatusCodes.Status400BadRequest);
+                return Results.Json(new { error = "Invalid JSON-RPC 2.0 request." }, statusCode: StatusCodes.Status400BadRequest);
 
             var method = methodNode.GetString()!;
             var hasId = root.TryGetProperty("id", out var idNode);
             var id = hasId ? idNode.Clone() : (JsonElement?)null;
 
-            if (!hasId || method == "notifications/initialized")
-                return Results.StatusCode(StatusCodes.Status202Accepted);
+            if (!hasId)
+            {
+                if (method.StartsWith("notifications/", StringComparison.Ordinal))
+                    return Results.StatusCode(StatusCodes.Status202Accepted);
+
+                return Results.Json(new
+                {
+                    jsonrpc = "2.0",
+                    id = (string?)null,
+                    error = new { code = -32600, message = "A JSON-RPC request must include an id." }
+                }, statusCode: StatusCodes.Status400BadRequest);
+            }
 
             var parameters = root.TryGetProperty("params", out var paramsNode)
                 ? paramsNode
@@ -132,7 +146,7 @@ public sealed class LocalMcpServer : IAsyncDisposable
                 {
                     "initialize" => new
                     {
-                        protocolVersion = "2024-11-05",
+                        protocolVersion = NegotiateProtocolVersion(parameters),
                         capabilities = new { tools = new { listChanged = false } },
                         serverInfo = new { name = "jarvis-local-development-bridge", version = "0.1.0" },
                         instructions = "Loopback-only JARVIS development tools. File access is read-only. Build and test commands are fixed allowlisted operations."
@@ -224,8 +238,8 @@ public sealed class LocalMcpServer : IAsyncDisposable
         if (!process.Start())
             throw new InvalidOperationException("Could not start the allowlisted command: " + executable);
 
-        var stdout = process.StandardOutput.ReadToEndAsync(cancellationToken);
-        var stderr = process.StandardError.ReadToEndAsync(cancellationToken);
+        var stdout = ReadBoundedAsync(process.StandardOutput, MaxOutputCharacters, cancellationToken);
+        var stderr = ReadBoundedAsync(process.StandardError, MaxOutputCharacters, cancellationToken);
         using var timeout = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
         timeout.CancelAfter(TimeSpan.FromMinutes(10));
 
@@ -247,6 +261,37 @@ public sealed class LocalMcpServer : IAsyncDisposable
         if (combined.Length > MaxOutputCharacters)
             combined = combined[..MaxOutputCharacters] + Environment.NewLine + "[Output truncated by JARVIS bridge.]";
         return combined;
+    }
+
+    private static async Task<string> ReadBoundedAsync(StreamReader reader, int maxCharacters, CancellationToken cancellationToken)
+    {
+        var buffer = new char[4096];
+        var output = new StringBuilder(Math.Min(maxCharacters, 4096));
+        var truncated = false;
+        int read;
+        while ((read = await reader.ReadAsync(buffer.AsMemory(), cancellationToken)) > 0)
+        {
+            var remaining = maxCharacters - output.Length;
+            if (remaining > 0)
+                output.Append(buffer, 0, Math.Min(read, remaining));
+            if (read > remaining)
+                truncated = true;
+        }
+
+        if (truncated)
+            output.Append("\\n[Stream truncated by JARVIS bridge.]");
+        return output.ToString();
+    }
+
+    private static string NegotiateProtocolVersion(JsonElement parameters)
+    {
+        if (parameters.ValueKind == JsonValueKind.Object &&
+            parameters.TryGetProperty("protocolVersion", out var requested) &&
+            requested.ValueKind == JsonValueKind.String &&
+            requested.GetString() == "2024-11-05")
+            return "2024-11-05";
+
+        return "2024-11-05";
     }
 
     private static object[] GetTools() =>
