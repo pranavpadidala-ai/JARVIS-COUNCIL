@@ -141,6 +141,42 @@ public static class RuntimeHealthCheck
             checks.Add(new("Local speech synthesis", !string.IsNullOrWhiteSpace(piperPath) && File.Exists(piperPath) ? "READY" : "OPTIONAL",
                 !string.IsNullOrWhiteSpace(piperPath) && File.Exists(piperPath) ? "Piper Python runtime is present." : "Piper runtime not configured; Windows speech fallback is available."));
 
+            var workspaceRoot = get("JARVIS_WORKSPACE_ROOT");
+            if (string.IsNullOrWhiteSpace(workspaceRoot))
+                workspaceRoot = Directory.GetCurrentDirectory();
+
+            var wakeWordModelName = "sherpa-onnx-kws-zipformer-gigaspeech-3.3M-2024-01-01";
+            var wakeWordModelDirectory = get("JARVIS_WAKEWORD_MODEL_DIR");
+            if (string.IsNullOrWhiteSpace(wakeWordModelDirectory))
+                wakeWordModelDirectory = Path.Combine(
+                    workspaceRoot, "Models", "LocalAI", "WakeWord", wakeWordModelName);
+
+            var wakeWordPython = get("JARVIS_WAKEWORD_PYTHON");
+            if (string.IsNullOrWhiteSpace(wakeWordPython))
+                wakeWordPython = Path.Combine(
+                    workspaceRoot, "Models", "LocalAI", "wakeword-venv", "Scripts", "python.exe");
+
+            var wakeWordAssets = new[]
+            {
+                "encoder-epoch-12-avg-2-chunk-16-left-64.int8.onnx",
+                "decoder-epoch-12-avg-2-chunk-16-left-64.int8.onnx",
+                "joiner-epoch-12-avg-2-chunk-16-left-64.int8.onnx",
+                "tokens.txt",
+                "keywords.txt"
+            };
+            var wakeWordModelReady = Directory.Exists(wakeWordModelDirectory) &&
+                wakeWordAssets.All(file => File.Exists(Path.Combine(wakeWordModelDirectory, file)) &&
+                    new FileInfo(Path.Combine(wakeWordModelDirectory, file)).Length > 0);
+            var wakeWordPythonReady = File.Exists(wakeWordPython);
+            var wakeWordScriptReady = File.Exists(Path.Combine(
+                workspaceRoot, "python", "jarvis_runtime", "listen_wake_word.py"));
+            var wakeWordReady = wakeWordModelReady && wakeWordPythonReady && wakeWordScriptReady;
+
+            checks.Add(new("Offline wake-word listener", wakeWordReady ? "READY" : "OPTIONAL",
+                wakeWordReady
+                    ? "Local model and Python runtime are installed. Microphone listening remains OFF until explicitly enabled in the desktop tray."
+                    : "Not installed. Optional; run scripts/Install-WakeWord.ps1. The microphone remains OFF until explicitly enabled in the desktop tray."));
+
             var bridgeConfigured = !string.IsNullOrWhiteSpace(get("JARVIS_BRIDGE_BIND")) &&
                                    !string.IsNullOrWhiteSpace(get("JARVIS_BRIDGE_TOKEN"));
             checks.Add(new("Android phone bridge", bridgeConfigured ? "READY" : "OPTIONAL",
