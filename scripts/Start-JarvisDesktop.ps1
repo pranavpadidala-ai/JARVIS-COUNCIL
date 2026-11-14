@@ -7,6 +7,7 @@ $ErrorActionPreference = "Stop"
 $repoRoot = Split-Path -Parent $PSScriptRoot
 $desktopProject = Join-Path $repoRoot "src\Council.Desktop\Council.Desktop.csproj"
 $solution = Join-Path $repoRoot "JARVIS.Council.sln"
+$desktopExe = Join-Path $repoRoot "src\Council.Desktop\bin\Release\net8.0-windows\Council.Desktop.exe"
 
 if (-not (Get-Command dotnet -ErrorAction SilentlyContinue)) {
     throw ".NET 8 SDK was not found. Install the .NET 8 SDK, reopen PowerShell, and run this script again."
@@ -50,11 +51,17 @@ try {
     dotnet build $desktopProject --configuration Release --no-restore
     if ($LASTEXITCODE -ne 0) { throw "Desktop build failed. See the errors above." }
 
-    if (-not $BuildOnly) {
-        Write-Host "Starting JARVIS Command Center..." -ForegroundColor Green
-        dotnet run --project $desktopProject --configuration Release --no-build
-        if ($LASTEXITCODE -ne 0) { throw "JARVIS exited with an error." }
+    if ($BuildOnly) {
+        Write-Host "Desktop build completed. No GUI process was started." -ForegroundColor Green
+        return
     }
+
+    if (-not (Test-Path $desktopExe)) {
+        throw "Desktop executable was not produced: $desktopExe"
+    }
+
+    Write-Host "Starting the JARVIS Command Center without keeping this PowerShell window open..." -ForegroundColor Green
+    Start-Process -FilePath $desktopExe -WorkingDirectory $repoRoot
 }
 finally {
     Pop-Location
