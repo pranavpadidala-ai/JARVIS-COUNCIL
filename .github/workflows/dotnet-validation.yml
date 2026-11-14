@@ -26,11 +26,31 @@ jobs:
     steps:
       - name: Check out repository
         uses: actions/checkout@v4
+        with:
+          submodules: recursive
 
       - name: Set up .NET 8
         uses: actions/setup-dotnet@v4
         with:
           dotnet-version: 8.0.x
+
+      - name: Set up Python for upstream Indian Trader tests
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Run Indian Trader offline tests
+        shell: pwsh
+        run: |
+          $agentInstall = Join-Path $PWD 'integrations/.claude/agents'
+          New-Item -ItemType Directory -Force -Path $agentInstall | Out-Null
+          Copy-Item 'integrations/indian-trader/agents/*.md' $agentInstall -Force
+          try {
+            python -m unittest discover -s integrations/indian-trader/tests -v
+            if ($LASTEXITCODE -ne 0) { throw 'Indian Trader offline tests failed.' }
+          } finally {
+            Remove-Item (Join-Path $PWD 'integrations/.claude') -Recurse -Force -ErrorAction SilentlyContinue
+          }
 
       - name: Restore
         run: dotnet restore JARVIS.Council.sln
