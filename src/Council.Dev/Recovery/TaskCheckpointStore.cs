@@ -93,13 +93,13 @@ public sealed class TaskCheckpointStore
             throw new InvalidDataException("Checkpoint metadata is invalid.");
         if (checkpoint.CompletedSteps is null || checkpoint.Artifacts is null ||
             checkpoint.CompletedSteps.Count > 500 || checkpoint.Artifacts.Count > 500 ||
-            checkpoint.Objective.Length > 20000 || checkpoint.NextAction.Length > 20000)
+            (checkpoint.Objective?.Length ?? 0) > 20000 || (checkpoint.NextAction?.Length ?? 0) > 20000)
             throw new InvalidDataException("Checkpoint content exceeds safety limits.");
         foreach (var artifact in checkpoint.Artifacts)
         {
             if (string.IsNullOrWhiteSpace(artifact.RelativePath) || Path.IsPathRooted(artifact.RelativePath) ||
                 artifact.RelativePath.Split(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar).Any(p => p == "..") ||
-                artifact.Sha256.Length != 64 || artifact.Sha256.Any(c => !Uri.IsHexDigit(c)) || artifact.Length < 0)
+                string.IsNullOrWhiteSpace(artifact.Sha256) || artifact.Sha256.Length != 64 || artifact.Sha256.Any(c => !Uri.IsHexDigit(c)) || artifact.Length < 0)
                 throw new InvalidDataException("Checkpoint contains an invalid artifact reference.");
         }
     }
