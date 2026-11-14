@@ -35,7 +35,7 @@ The repository's code is Apache-2.0, but its included pre-trained model weights 
 
 Repository: https://github.com/FlaUI/FlaUI
 
-FlaUI is MIT-licensed and the 5.0.0 UIA3 package has a compatible .NET 8 Windows target. It is a strong candidate for supplementing screenshot/pixel-based computer use with UI Automation element names, roles and bounding rectangles. It should be introduced through a Windows-only adapter so the cross-platform .NET application layer does not acquire Windows-only dependencies. Do not assume every engineering application's custom-drawn surface exposes useful accessibility elements; retain screenshot verification as a fallback.
+FlaUI is MIT-licensed; the 5.0.0 UIA3 package targets net6.0-windows7.0 and is compatible with .NET 8 Windows. **Integrated in this batch:** a Windows-only WPF adapter exposes a read-only `windows_accessibility` tool. It inspects only the current foreground window, returns visible control names/types/automation IDs/bounds, does not read text-entry values and does not invoke controls. It supplements the screenshot-based controller; it does not replace screenshot verification or assume every custom-drawn engineering surface exposes accessibility metadata.
 
 ### Browser automation: Microsoft Playwright for .NET
 

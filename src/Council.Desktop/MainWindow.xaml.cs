@@ -5,6 +5,7 @@ using System.IO;
 using System.Runtime.InteropServices;
 using System.Windows;
 using System.Windows.Threading;
+using WpfApplication = System.Windows.Application;
 using Council.App.Chat;
 using Council.Memory;
 
@@ -52,7 +53,7 @@ public partial class MainWindow : Window
                 Hide();
             }
         };
-        Application.Current.SessionEnding += (_, _) => _allowApplicationExit = true;
+        WpfApplication.Current.SessionEnding += (_, _) => _allowApplicationExit = true;
         _clock.Tick += (_, _) => ClockText.Text = DateTime.Now.ToString("ddd, dd MMM yyyy  •  HH:mm:ss");
         ClockText.Text = DateTime.Now.ToString("ddd, dd MMM yyyy  •  HH:mm:ss");
         _clock.Start();
