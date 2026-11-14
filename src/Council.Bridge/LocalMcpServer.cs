@@ -69,7 +69,7 @@ public sealed class LocalMcpServer : IAsyncDisposable
     private Task<IResult> HandleHealthAsync(HttpContext context)
     {
         if (!IsAuthorized(context.Request.Headers.Authorization.ToString()))
-            return Task.FromResult(Results.Unauthorized() as IResult);
+            return Task.FromResult<IResult>(Results.Unauthorized());
 
         return Task.FromResult(Results.Json(new
         {
@@ -325,5 +325,7 @@ public sealed class LocalMcpServer : IAsyncDisposable
     }
 
     private sealed class McpMethodNotFoundException(string method)
-        : Exception("Method not found: " + method);
+        : Exception("Method not found: " + method)
+    {
+    }
 }
