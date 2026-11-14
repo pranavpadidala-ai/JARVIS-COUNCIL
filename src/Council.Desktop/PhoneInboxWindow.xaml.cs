@@ -1,6 +1,7 @@
 using System.IO;
 using System.Windows;
 using System.Windows.Controls;
+using WpfMessageBox = System.Windows.MessageBox;
 using Council.App.Chat;
 using Council.App.Phone;
 
@@ -102,7 +103,7 @@ public partial class PhoneInboxWindow : Window
             command.Status != PhoneCommandStatus.Queued)
             return;
 
-        var confirmation = MessageBox.Show(
+        var confirmation = WpfMessageBox.Show(
             "Run this phone request on the laptop?\n\n" + command.Text,
             "Approve phone request",
             MessageBoxButton.YesNo,
