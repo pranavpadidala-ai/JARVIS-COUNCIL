@@ -81,6 +81,7 @@ public sealed class PythonRuntimeTool : ITool
         var python = ResolvePython();
         if (python is null)
             return new ToolResult(false, "Python 3.10 or newer was not found. Set JARVIS_PYTHON_EXECUTABLE to a valid python.exe path.");
+        var pythonCommand = python.Value;
 
         var request = new Dictionary<string, string>(StringComparer.Ordinal)
         {
@@ -95,7 +96,7 @@ public sealed class PythonRuntimeTool : ITool
         using var process = new Process();
         process.StartInfo = new ProcessStartInfo
         {
-            FileName = python.FileName,
+            FileName = pythonCommand.FileName,
             WorkingDirectory = _workspaceRoot,
             UseShellExecute = false,
             RedirectStandardInput = true,
@@ -105,7 +106,7 @@ public sealed class PythonRuntimeTool : ITool
             StandardOutputEncoding = Encoding.UTF8,
             StandardErrorEncoding = Encoding.UTF8
         };
-        foreach (var prefixArgument in python.PrefixArguments)
+        foreach (var prefixArgument in pythonCommand.PrefixArguments)
             process.StartInfo.ArgumentList.Add(prefixArgument);
         process.StartInfo.ArgumentList.Add(worker);
 
