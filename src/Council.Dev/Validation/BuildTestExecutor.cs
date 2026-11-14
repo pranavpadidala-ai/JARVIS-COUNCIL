@@ -69,6 +69,20 @@ public sealed class BuildTestExecutor
         var pythonTestsDirectory = Path.Combine(_workingDirectory, "tests", "python");
         if (Directory.Exists(pythonTestsDirectory))
         {
+            var syntaxResult = await _terminalExecutor.ExecuteAsync(
+                new TerminalCommand(
+                    "py -3.11 -m compileall -q python tests/python scripts",
+                    _workingDirectory,
+                    TimeSpan.FromMinutes(2)),
+                cancellationToken);
+
+            if (!syntaxResult.Success)
+            {
+                return ValidationResult.FailedPythonValidation(
+                    "Python syntax validation failed.",
+                    syntaxResult);
+            }
+
             pythonTestResult = await _terminalExecutor.ExecuteAsync(
                 new TerminalCommand(
                     "py -3.11 -m unittest discover -s tests/python -v",
@@ -78,16 +92,16 @@ public sealed class BuildTestExecutor
 
             if (!pythonTestResult.Success)
             {
-                return ValidationResult.FailedPythonTests(
-                    "Python tests failed.",
+                return ValidationResult.FailedPythonValidation(
+                    "Python unit tests failed.",
                     pythonTestResult);
             }
         }
 
         return ValidationResult.Passed(
             pythonTestResult is null
-                ? "Build and tests passed."
-                : "Build, .NET tests, and Python tests passed.",
+                ? "Build and .NET tests passed."
+                : "Build, .NET tests, Python syntax checks, and Python unit tests passed.",
             buildResult,
             testResult,
             pythonTestResult);
