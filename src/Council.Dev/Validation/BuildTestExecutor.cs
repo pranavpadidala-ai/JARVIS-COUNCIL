@@ -100,7 +100,7 @@ public sealed class BuildTestExecutor
 
         return ValidationResult.Passed(
             pythonTestResult is null
-                ? "Build and .NET tests passed."
+                ? "Build and tests passed."
                 : "Build, .NET tests, Python syntax checks, and Python unit tests passed.",
             buildResult,
             testResult,
