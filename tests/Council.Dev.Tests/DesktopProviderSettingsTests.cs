@@ -3,7 +3,7 @@ using Council.App.Chat;
 namespace Council.Dev.Tests;
 
 [CollectionDefinition("Desktop provider settings environment", DisableParallelization = true)]
-public sealed class DesktopProviderSettingsEnvironmentCollection;
+public sealed class DesktopProviderSettingsEnvironmentCollection { }
 
 [Collection("Desktop provider settings environment")]
 public sealed class DesktopProviderSettingsTests
