@@ -38,6 +38,7 @@ public sealed class OllamaProviderTests
         Assert.Equal("qwen3.5:2b-q4_K_M", result.Model);
         Assert.Contains("\"num_ctx\":4096", requestBody);
         Assert.Contains("\"stream\":false", requestBody);
+        Assert.Contains("\"think\":false", requestBody);
         Assert.Contains("\"format\":\"json\"", requestBody);
     }
 
