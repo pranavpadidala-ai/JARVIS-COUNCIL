@@ -343,7 +343,7 @@ public partial class MainWindow : Window
             {
                 RuntimeReadinessText.Foreground = new System.Windows.Media.SolidColorBrush(
                     System.Windows.Media.Color.FromRgb(73, 221, 182));
-                RuntimeReadinessText.Text = $"Runtime: {ready} ready · {optional} optional";
+                RuntimeReadinessText.Text = $"Readiness checks: {ready} ready · {optional} optional";
             }
             else
             {
