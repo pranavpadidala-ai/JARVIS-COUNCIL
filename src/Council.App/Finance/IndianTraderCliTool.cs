@@ -69,7 +69,7 @@ public sealed class IndianTraderCliTool : ITool
         if (preset.Length > 0 && (action != "screen" || preset != "momentum"))
             return new ToolResult(false, "Only preset=momentum is currently supported for screen.");
         var universe = arguments.TryGetValue("universe", out var rawUniverse) ? rawUniverse.Trim().ToLowerInvariant() : string.Empty;
-        if (universe.Length > 0 && (action != "screen" || universe is not ("nifty50" or "nifty100" or "fno")))
+        if (universe.Length > 0 && (action != "screen" || universe is not ("nifty50" or "nifty100")))
             return new ToolResult(false, "universe is supported only for screen and must be nifty50, nifty100 or fno.");
 
         if (!File.Exists(_scriptPath))
@@ -108,9 +108,10 @@ public sealed class IndianTraderCliTool : ITool
             {
                 await process.WaitForExitAsync(timeout.Token);
             }
-            catch (OperationCanceledException) when (!cancellationToken.IsCancellationRequested)
+            catch (OperationCanceledException)
             {
-                try { process.Kill(entireProcessTree: true); } catch (InvalidOperationException) { }
+                try { if (!process.HasExited) process.Kill(entireProcessTree: true); } catch (Exception ex) when (ex is InvalidOperationException or System.ComponentModel.Win32Exception) { }
+                if (cancellationToken.IsCancellationRequested) throw;
                 return new ToolResult(false, "Indian Trader exceeded the 45-second execution limit and was stopped.");
             }
             var output = await stdoutTask;
