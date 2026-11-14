@@ -31,15 +31,15 @@
           <TextBlock Text="◉  J A R V I S" FontSize="19" FontWeight="Bold" Foreground="#35DDF5" Margin="2,8,0,0"/>
           <TextBlock Text="COMMAND CENTER" FontSize="9" Foreground="#7197AA" Margin="5,0,0,24"/>
           <Button Style="{StaticResource NavButton}" Content="▦   Command Center" Background="#10364A" Foreground="#42E5F7"/>
-          <Button Style="{StaticResource NavButton}" Content="◈   AI Core"/>
-          <Button Style="{StaticResource NavButton}" Content="◎   Agents"/>
+          <Button Style="{StaticResource NavButton}" Content="◈   AI Core" Click="OpenAiCore_Click"/>
+          <Button Style="{StaticResource NavButton}" Content="◎   Agents" Click="OpenAgents_Click"/>
           <Button Style="{StaticResource NavButton}" Content="▤   Tasks" Click="OpenTasks_Click"/>
-          <Button Style="{StaticResource NavButton}" Content="▦   Calendar"/>
-          <Button Style="{StaticResource NavButton}" Content="◷   Memory"/>
-          <Button Style="{StaticResource NavButton}" Content="▣   Conversations"/>
-          <Button Style="{StaticResource NavButton}" Content="⌕   Knowledge Base"/>
-          <Button Style="{StaticResource NavButton}" Content="⚙   Tools &amp; Skills"/>
-          <Button Style="{StaticResource NavButton}" Content="⌘   Workflows"/>
+          <Button Style="{StaticResource NavButton}" Content="▦   Calendar (planned)" IsEnabled="False" ToolTip="Calendar integration is not connected yet."/>
+          <Button Style="{StaticResource NavButton}" Content="◷   Memory" Click="ReviewMemory_Click"/>
+          <Button Style="{StaticResource NavButton}" Content="▣   Conversations" Click="OpenConversations_Click"/>
+          <Button Style="{StaticResource NavButton}" Content="⌕   Knowledge Base" Click="OpenKnowledgeBase_Click"/>
+          <Button Style="{StaticResource NavButton}" Content="⚙   Tools &amp; Skills" Click="OpenSkills_Click"/>
+          <Button Style="{StaticResource NavButton}" Content="⌘   Workflows" Click="RunWorkflow_Click"/>
         </StackPanel>
         <Border DockPanel.Dock="Bottom" Style="{StaticResource Panel}" Margin="0,18,0,0">
           <StackPanel>
