@@ -13,3 +13,13 @@ obj/
 
 # Backup files
 *.bak
+# Local models, machine inventory and runtime logs (never commit these)
+/Models/
+/diagnostics/
+/jarvis-setup.log
+*.log
+*.before-*
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.venv/
