@@ -200,6 +200,7 @@ public sealed class LocalMcpServer : IAsyncDisposable
                 "dotnet_build" => await RunProcessAsync("dotnet", ["build", "JARVIS.Council.sln", "--configuration", "Release"], cancellationToken),
                 "dotnet_test" => await RunProcessAsync("dotnet", ["test", "JARVIS.Council.sln", "--configuration", "Release"], cancellationToken),
                 "development_task_create" => await CreateDevelopmentTaskAsync(arguments, cancellationToken),
+                "development_task_list" => await ListDevelopmentTasksAsync(cancellationToken),
                 "ollama_status" => await GetOllamaStatusAsync(cancellationToken),
                 "ollama_chat" => await ChatWithOllamaAsync(arguments, cancellationToken),
                 _ => throw new ArgumentException("Unknown tool: " + name)
@@ -211,6 +212,21 @@ public sealed class LocalMcpServer : IAsyncDisposable
         {
             return ToolError(SafeMessage(ex));
         }
+    }
+
+    private async Task<string> ListDevelopmentTasksAsync(CancellationToken cancellationToken)
+    {
+        var tasks = await _tasks.ListAsync(cancellationToken);
+        return JsonSerializer.Serialize(tasks.Select(task => new
+        {
+            task.Id,
+            task.Title,
+            task.Status,
+            task.IsApproved,
+            task.AttemptCount,
+            task.CurrentStep,
+            task.UpdatedAtUtc
+        }));
     }
 
     private async Task<string> CreateDevelopmentTaskAsync(JsonElement arguments, CancellationToken cancellationToken)
@@ -394,6 +410,7 @@ public sealed class LocalMcpServer : IAsyncDisposable
         Tool("dotnet_restore", "Run the fixed dotnet restore command for JARVIS.Council.sln."),
         Tool("dotnet_build", "Run the fixed Release build for JARVIS.Council.sln."),
         Tool("dotnet_test", "Run the fixed Release test suite for JARVIS.Council.sln."),
+        Tool("development_task_list", "List recent development tasks from the same persistent queue used by the JARVIS desktop app. Read-only."),
         Tool("development_task_create", "Create a task in JARVIS's existing persistent development queue. Creation does not approve or execute it.",
             new
             {
