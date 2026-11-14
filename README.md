@@ -146,6 +146,12 @@ The OmniRoute adapter rejects the `auto` alias and any model ID not present in t
 - **Abaqus diagnostics:** reports whether a supported Abaqus launcher is detected.
 - **Phone companion:** authenticated queue-only commands over Tailscale; the laptop user must type exact `YES` before a phone request executes.
 
+## Isolated Brave browser profiles
+
+JARVIS can create and launch separate Brave profiles for personal, work, research and temporary browsing. Ask naturally to create a profile, list saved profiles, launch one visibly, or check its status. Profile data stays in separate folders under `%LOCALAPPDATA%\\JARVIS\\BraveProfiles`; JARVIS does not copy browser cookies or move authentication state between profiles.
+
+Set `JARVIS_BRAVE_PATH` only when Brave is installed in a non-standard location. By default, JARVIS checks the standard per-user and Program Files locations. Browser launch accepts HTTP or HTTPS URLs only. Closing a profile or deleting a temporary profile requires a separate confirmation; a close timeout does not force-kill Brave. Profile launching is available independently of Playwright/DOM automation, which is a separate future integration.
+
 ## Pair the Android phone companion
 
 The phone companion sends text requests to the laptop over your private Tailscale network. It cannot execute a request by itself.
