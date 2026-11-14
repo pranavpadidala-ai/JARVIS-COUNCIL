@@ -11,6 +11,8 @@ public sealed class CommandPolicy
 
     private const string PythonUnitTestCommand =
         "py -3.11 -m unittest discover -s tests/python -v";
+    private const string PythonCompileCommand =
+        "py -3.11 -m compileall -q python tests/python scripts";
 
     private static readonly string[] BlockedOperators =
     [
@@ -71,7 +73,8 @@ public sealed class CommandPolicy
             return false;
         }
 
-        if (string.Equals(trimmed, PythonUnitTestCommand, StringComparison.OrdinalIgnoreCase))
+        if (string.Equals(trimmed, PythonUnitTestCommand, StringComparison.OrdinalIgnoreCase) ||
+            string.Equals(trimmed, PythonCompileCommand, StringComparison.OrdinalIgnoreCase))
             return true;
 
         var executable = ExtractExecutable(trimmed);
