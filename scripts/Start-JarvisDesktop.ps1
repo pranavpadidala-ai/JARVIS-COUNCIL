@@ -6,7 +6,6 @@ param(
 $ErrorActionPreference = "Stop"
 $repoRoot = Split-Path -Parent $PSScriptRoot
 $desktopProject = Join-Path $repoRoot "src\Council.Desktop\Council.Desktop.csproj"
-$solution = Join-Path $repoRoot "JARVIS.Council.sln"
 $desktopExe = Join-Path $repoRoot "src\Council.Desktop\bin\Release\net8.0-windows\Council.Desktop.exe"
 
 if (-not (Get-Command dotnet -ErrorAction SilentlyContinue)) {
@@ -14,8 +13,8 @@ if (-not (Get-Command dotnet -ErrorAction SilentlyContinue)) {
 }
 
 $sdk = (& dotnet --version).Trim()
-if (-not $sdk.StartsWith("8.")) {
-    Write-Warning "JARVIS targets .NET 8; detected SDK $sdk. Install .NET 8 SDK if restore/build fails."
+if ($LASTEXITCODE -ne 0 -or -not $sdk.StartsWith("8.")) {
+    throw "JARVIS requires the .NET 8 SDK. Detected: $sdk"
 }
 
 if (-not (Test-Path $desktopProject)) {
@@ -43,12 +42,10 @@ if ($env:JARVIS_AI_PROVIDER -eq "ollama") {
 
 Push-Location $repoRoot
 try {
-    Write-Host "Restoring JARVIS..." -ForegroundColor Cyan
-    dotnet restore $solution
-    if ($LASTEXITCODE -ne 0) { throw "dotnet restore failed." }
-
-    Write-Host "Building desktop JARVIS..." -ForegroundColor Cyan
-    dotnet build $desktopProject --configuration Release --no-restore
+    # dotnet build performs the required restore and uses MSBuild's incremental
+    # compilation, avoiding a separate full-solution restore on every launch.
+    Write-Host "Building JARVIS Command Center..." -ForegroundColor Cyan
+    dotnet build $desktopProject --configuration Release
     if ($LASTEXITCODE -ne 0) { throw "Desktop build failed. See the errors above." }
 
     if ($BuildOnly) {
@@ -60,7 +57,7 @@ try {
         throw "Desktop executable was not produced: $desktopExe"
     }
 
-    Write-Host "Starting the JARVIS Command Center without keeping this PowerShell window open..." -ForegroundColor Green
+    Write-Host "Starting the JARVIS Command Center as a separate desktop process..." -ForegroundColor Green
     Start-Process -FilePath $desktopExe -WorkingDirectory $repoRoot
 }
 finally {
