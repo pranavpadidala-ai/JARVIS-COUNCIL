@@ -253,20 +253,20 @@ public sealed class AutonomousDevelopmentExecutor : IDevelopmentExecutor
             }
         }
 
-        if (validation.PythonTestResult is not null)
+        if (validation.PythonValidationResult is not null)
         {
             message +=
                 Environment.NewLine +
-                "Python test exit code: " +
-                validation.PythonTestResult.ExitCode;
+                "Python validation exit code: " +
+                validation.PythonValidationResult.ExitCode;
 
-            if (!string.IsNullOrWhiteSpace(validation.PythonTestResult.StandardOutput))
-                message += Environment.NewLine + "Python test output:" +
-                    Environment.NewLine + validation.PythonTestResult.StandardOutput;
+            if (!string.IsNullOrWhiteSpace(validation.PythonValidationResult.StandardOutput))
+                message += Environment.NewLine + "Python validation output:" +
+                    Environment.NewLine + validation.PythonValidationResult.StandardOutput;
 
-            if (!string.IsNullOrWhiteSpace(validation.PythonTestResult.StandardError))
-                message += Environment.NewLine + "Python test error:" +
-                    Environment.NewLine + validation.PythonTestResult.StandardError;
+            if (!string.IsNullOrWhiteSpace(validation.PythonValidationResult.StandardError))
+                message += Environment.NewLine + "Python validation error:" +
+                    Environment.NewLine + validation.PythonValidationResult.StandardError;
         }
 
         return message;
