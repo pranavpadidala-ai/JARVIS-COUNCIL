@@ -9,18 +9,17 @@ $ProgressPreference = "SilentlyContinue"
 $repoRoot = Split-Path -Parent $PSScriptRoot
 $modelName = "sherpa-onnx-kws-zipformer-gigaspeech-3.3M-2024-01-01"
 $modelRoot = Join-Path $repoRoot "Models\LocalAI\WakeWord\$modelName"
-$toolsVenv = Join-Path $repoRoot "Models\LocalAI\wakeword-tools"
+$toolsVenv = Join-Path $repoRoot "Models\LocalAI\wakeword-venv"
 $toolsPython = Join-Path $toolsVenv "Scripts\python.exe"
 $helper = Join-Path $PSScriptRoot "Generate-WakeWordTokens.py"
 $archiveUrl = "https://github.com/k2-fsa/sherpa-onnx/releases/download/kws-models/sherpa-onnx-kws-zipformer-gigaspeech-3.3M-2024-01-01.tar.bz2"
 
 $pythonLauncher = Get-Command py.exe -ErrorAction SilentlyContinue
 if (-not $pythonLauncher) {
-    throw "The Python launcher py.exe was not found. JARVIS already uses Python 3.11; repair the Python launcher and run this installer again."
+    throw "The Python launcher py.exe was not found. JARVIS requires Python 3.11 for this optional feature."
 }
 & $pythonLauncher.Source -3.11 --version
-if ($LASTEXITCODE -ne 0) { throw "Python 3.11 is required for wake-word token generation." }
-
+if ($LASTEXITCODE -ne 0) { throw "Python 3.11 is required for wake-word installation." }
 if (-not (Get-Command tar.exe -ErrorAction SilentlyContinue)) {
     throw "Windows tar.exe is required to extract the model."
 }
@@ -86,14 +85,14 @@ if (-not $installed) {
 }
 
 if (-not (Test-Path $toolsPython -PathType Leaf)) {
-    Write-Host "Creating a small isolated Python utility environment on the JARVIS drive..."
+    Write-Host "Creating a dedicated, lightweight Python wake-word environment on the JARVIS drive..."
     & $pythonLauncher.Source -3.11 -m venv $toolsVenv
-    if ($LASTEXITCODE -ne 0) { throw "Could not create the wake-word helper environment." }
+    if ($LASTEXITCODE -ne 0) { throw "Could not create the wake-word Python environment." }
 }
 
-Write-Host "Installing the small SentencePiece tokenizer dependency..."
-& $toolsPython -m pip install --disable-pip-version-check --quiet "sentencepiece==0.2.1"
-if ($LASTEXITCODE -ne 0) { throw "SentencePiece installation failed." }
+Write-Host "Installing CPU-only local wake-word dependencies..."
+& $toolsPython -m pip install --disable-pip-version-check --quiet "sherpa-onnx==1.13.8" "sounddevice>=0.5,<0.6" "sentencepiece==0.2.1"
+if ($LASTEXITCODE -ne 0) { throw "Could not install the local wake-word dependencies." }
 
 $keywordPath = Join-Path $modelRoot "keywords.txt"
 Write-Host "Generating keyword tokens for '$WakePhrase'..."
@@ -101,8 +100,12 @@ Write-Host "Generating keyword tokens for '$WakePhrase'..."
 if ($LASTEXITCODE -ne 0) { throw "Wake-word token generation failed." }
 
 [Environment]::SetEnvironmentVariable("JARVIS_WAKEWORD_MODEL_DIR", $modelRoot, "User")
+[Environment]::SetEnvironmentVariable("JARVIS_WAKEWORD_PYTHON", $toolsPython, "User")
 $env:JARVIS_WAKEWORD_MODEL_DIR = $modelRoot
+$env:JARVIS_WAKEWORD_PYTHON = $toolsPython
+
 Write-Host ""
-Write-Host "Wake-word model installed under $modelRoot"
+Write-Host "Wake-word model and Python runtime installed under Models\LocalAI."
 Write-Host "Phrase: $WakePhrase"
-Write-Host "Audio stays local. Listening remains OFF until you enable it in the JARVIS tray menu."
+Write-Host "Audio remains local. Listening stays OFF until you enable it in the JARVIS tray menu."
+Write-Host "Restart JARVIS Command Center after installation so it reads the new user environment variables."
