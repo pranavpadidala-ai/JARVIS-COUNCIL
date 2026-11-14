@@ -13,25 +13,25 @@ public sealed class BuildTestExecutorTests
             TerminalResult.SuccessResult(),
             TerminalResult.SuccessResult());
 
-        var executor = new BuildTestExecutor(fake, workspace.Path);
-        var result = await executor.RunAsync();
+        var result = await new BuildTestExecutor(fake, workspace.Path).RunAsync();
 
         Assert.True(result.Success);
-        Assert.Equal("Build and tests passed.", result.Message);
+        Assert.Equal("Build and .NET tests passed.", result.Message);
         Assert.NotNull(result.BuildResult);
         Assert.NotNull(result.TestResult);
-        Assert.Null(result.PythonTestResult);
+        Assert.Null(result.PythonValidationResult);
         Assert.Equal(2, fake.Commands.Count);
-        Assert.Equal("dotnet build", fake.Commands[0].Command);
-        Assert.Equal("dotnet test", fake.Commands[1].Command);
     }
 
     [Fact]
-    public async Task Successful_validation_also_runs_python_tests_when_suite_exists()
+    public async Task Successful_validation_compiles_python_then_runs_unit_tests()
     {
         using var workspace = new TemporaryWorkspace();
         Directory.CreateDirectory(Path.Combine(workspace.Path, "tests", "python"));
+        Directory.CreateDirectory(Path.Combine(workspace.Path, "python"));
+        Directory.CreateDirectory(Path.Combine(workspace.Path, "scripts"));
         var fake = new FakeTerminalExecutor(
+            TerminalResult.SuccessResult(),
             TerminalResult.SuccessResult(),
             TerminalResult.SuccessResult(),
             TerminalResult.SuccessResult());
@@ -39,11 +39,55 @@ public sealed class BuildTestExecutorTests
         var result = await new BuildTestExecutor(fake, workspace.Path).RunAsync();
 
         Assert.True(result.Success);
-        Assert.Equal("Build, .NET tests, and Python tests passed.", result.Message);
-        Assert.NotNull(result.PythonTestResult);
+        Assert.Equal(
+            "Build, .NET tests, Python syntax checks, and Python unit tests passed.",
+            result.Message);
+        Assert.Equal(4, fake.Commands.Count);
+        Assert.Equal("dotnet build", fake.Commands[0].Command);
+        Assert.Equal("dotnet test", fake.Commands[1].Command);
+        Assert.Equal("py -3.11 -m compileall -q python tests/python scripts", fake.Commands[2].Command);
+        Assert.Equal("py -3.11 -m unittest discover -s tests/python -v", fake.Commands[3].Command);
+        Assert.Equal(TimeSpan.FromMinutes(2), fake.Commands[2].Timeout);
+        Assert.Equal(TimeSpan.FromMinutes(3), fake.Commands[3].Timeout);
+    }
+
+    [Fact]
+    public async Task Failed_python_syntax_check_stops_before_unit_tests()
+    {
+        using var workspace = new TemporaryWorkspace();
+        Directory.CreateDirectory(Path.Combine(workspace.Path, "tests", "python"));
+        var syntaxFailure = new TerminalResult(1, "bad file.py", "SyntaxError", TimeSpan.FromSeconds(1), false, false);
+        var fake = new FakeTerminalExecutor(
+            TerminalResult.SuccessResult(),
+            TerminalResult.SuccessResult(),
+            syntaxFailure);
+
+        var result = await new BuildTestExecutor(fake, workspace.Path).RunAsync();
+
+        Assert.False(result.Success);
+        Assert.Equal("Python syntax validation failed.", result.Message);
+        Assert.Equal(syntaxFailure, result.PythonValidationResult);
         Assert.Equal(3, fake.Commands.Count);
-        Assert.Equal("py -3.11 -m unittest discover -s tests/python -v", fake.Commands[2].Command);
-        Assert.Equal(TimeSpan.FromMinutes(3), fake.Commands[2].Timeout);
+    }
+
+    [Fact]
+    public async Task Failed_python_unit_tests_return_python_validation_failure()
+    {
+        using var workspace = new TemporaryWorkspace();
+        Directory.CreateDirectory(Path.Combine(workspace.Path, "tests", "python"));
+        var pythonFailure = new TerminalResult(1, "test output", "test failure", TimeSpan.FromSeconds(1), false, false);
+        var fake = new FakeTerminalExecutor(
+            TerminalResult.SuccessResult(),
+            TerminalResult.SuccessResult(),
+            TerminalResult.SuccessResult(),
+            pythonFailure);
+
+        var result = await new BuildTestExecutor(fake, workspace.Path).RunAsync();
+
+        Assert.False(result.Success);
+        Assert.Equal("Python unit tests failed.", result.Message);
+        Assert.Equal(pythonFailure, result.PythonValidationResult);
+        Assert.Equal(4, fake.Commands.Count);
     }
 
     [Fact]
@@ -58,11 +102,10 @@ public sealed class BuildTestExecutorTests
         Assert.False(result.Success);
         Assert.Equal("Build failed.", result.Message);
         Assert.Single(fake.Commands);
-        Assert.Equal("dotnet build", fake.Commands[0].Command);
     }
 
     [Fact]
-    public async Task Failed_dotnet_tests_stop_before_python_tests()
+    public async Task Failed_dotnet_tests_stop_before_python_validation()
     {
         using var workspace = new TemporaryWorkspace();
         Directory.CreateDirectory(Path.Combine(workspace.Path, "tests", "python"));
@@ -75,28 +118,7 @@ public sealed class BuildTestExecutorTests
         Assert.False(result.Success);
         Assert.Equal("Tests failed.", result.Message);
         Assert.Equal(2, fake.Commands.Count);
-        Assert.Null(result.PythonTestResult);
-    }
-
-    [Fact]
-    public async Task Failed_python_tests_return_python_specific_failure()
-    {
-        using var workspace = new TemporaryWorkspace();
-        Directory.CreateDirectory(Path.Combine(workspace.Path, "tests", "python"));
-        var pythonFailure = new TerminalResult(1, "test output", "syntax failure", TimeSpan.FromSeconds(1), false, false);
-        var fake = new FakeTerminalExecutor(
-            TerminalResult.SuccessResult(),
-            TerminalResult.SuccessResult(),
-            pythonFailure);
-
-        var result = await new BuildTestExecutor(fake, workspace.Path).RunAsync();
-
-        Assert.False(result.Success);
-        Assert.Equal("Python tests failed.", result.Message);
-        Assert.Null(result.BuildResult);
-        Assert.Null(result.TestResult);
-        Assert.Equal(pythonFailure, result.PythonTestResult);
-        Assert.Equal(3, fake.Commands.Count);
+        Assert.Null(result.PythonValidationResult);
     }
 
     [Fact]
@@ -141,10 +163,8 @@ public sealed class BuildTestExecutorTests
         {
             cancellationToken.ThrowIfCancellationRequested();
             Commands.Add(command);
-
             if (_results.Count == 0)
                 throw new InvalidOperationException("No fake terminal result was configured.");
-
             return Task.FromResult(_results.Dequeue());
         }
     }
