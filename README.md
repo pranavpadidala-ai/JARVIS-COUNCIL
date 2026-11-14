@@ -26,6 +26,21 @@ The normal startup is the interactive JARVIS assistant. `--doctor` checks the co
 
 ## Windows desktop app (first usable build)
 
+For a first-time local setup, use the one-command installer. It checks for .NET 8 and Ollama, starts the local Ollama service, downloads the small Qwen brain model if needed, saves local-first settings for your Windows user, then builds and launches the desktop app:
+
+```powershell
+Set-ExecutionPolicy -Scope Process Bypass
+.\scripts\Setup-JarvisDesktop.ps1
+```
+
+The core model download is approximately 2 GB. To install the optional vision, engineering OCR, multilingual speech-recognition and speech-synthesis models as well, run:
+
+```powershell
+.\scripts\Setup-JarvisDesktop.ps1 -FullLocalStack
+```
+
+Use `-NoLaunch` to install/configure without opening the desktop, or `-SkipModelDownload` when the core model is already installed. The optional full stack requires several additional GB of downloads. The installer does not configure a paid cloud provider or start the optional background development worker.
+
 Launch the WPF Command Center and chat window from PowerShell:
 
 ```powershell
