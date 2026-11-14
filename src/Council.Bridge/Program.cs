@@ -24,12 +24,12 @@ Console.CancelKeyPress += cancelHandler;
 try
 {
     await using var server = new LocalMcpServer(workspaceRoot, token, port);
-    server.Start();
+    await server.StartAsync(shutdown.Token);
     Console.WriteLine("JARVIS local development bridge is running.");
     Console.WriteLine($"MCP endpoint: http://127.0.0.1:{port}/mcp");
     Console.WriteLine($"Workspace: {Path.GetFullPath(workspaceRoot)}");
     Console.WriteLine("Loopback only. No public or LAN interface is exposed. Press Ctrl+C to stop.");
-    await Task.Delay(Timeout.Infinite, shutdown.Token);
+    await server.WaitForShutdownAsync(shutdown.Token);
 }
 catch (OperationCanceledException) when (shutdown.IsCancellationRequested)
 {
