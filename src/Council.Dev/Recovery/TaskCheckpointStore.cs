@@ -97,7 +97,7 @@ public sealed class TaskCheckpointStore
             throw new InvalidDataException("Checkpoint content exceeds safety limits.");
         foreach (var artifact in checkpoint.Artifacts)
         {
-            if (string.IsNullOrWhiteSpace(artifact.RelativePath) || Path.IsPathRooted(artifact.RelativePath) ||
+            if (artifact is null || string.IsNullOrWhiteSpace(artifact.RelativePath) || Path.IsPathRooted(artifact.RelativePath) ||
                 artifact.RelativePath.Split(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar).Any(p => p == "..") ||
                 string.IsNullOrWhiteSpace(artifact.Sha256) || artifact.Sha256.Length != 64 || artifact.Sha256.Any(c => !Uri.IsHexDigit(c)) || artifact.Length < 0)
                 throw new InvalidDataException("Checkpoint contains an invalid artifact reference.");
