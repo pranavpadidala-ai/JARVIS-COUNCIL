@@ -141,8 +141,7 @@ public sealed class TaskManager
         task.UpdatedAtUtc = DateTime.UtcNow;
         task.CurrentStep = "Approved by user; waiting for the local development agent.";
         await _store.SaveUnlockedAsync(latest, cancellationToken);
-        if (status is TaskStatus.Running or TaskStatus.Paused or TaskStatus.Failed)
-            await SaveCheckpointAsync(task, cancellationToken);
+        await SaveCheckpointAsync(task, cancellationToken);
         ReplaceTasks(latest);
         return true;
     }
