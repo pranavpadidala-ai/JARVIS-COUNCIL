@@ -68,7 +68,7 @@ public sealed class LocalMcpServer : IAsyncDisposable
 
     private Task<IResult> HandleHealthAsync(HttpContext context)
     {
-        if (!IsAuthorized(context.Request.Headers.Authorization.ToString()))
+        if (!IsAuthorized(context.Request.Headers["Authorization"].ToString()))
             return Task.FromResult<IResult>(Results.Unauthorized());
 
         return Task.FromResult(Results.Json(new
@@ -82,7 +82,7 @@ public sealed class LocalMcpServer : IAsyncDisposable
 
     private async Task<IResult> HandleMcpAsync(HttpContext context)
     {
-        if (!IsAuthorized(context.Request.Headers.Authorization.ToString()))
+        if (!IsAuthorized(context.Request.Headers["Authorization"].ToString()))
             return Results.Unauthorized();
 
         if (!string.Equals(context.Request.ContentType?.Split(';')[0].Trim(), "application/json", StringComparison.OrdinalIgnoreCase))
