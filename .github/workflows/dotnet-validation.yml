@@ -26,11 +26,21 @@ jobs:
     steps:
       - name: Check out repository
         uses: actions/checkout@v4
+        with:
+          submodules: recursive
 
       - name: Set up .NET 8
         uses: actions/setup-dotnet@v4
         with:
           dotnet-version: 8.0.x
+
+      - name: Set up Python for upstream Indian Trader tests
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Run Indian Trader offline tests
+        run: python -m unittest discover -s integrations/indian-trader/tests -v
 
       - name: Restore
         run: dotnet restore JARVIS.Council.sln
