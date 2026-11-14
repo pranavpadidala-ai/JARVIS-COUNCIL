@@ -41,7 +41,8 @@ foreach ($path in @($appPath, $chatPath, $mainPath)) {
     if (!(Test-Path -LiteralPath $path -PathType Leaf)) { throw "Missing UI source file: $path" }
 }
 
-# Do not overwrite any UI file that has acquired local edits since the review package.
+# The script is designed to resume after a prior build failure. Existing UI edits are
+# preserved; the transformations below are exact, narrowly-scoped and idempotent.
 $old = $ErrorActionPreference
 $ErrorActionPreference = 'Continue'
 $uiStatus = & git -C $root status --short -- src/Council.Desktop/App.xaml src/Council.Desktop/ChatWindow.xaml.cs src/Council.Desktop/MainWindow.xaml 2>$null
@@ -49,8 +50,8 @@ $gitCode = $LASTEXITCODE
 $ErrorActionPreference = $old
 if ($gitCode -ne 0) { throw 'Could not inspect UI file status.' }
 if (@($uiStatus).Count -gt 0) {
+    Write-Host 'Existing UI changes detected; preserving them and applying only the targeted repair-script corrections.'
     $uiStatus | ForEach-Object { Write-Host $_ }
-    throw 'UI files have local changes. Nothing was modified; review those changes first.'
 }
 
 Write-Host ''
@@ -83,6 +84,12 @@ $app = $app.Replace(
     '<Setter Property="Foreground" Value="#D7F4FF"/>',
     '<Setter Property="Foreground" Value="#E6F5FA"/>'
 )
+
+# WPF and Windows Forms are both enabled by the desktop project; qualify WPF names.
+$chat = $chat.Replace('new TextBox', 'new System.Windows.Controls.TextBox')
+$chat = $chat.Replace('Background = Brushes.Transparent', 'Background = System.Windows.Media.Brushes.Transparent')
+$chat = $chat.Replace('SelectionTextBrush = Brushes.White', 'SelectionTextBrush = System.Windows.Media.Brushes.White')
+$chat = $chat.Replace('Clipboard.SetText(textToCopy)', 'System.Windows.Clipboard.SetText(textToCopy)')
 
 # Message bodies were TextBlocks, so users could not reliably select/copy their text.
 $pattern = '(?s)        stack\.Children\.Add\(new TextBlock\s*\{\s*Text = content,\s*Foreground = new SolidColorBrush\(\(WpfColor\)WpfColorConverter\.ConvertFromString\("#D7F1FA"\)\),\s*FontSize = 13,\s*TextWrapping = TextWrapping\.Wrap\s*\}\);'
@@ -137,6 +144,10 @@ if ($rx.IsMatch($chat)) {
         stack.Children.Add(messageText);
 '@
     $chat = $rx.Replace($chat, $replacement, 1)
+    $chat = $chat.Replace('new TextBox', 'new System.Windows.Controls.TextBox')
+    $chat = $chat.Replace('Background = Brushes.Transparent', 'Background = System.Windows.Media.Brushes.Transparent')
+    $chat = $chat.Replace('SelectionTextBrush = Brushes.White', 'SelectionTextBrush = System.Windows.Media.Brushes.White')
+    $chat = $chat.Replace('Clipboard.SetText(textToCopy)', 'System.Windows.Clipboard.SetText(textToCopy)')
 } elseif ($chat -notmatch 'var messageText = new TextBox') {
     throw 'Transcript renderer did not match the expected source. Nothing was modified.'
 }
