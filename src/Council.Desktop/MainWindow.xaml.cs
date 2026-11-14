@@ -171,4 +171,30 @@ public partial class MainWindow : Window
         var chat = new ChatWindow { Owner = this, InitialPrompt = "Help me plan a workflow and identify which steps can be safely automated: " };
         chat.Show();
     }
+
+    private void OpenAiCore_Click(object sender, RoutedEventArgs e)
+    {
+        OpenChatWithPrompt("Explain the currently configured AI provider, model, and local/cloud routing. Do not expose secrets.");
+    }
+
+    private void OpenAgents_Click(object sender, RoutedEventArgs e) => OpenChatWithPrompt("/agents");
+
+    private void OpenConversations_Click(object sender, RoutedEventArgs e)
+    {
+        // Opening chat restores the recent local conversation history automatically.
+        OpenChatWithPrompt(null);
+    }
+
+    private void OpenKnowledgeBase_Click(object sender, RoutedEventArgs e)
+    {
+        OpenChatWithPrompt("Help me search and understand files in my configured JARVIS workspace. Ask for a topic or filename if needed.");
+    }
+
+    private void OpenSkills_Click(object sender, RoutedEventArgs e) => OpenChatWithPrompt("/skills");
+
+    private void OpenChatWithPrompt(string? prompt)
+    {
+        var chat = new ChatWindow { Owner = this, InitialPrompt = prompt };
+        chat.Show();
+    }
 }
