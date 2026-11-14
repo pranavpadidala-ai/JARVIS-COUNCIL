@@ -6,17 +6,20 @@ public sealed record ValidationResult(
     bool Success,
     string Message,
     TerminalResult? BuildResult,
-    TerminalResult? TestResult)
+    TerminalResult? TestResult,
+    TerminalResult? PythonTestResult = null)
 {
     public static ValidationResult Passed(
         string message,
         TerminalResult buildResult,
-        TerminalResult testResult)
+        TerminalResult testResult,
+        TerminalResult? pythonTestResult = null)
         => new(
             true,
             message,
             buildResult,
-            testResult);
+            testResult,
+            pythonTestResult);
 
     public static ValidationResult Failed(
         string message,
@@ -26,4 +29,14 @@ public sealed record ValidationResult(
             message,
             failedResult,
             null);
+
+    public static ValidationResult FailedPythonTests(
+        string message,
+        TerminalResult pythonTestResult)
+        => new(
+            false,
+            message,
+            null,
+            null,
+            pythonTestResult);
 }
