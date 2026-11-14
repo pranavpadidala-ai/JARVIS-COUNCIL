@@ -1,6 +1,6 @@
 # Local JARVIS Development Bridge
 
-Status: first implementation in progress.
+Status: implementation complete; local Windows smoke test pending.
 
 ## Purpose
 
