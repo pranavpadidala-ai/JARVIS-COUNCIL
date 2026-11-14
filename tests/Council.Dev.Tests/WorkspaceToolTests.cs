@@ -157,6 +157,10 @@ public sealed class WorkspaceToolTests
         var cache = Path.Combine(venv, "Lib", "site-packages", "google", "protobuf", "compiler", "__pycache__");
         Directory.CreateDirectory(cache);
         await File.WriteAllTextAsync(Path.Combine(cache, "__init__.cpython-311.pyc"), "bytecode");
+        var independentCache = Path.Combine(root, "src", "__pycache__");
+        Directory.CreateDirectory(independentCache);
+        await File.WriteAllTextAsync(Path.Combine(independentCache, "module.cpython-311.pyc"), "bytecode");
+        await File.WriteAllTextAsync(Path.Combine(root, "loose.cpython-311.pyc"), "bytecode");
         await File.WriteAllTextAsync(Path.Combine(root, "README.md"), "visible");
         var tool = new WorkspaceTool("list_files", "list", root);
 
@@ -167,7 +171,10 @@ public sealed class WorkspaceToolTests
         Assert.DoesNotContain("piper-venv", result.Message, StringComparison.OrdinalIgnoreCase);
         Assert.DoesNotContain("__pycache__", result.Message, StringComparison.OrdinalIgnoreCase);
         Assert.DoesNotContain(".pyc", result.Message, StringComparison.OrdinalIgnoreCase);
+        Assert.DoesNotContain("loose.cpython-311.pyc", result.Message, StringComparison.OrdinalIgnoreCase);
         Assert.True(File.Exists(Path.Combine(cache, "__init__.cpython-311.pyc")));
+        Assert.True(File.Exists(Path.Combine(independentCache, "module.cpython-311.pyc")));
+        Assert.True(File.Exists(Path.Combine(root, "loose.cpython-311.pyc")));
     }
 
     private static string CreateWorkspace()
