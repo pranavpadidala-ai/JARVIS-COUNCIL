@@ -65,9 +65,31 @@ public sealed class BuildTestExecutor
                 testResult);
         }
 
+        TerminalResult? pythonTestResult = null;
+        var pythonTestsDirectory = Path.Combine(_workingDirectory, "tests", "python");
+        if (Directory.Exists(pythonTestsDirectory))
+        {
+            pythonTestResult = await _terminalExecutor.ExecuteAsync(
+                new TerminalCommand(
+                    "py -3.11 -m unittest discover -s tests/python -v",
+                    _workingDirectory,
+                    TimeSpan.FromMinutes(3)),
+                cancellationToken);
+
+            if (!pythonTestResult.Success)
+            {
+                return ValidationResult.FailedPythonTests(
+                    "Python tests failed.",
+                    pythonTestResult);
+            }
+        }
+
         return ValidationResult.Passed(
-            "Build and tests passed.",
+            pythonTestResult is null
+                ? "Build and tests passed."
+                : "Build, .NET tests, and Python tests passed.",
             buildResult,
-            testResult);
+            testResult,
+            pythonTestResult);
     }
 }
