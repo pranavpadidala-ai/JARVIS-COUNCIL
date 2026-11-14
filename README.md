@@ -73,6 +73,21 @@ The initial browser tool is deliberately limited to:
 
 It cannot click buttons, submit forms, perform downloads/uploads, enter credentials/OTPs/payment details, or perform financial, destructive or irreversible actions. Browser page text and links are untrusted input. Playwright's CDP connection is lower fidelity than its native Playwright transport, so screenshot verification remains available for sites or interactions that do not work reliably.
 
+### Optional offline wake-word listening
+
+Wake-word detection is **off by default**. To install the English CPU keyword model and generate the default phrase `HEY JARVIS`, run once from the repository root:
+
+```powershell
+Set-ExecutionPolicy -Scope Process Bypass
+.\scripts\Install-WakeWord.ps1
+```
+
+You can select a different 2-4 word English phrase with `-WakePhrase "HEY COMPUTER"`. The script downloads the official sherpa-onnx GigaSpeech English KWS archive to a temporary folder, checks that the model README declares Apache-2.0, installs only the small SentencePiece tokenisation utility into a dedicated local venv, then keeps the quantized model and generated keyword file under `%LOCALAPPDATA%\JARVIS\models`. The model itself is not committed or redistributed in this repository.
+
+To activate it, right-click the JARVIS tray icon and check **Listen for Hey JARVIS**. The microphone remains closed until you explicitly enable that item. After the keyword is detected, the wake-word listener stops and releases the microphone before JARVIS opens its existing Whisper command capture; JARVIS then speaks its reply with the existing local/cloud speech setting and re-arms the listener. Uncheck the tray item to mute it, or choose Exit JARVIS to stop it.
+
+Audio is processed locally by sherpa-onnx; the detector does not save microphone recordings or send audio to a cloud service. The model uses one CPU inference thread. Wake-word reliability and false-trigger rate depend on the user's microphone, room noise and phrase, so test it in the actual environment before relying on it. Do not use it where a permanently available microphone is inappropriate.
+
 ## Choose an AI provider
 
 Set configuration in the current PowerShell session. Do not commit API keys or place them in the project workspace.

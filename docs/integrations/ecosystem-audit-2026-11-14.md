@@ -25,11 +25,11 @@ The repository declares MIT and documents a local wake-word/VAD/Whisper/Piper vo
 
 Its README gives 8 GB as a minimum and 16 GB as recommended for its default LLM/voice stack. JARVIS should keep its smaller 2B local model profile and load Whisper/TTS/vision only on demand.
 
-### Wake-word engine: dscripka/openWakeWord
+### Wake-word engine: sherpa-onnx (selected); openWakeWord (not selected)
 
-Repository: https://github.com/dscripka/openWakeWord
+Repositories: https://github.com/k2-fsa/sherpa-onnx and https://github.com/dscripka/openWakeWord
 
-The repository's code is Apache-2.0, but its included pre-trained model weights are CC BY-NC-SA 4.0 due to training-data licensing. JARVIS must not silently bundle or redistribute those weights as if they shared the code licence. A future optional wake-word service should use a separately licensed model or a model trained for JARVIS with documented rights, be disabled by default, provide a visible microphone/mute state, and stop immediately when muted or when JARVIS exits.
+**Integrated in this batch:** the .NET desktop app uses sherpa-onnx 1.13.8 with the English GigaSpeech Zipformer KWS model. The C# runtime is Apache-2.0 and its NuGet package supports .NET 8 Windows; the selected model archive's README declares Apache License 2.0. The model is downloaded locally and is not redistributed or committed. The source dataset's terms are separate from the model licence; do not treat dataset terms as a blanket grant for redistributing training audio. The wake-word listener is off by default, starts only from the tray, uses one CPU inference thread, and has a visible mute/stop control. openWakeWord was not selected because its common pretrained models have separate non-commercial ShareAlike licensing.
 
 ### Windows accessibility automation: FlaUI
 

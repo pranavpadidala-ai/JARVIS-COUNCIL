@@ -8,6 +8,7 @@ using System.Windows.Threading;
 using WpfApplication = System.Windows.Application;
 using Council.App.Chat;
 using Council.Memory;
+using Council.Desktop.Voice;
 
 namespace Council.Desktop;
 
@@ -36,6 +37,10 @@ public partial class MainWindow : Window
     private readonly Process _process = Process.GetCurrentProcess();
     private readonly Forms.NotifyIcon _trayIcon;
     private bool _allowApplicationExit;
+    private readonly WakeWordService _wakeWordService = new();
+    private Forms.ToolStripMenuItem? _wakeWordMenuItem;
+    private CancellationTokenSource? _wakeWordCancellation;
+    private Task? _wakeWordLoopTask;
     private TimeSpan _lastCpu;
     private DateTime _lastCpuAt = DateTime.UtcNow;
 
@@ -63,8 +68,16 @@ public partial class MainWindow : Window
         UpdateTelemetry();
         _telemetry.Start();
 
-        Closed += (_, _) =>
+        Closed += async (_, _) =>
         {
+            _wakeWordCancellation?.Cancel();
+            if (_wakeWordLoopTask is not null)
+            {
+                try { await _wakeWordLoopTask.WaitAsync(TimeSpan.FromSeconds(5)); }
+                catch (OperationCanceledException) { }
+                catch (TimeoutException) { }
+            }
+            _wakeWordCancellation?.Dispose();
             _clock.Stop();
             _telemetry.Stop();
             _trayIcon.Visible = false;
@@ -83,6 +96,13 @@ public partial class MainWindow : Window
             RestoreFromTray();
             OpenChatWithPrompt(null);
         });
+        _wakeWordMenuItem = new Forms.ToolStripMenuItem("Listen for Hey JARVIS")
+        {
+            CheckOnClick = true,
+            ToolTipText = "Opt in to local wake-word detection. The microphone stays closed unless this item is checked."
+        };
+        _wakeWordMenuItem.CheckedChanged += WakeWordMenuItem_CheckedChanged;
+        menu.Items.Add(_wakeWordMenuItem);
         menu.Items.Add(new Forms.ToolStripSeparator());
         menu.Items.Add("Exit JARVIS", null, (_, _) => ExitFromTray());
 
@@ -95,6 +115,113 @@ public partial class MainWindow : Window
         };
         icon.DoubleClick += (_, _) => RestoreFromTray();
         return icon;
+    }
+
+
+    private void WakeWordMenuItem_CheckedChanged(object? sender, EventArgs e)
+    {
+        if (_wakeWordMenuItem is null)
+            return;
+
+        if (!_wakeWordMenuItem.Checked)
+        {
+            StopWakeWordListener();
+            return;
+        }
+
+        if (!WakeWordService.IsInstalled(out var detail))
+        {
+            _wakeWordMenuItem.Checked = false;
+            _trayIcon.ShowBalloonTip(
+                4500,
+                "Wake-word pack not installed",
+                detail + " Run scripts\\Install-WakeWord.ps1 from the JARVIS repository.",
+                Forms.ToolTipIcon.Warning);
+            return;
+        }
+
+        if (_wakeWordLoopTask is { IsCompleted: false })
+            return;
+
+        _wakeWordCancellation?.Dispose();
+        _wakeWordCancellation = new CancellationTokenSource();
+        _trayIcon.Text = "JARVIS - Listening for Hey JARVIS";
+        _trayIcon.ShowBalloonTip(
+            1800,
+            "Wake-word listening enabled",
+            "Local microphone detection is active. Uncheck this tray item to mute it.",
+            Forms.ToolTipIcon.Info);
+        _wakeWordLoopTask = RunWakeWordLoopAsync(_wakeWordCancellation.Token);
+    }
+
+    private void StopWakeWordListener()
+    {
+        _wakeWordCancellation?.Cancel();
+        _trayIcon.Text = "JARVIS - Right-click to open or exit";
+    }
+
+    private async Task RunWakeWordLoopAsync(CancellationToken cancellationToken)
+    {
+        try
+        {
+            while (!cancellationToken.IsCancellationRequested)
+            {
+                var detected = await _wakeWordService.ListenOnceAsync(cancellationToken);
+                if (string.IsNullOrWhiteSpace(detected))
+                    continue;
+
+                var voiceTurnCompleted = new TaskCompletionSource(
+                    TaskCreationOptions.RunContinuationsAsynchronously);
+
+                await Dispatcher.InvokeAsync(() =>
+                {
+                    RestoreFromTray();
+                    var chat = new ChatWindow
+                    {
+                        Owner = this,
+                        StartVoiceOnLoad = true
+                    };
+
+                    EventHandler? completedHandler = null;
+                    completedHandler = (_, _) =>
+                    {
+                        chat.VoiceTurnCompleted -= completedHandler;
+                        voiceTurnCompleted.TrySetResult();
+                    };
+                    chat.VoiceTurnCompleted += completedHandler;
+                    chat.Closed += (_, _) => voiceTurnCompleted.TrySetResult();
+                    chat.Show();
+                });
+
+                // The wake-word microphone has already stopped before the chat
+                // opens its separate command-capture microphone.
+                await voiceTurnCompleted.Task.WaitAsync(cancellationToken);
+            }
+        }
+        catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+        {
+            // The user unchecked the tray item or exited JARVIS.
+        }
+        catch (Exception ex) when (ex is InvalidOperationException or IOException or
+                                   UnauthorizedAccessException or DllNotFoundException or
+                                   BadImageFormatException or PlatformNotSupportedException)
+        {
+            await Dispatcher.InvokeAsync(() =>
+            {
+                if (_wakeWordMenuItem is not null)
+                    _wakeWordMenuItem.Checked = false;
+                _trayIcon.ShowBalloonTip(
+                    5000,
+                    "Wake-word listener stopped",
+                    ex.GetBaseException().Message,
+                    Forms.ToolTipIcon.Warning);
+            });
+        }
+        finally
+        {
+            if (_wakeWordCancellation?.IsCancellationRequested == true)
+                _trayIcon.Text = "JARVIS - Right-click to open or exit";
+        }
     }
 
     private void MainWindow_Closing(object? sender, CancelEventArgs e)
