@@ -17,15 +17,6 @@ public sealed class ConversationMemoryStore
     private readonly string _filePath;
     private readonly SemaphoreSlim _gate = new(1, 1);
 
-    private static readonly HashSet<string> StopWords = new(StringComparer.OrdinalIgnoreCase)
-    {
-        "a", "an", "and", "are", "as", "at", "be", "but", "by", "did", "do",
-        "for", "from", "had", "has", "have", "how", "i", "in", "is", "it",
-        "me", "my", "of", "on", "or", "our", "please", "the", "their",
-        "them", "there", "this", "to", "was", "we", "what", "when", "where",
-        "which", "who", "why", "with", "you", "your"
-    };
-
     public ConversationMemoryStore(string? filePath = null)
     {
         var configuredPath = filePath ??
@@ -97,12 +88,6 @@ public sealed class ConversationMemoryStore
         if (maxResults is < 1 or > 20)
             throw new ArgumentOutOfRangeException(nameof(maxResults));
 
-        var queryTokens = Tokenize(query)
-            .Where(token => token.Length > 1 && !StopWords.Contains(token))
-            .ToHashSet(StringComparer.OrdinalIgnoreCase);
-        if (queryTokens.Count == 0)
-            return Array.Empty<AIMessage>();
-
         await _gate.WaitAsync(cancellationToken);
         try
         {
@@ -110,7 +95,7 @@ public sealed class ConversationMemoryStore
                 return Array.Empty<AIMessage>();
 
             var lines = await File.ReadAllLinesAsync(_filePath, cancellationToken);
-            var matches = new List<(AIMessage Message, int Score, DateTimeOffset Timestamp)>();
+            var candidates = new List<MemorySearchCandidate>();
             foreach (var line in lines)
             {
                 cancellationToken.ThrowIfCancellationRequested();
@@ -125,17 +110,9 @@ public sealed class ConversationMemoryStore
                         continue;
 
                     var content = LocalMemoryProtector.Unprotect(stored.Content);
-                    var contentTokens = Tokenize(content);
-                    var distinctContentTokens = contentTokens.ToHashSet(StringComparer.OrdinalIgnoreCase);
-                    var matchedTokens = queryTokens.Count(token => distinctContentTokens.Contains(token));
-                    if (matchedTokens == 0)
-                        continue;
-
-                    var occurrences = contentTokens.Count(token => queryTokens.Contains(token));
-                    var score = matchedTokens * 10 + Math.Min(occurrences, 20);
-                    matches.Add((
+                    candidates.Add(new MemorySearchCandidate(
                         new AIMessage(stored.Role, SecretRedactor.Redact(content)),
-                        score,
+                        content,
                         stored.Timestamp));
                 }
                 catch (Exception ex) when (ex is JsonException or CryptographicException or FormatException)
@@ -144,11 +121,13 @@ public sealed class ConversationMemoryStore
                 }
             }
 
-            return matches
-                .OrderByDescending(match => match.Score)
-                .ThenByDescending(match => match.Timestamp)
-                .Take(maxResults)
-                .Select(match => match.Message)
+            return MemoryRecallEngine.Rank(
+                    query,
+                    candidates,
+                    candidate => candidate.Content,
+                    candidate => candidate.Timestamp,
+                    maxResults: maxResults)
+                .Select(hit => hit.Item.Message)
                 .ToArray();
         }
         finally
@@ -263,24 +242,14 @@ public sealed class ConversationMemoryStore
         File.Move(temporaryPath, _filePath, overwrite: true);
     }
 
-    private static IEnumerable<string> Tokenize(string? value)
-    {
-        if (string.IsNullOrWhiteSpace(value))
-            return Array.Empty<string>();
-
-        return value
-            .ToLowerInvariant()
-            .Split((char[]?)null, StringSplitOptions.RemoveEmptyEntries)
-            .SelectMany(part => part.Split(
-                part.Where(char.IsLetterOrDigit).Count() == part.Length
-                    ? Array.Empty<char>()
-                    : part.Where(character => !char.IsLetterOrDigit(character)).ToArray(),
-                StringSplitOptions.RemoveEmptyEntries));
-    }
-
     private static bool IsPersistableRole(string? role) =>
         string.Equals(role, "user", StringComparison.OrdinalIgnoreCase) ||
         string.Equals(role, "assistant", StringComparison.OrdinalIgnoreCase);
+
+    private sealed record MemorySearchCandidate(
+        AIMessage Message,
+        string Content,
+        DateTimeOffset Timestamp);
 
     private sealed record StoredMessage(
         DateTimeOffset Timestamp,

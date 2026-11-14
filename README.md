@@ -161,7 +161,7 @@ The OmniRoute adapter rejects the `auto` alias and any model ID not present in t
 
 ## What JARVIS can do
 
-- **Conversation and memory:** optional local conversation history, deterministic keyword retrieval, explicit long-term facts, and encrypted project-scoped learned practices with confidence/evidence tracking.
+- **Conversation and memory:** optional DPAPI-protected local history; offline BM25-style retrieval that weights rare terms, normalizes common English inflections, considers phrase proximity and recency, and selects only relevant saved facts and project practices; explicit long-term facts and encrypted learned practices with confidence/evidence tracking.
 - **Specialist agents:** native delegated agents for planning, architecture, TDD, code review, security review, build-error diagnosis, research, documentation, and structural engineering. Each invocation has an isolated context and role-specific read-only tool allowlist; up to four independent agents can run in parallel.
 - **Specialist skills:** discovers Markdown skills for development, engineering, research, Office, productivity, and other workflows.
 - **Workspace tools:** list, search, read and create files inside the configured project workspace.

@@ -66,6 +66,10 @@ Repository: https://github.com/microsoft/playwright-dotnet
 7. Test Android/Tailscale commands end-to-end on the user's actual phone and laptop before calling remote control complete.
 8. Expand India-market analytics only with timestamped, validated and attributable sources; keep broker actions read-only unless a separate, explicit trading safety design is implemented.
 
+## Local memory retrieval update — 14 November 2026
+
+JARVIS now uses a native BM25-style offline ranking pass for conversation excerpts, explicit facts and learned practices. It uses inverse document frequency, light inflection normalization, phrase proximity, a small recency tie-breaker and confidence as a minor practice-ranking factor. Only the best matching facts/practices are added to the prompt, rather than sending the entire saved fact list every turn. The conversation store remains DPAPI-protected and deterministic retrieval remains offline; no embedding model, vector database or cloud memory service is added. The ranker is heuristic: it improves lexical relevance but does not understand true synonyms or replace careful review of saved context.
+
 ## Hardware and safety rules
 
 - One local LLM inference slot. Do not run multiple Ollama/local inference servers.
