@@ -256,7 +256,8 @@ public sealed class LocalMcpServer : IAsyncDisposable
             {
                 model,
                 messages = new[] { new { role = "user", content = prompt } },
-                stream = false
+                stream = false,
+                think = false
             }), Encoding.UTF8, "application/json")
         };
 
