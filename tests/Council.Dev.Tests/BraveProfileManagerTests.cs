@@ -48,6 +48,26 @@ public sealed class BraveProfileManagerTests
     }
 
     [Fact]
+    public async Task New_profiles_do_not_enable_browser_automation_by_default()
+    {
+        var root = Path.Combine(Path.GetTempPath(), "jarvis-brave-" + Guid.NewGuid().ToString("N"));
+        try
+        {
+            using var manager = new BraveProfileManager(root);
+            var profile = await manager.CreateProfileAsync("Personal", "Normal visible browsing");
+            var status = await manager.GetProfileStatusAsync(profile.Id);
+
+            Assert.False(status.IsRunning);
+            Assert.False(status.AutomationEnabled);
+            Assert.Null(status.DebuggingPort);
+        }
+        finally
+        {
+            if (Directory.Exists(root)) Directory.Delete(root, true);
+        }
+    }
+
+    [Fact]
     public async Task Invalid_start_urls_are_rejected_before_launch()
     {
         var root = Path.Combine(Path.GetTempPath(), "jarvis-brave-" + Guid.NewGuid().ToString("N"));

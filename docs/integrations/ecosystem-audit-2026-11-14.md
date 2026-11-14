@@ -41,7 +41,7 @@ FlaUI is MIT-licensed; the 5.0.0 UIA3 package targets net6.0-windows7.0 and is c
 
 Repository: https://github.com/microsoft/playwright-dotnet
 
-The official .NET port supports browser automation across Chromium, Firefox and WebKit on Windows. The current JARVIS browser-profile feature only manages isolated Brave profiles; it does not yet provide DOM-level browser automation. A future Playwright tool should attach only to a JARVIS-created profile, use explicit allowlisted actions, expose compact page snapshots, and require confirmation for form submission, payments, trading or irreversible actions. It should not install a second browser unless the user explicitly chooses to.
+**Integrated in this batch:** Microsoft.Playwright 1.64.1 (MIT) attaches to a JARVIS-owned Brave profile via Chromium CDP. The endpoint is optional, bound to 127.0.0.1 and enabled only when the profile is launched with automation=true. The first tool supports bounded page inspection, public HTTP/HTTPS navigation, one accessible search box, and one exact safe hyperlink. It does not click buttons, submit forms, upload/download, enter credentials, perform trading/payment/destructive actions, or install a second browser. CDP is lower fidelity than Playwright's native transport, so screenshot verification remains available.
 
 ### Indian-market MCP candidates
 

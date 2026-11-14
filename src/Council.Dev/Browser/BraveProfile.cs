@@ -15,4 +15,6 @@ public sealed record BraveProfileStatus(
     BraveProfile Profile,
     bool IsRunning,
     BraveProfileMode? Mode,
-    int? ProcessId);
+    int? ProcessId,
+    bool AutomationEnabled = false,
+    int? DebuggingPort = null);
