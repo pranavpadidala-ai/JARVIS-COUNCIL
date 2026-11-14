@@ -135,6 +135,34 @@ public sealed class LocalMcpServerTests
         }
     }
 
+
+    [Fact]
+    public async Task McpEndpoint_RejectsNonLoopbackHostAndOriginHeaders()
+    {
+        var root = CreateRoot();
+        var token = Convert.ToBase64String(Guid.NewGuid().ToByteArray()) + Convert.ToBase64String(Guid.NewGuid().ToByteArray());
+        try
+        {
+            await using var server = new LocalMcpServer(root, token, GetFreePort());
+            await server.StartAsync();
+
+            using var client = CreateClient(server.Port, token);
+            using var badHostRequest = new HttpRequestMessage(HttpMethod.Get, "/healthz");
+            badHostRequest.Headers.Host = "attacker.example";
+            using var badHostResponse = await client.SendAsync(badHostRequest);
+            Assert.Equal(HttpStatusCode.BadRequest, badHostResponse.StatusCode);
+
+            using var badOriginRequest = new HttpRequestMessage(HttpMethod.Get, "/healthz");
+            badOriginRequest.Headers.Add("Origin", "https://attacker.example");
+            using var badOriginResponse = await client.SendAsync(badOriginRequest);
+            Assert.Equal(HttpStatusCode.Forbidden, badOriginResponse.StatusCode);
+        }
+        finally
+        {
+            Directory.Delete(root, recursive: true);
+        }
+    }
+
     private static HttpClient CreateClient(int port, string token)
     {
         var client = new HttpClient { BaseAddress = new Uri($"http://127.0.0.1:{port}") };
