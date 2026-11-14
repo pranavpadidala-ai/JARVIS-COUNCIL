@@ -22,6 +22,7 @@ public sealed class LocalMcpServer : IAsyncDisposable
     private readonly byte[] _token;
     private readonly WorkspacePathGuard _workspace;
     private readonly DevelopmentTaskQueueService _tasks;
+    private readonly HttpClient _ollamaHttp;
     private readonly WebApplication _app;
     private bool _started;
 
@@ -34,6 +35,11 @@ public sealed class LocalMcpServer : IAsyncDisposable
 
         _workspace = new WorkspacePathGuard(workspaceRoot);
         _tasks = new DevelopmentTaskQueueService();
+        _ollamaHttp = new HttpClient
+        {
+            BaseAddress = new Uri("http://127.0.0.1:11434/"),
+            Timeout = TimeSpan.FromMinutes(3)
+        };
         _token = Encoding.UTF8.GetBytes(bearerToken);
         Port = port;
 
@@ -194,6 +200,8 @@ public sealed class LocalMcpServer : IAsyncDisposable
                 "dotnet_build" => await RunProcessAsync("dotnet", ["build", "JARVIS.Council.sln", "--configuration", "Release"], cancellationToken),
                 "dotnet_test" => await RunProcessAsync("dotnet", ["test", "JARVIS.Council.sln", "--configuration", "Release"], cancellationToken),
                 "development_task_create" => await CreateDevelopmentTaskAsync(arguments, cancellationToken),
+                "ollama_status" => await GetOllamaStatusAsync(cancellationToken),
+                "ollama_chat" => await ChatWithOllamaAsync(arguments, cancellationToken),
                 _ => throw new ArgumentException("Unknown tool: " + name)
             };
 
@@ -218,6 +226,91 @@ public sealed class LocalMcpServer : IAsyncDisposable
             task.IsApproved,
             message = "Task queued. It has not been approved or executed. Review it in the existing JARVIS Development Tasks window."
         });
+    }
+
+    private async Task<string> GetOllamaStatusAsync(CancellationToken cancellationToken)
+    {
+        var models = await GetOllamaModelsAsync(cancellationToken);
+        return JsonSerializer.Serialize(new
+        {
+            status = "online",
+            endpoint = "http://127.0.0.1:11434",
+            models
+        });
+    }
+
+    private async Task<string> ChatWithOllamaAsync(JsonElement arguments, CancellationToken cancellationToken)
+    {
+        var model = RequiredString(arguments, "model");
+        var prompt = RequiredString(arguments, "prompt");
+        if (prompt.Length > 16_000)
+            throw new ArgumentException("Prompt exceeds the 16,000-character bridge limit.");
+
+        var installedModels = await GetOllamaModelsAsync(cancellationToken);
+        if (!installedModels.Contains(model, StringComparer.OrdinalIgnoreCase))
+            throw new ArgumentException("The requested model is not installed in the local Ollama instance. Use ollama_status to list installed models.");
+
+        using var request = new HttpRequestMessage(HttpMethod.Post, "api/chat")
+        {
+            Content = new StringContent(JsonSerializer.Serialize(new
+            {
+                model,
+                messages = new[] { new { role = "user", content = prompt } },
+                stream = false
+            }), Encoding.UTF8, "application/json")
+        };
+
+        using var response = await _ollamaHttp.SendAsync(request, HttpCompletionOption.ResponseHeadersRead, cancellationToken);
+        using var document = await ReadJsonResponseAsync(response, cancellationToken);
+        if (!document.RootElement.TryGetProperty("message", out var message) ||
+            !message.TryGetProperty("content", out var content) ||
+            content.ValueKind != JsonValueKind.String)
+            throw new InvalidOperationException("Ollama returned an unexpected chat response.");
+
+        var answer = content.GetString() ?? string.Empty;
+        if (answer.Length > MaxOutputCharacters)
+            answer = answer[..MaxOutputCharacters] + "\\n[Response truncated by JARVIS bridge.]";
+        return $"Model: {model}{Environment.NewLine}{answer}";
+    }
+
+    private async Task<IReadOnlyList<string>> GetOllamaModelsAsync(CancellationToken cancellationToken)
+    {
+        using var request = new HttpRequestMessage(HttpMethod.Get, "api/tags");
+        using var response = await _ollamaHttp.SendAsync(request, HttpCompletionOption.ResponseHeadersRead, cancellationToken);
+        using var document = await ReadJsonResponseAsync(response, cancellationToken);
+        if (!document.RootElement.TryGetProperty("models", out var modelsNode) ||
+            modelsNode.ValueKind != JsonValueKind.Array)
+            throw new InvalidOperationException("Ollama returned an unexpected model-list response.");
+
+        return modelsNode.EnumerateArray()
+            .Where(item => item.TryGetProperty("name", out var name) && name.ValueKind == JsonValueKind.String)
+            .Select(item => item.GetProperty("name").GetString()!)
+            .Where(name => !string.IsNullOrWhiteSpace(name))
+            .ToArray();
+    }
+
+    private static async Task<JsonDocument> ReadJsonResponseAsync(HttpResponseMessage response, CancellationToken cancellationToken)
+    {
+        await using var stream = await response.Content.ReadAsStreamAsync(cancellationToken);
+        using var buffer = new MemoryStream();
+        var chunk = new byte[8192];
+        int read;
+        while ((read = await stream.ReadAsync(chunk.AsMemory(), cancellationToken)) > 0)
+        {
+            if (buffer.Length + read > 2 * 1024 * 1024)
+                throw new InvalidOperationException("Ollama response exceeds the 2 MB bridge limit.");
+            await buffer.WriteAsync(chunk.AsMemory(0, read), cancellationToken);
+        }
+
+        buffer.Position = 0;
+        if (!response.IsSuccessStatusCode)
+        {
+            using var error = await JsonDocument.ParseAsync(buffer, cancellationToken: cancellationToken);
+            var detail = error.RootElement.ToString();
+            throw new InvalidOperationException($"Ollama returned HTTP {(int)response.StatusCode}: {detail[..Math.Min(detail.Length, 1000)]}");
+        }
+
+        return await JsonDocument.ParseAsync(buffer, new JsonDocumentOptions { MaxDepth = 32 }, cancellationToken);
     }
 
     private async Task<string> RunProcessAsync(string executable, IReadOnlyList<string> arguments, CancellationToken cancellationToken)
@@ -309,7 +402,14 @@ public sealed class LocalMcpServer : IAsyncDisposable
             {
                 title = new { type = "string", description = "Short task title." },
                 description = new { type = "string", description = "Task scope and acceptance criteria." }
-            }, "title", "description")
+            }, "title", "description"),
+        Tool("ollama_status", "Check the local Ollama service and list installed model names. Connects only to 127.0.0.1:11434."),
+        Tool("ollama_chat", "Send a prompt to an installed local Ollama model and return its response. No cloud API is used; model must appear in ollama_status.",
+            new
+            {
+                model = new { type = "string", description = "Exact installed Ollama model name, for example qwen3.5:latest." },
+                prompt = new { type = "string", description = "Prompt text, up to 16,000 characters." }
+            }, "model", "prompt")
     ];
 
     private static object Tool(string name, string description, object? properties = null, params string[] required)
@@ -366,6 +466,7 @@ public sealed class LocalMcpServer : IAsyncDisposable
         if (_started)
             await _app.StopAsync();
         await _app.DisposeAsync();
+        _ollamaHttp.Dispose();
         CryptographicOperations.ZeroMemory(_token);
     }
 
