@@ -9,6 +9,9 @@ public sealed class CommandPolicy
             "git"
         };
 
+    private const string PythonUnitTestCommand =
+        "py -3.11 -m unittest discover -s tests/python -v";
+
     private static readonly string[] BlockedOperators =
     [
         ";",
@@ -68,8 +71,10 @@ public sealed class CommandPolicy
             return false;
         }
 
-        var executable = ExtractExecutable(trimmed);
+        if (string.Equals(trimmed, PythonUnitTestCommand, StringComparison.OrdinalIgnoreCase))
+            return true;
 
+        var executable = ExtractExecutable(trimmed);
         return AllowedCommands.Contains(executable);
     }
 
