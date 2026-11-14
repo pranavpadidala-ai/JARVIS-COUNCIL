@@ -18,6 +18,7 @@ public partial class ChatWindow : Window
 {
     public string? InitialPrompt { get; set; }
     public bool StartVoiceOnLoad { get; set; }
+    public CancellationToken WakeWordCancellationToken { get; set; }
     public event EventHandler? VoiceTurnCompleted;
 
     private AssistantSession? _session;
@@ -143,7 +144,9 @@ public partial class ChatWindow : Window
             return;
         }
 
-        var capture = new CancellationTokenSource();
+        var capture = notifyWakeWordCompletion
+            ? CancellationTokenSource.CreateLinkedTokenSource(WakeWordCancellationToken)
+            : new CancellationTokenSource();
         _voiceCapture = capture;
         VoiceButton.Content = "  STOP  ";
         StopButton.IsEnabled = true;

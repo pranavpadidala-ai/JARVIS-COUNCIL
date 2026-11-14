@@ -179,7 +179,8 @@ public partial class MainWindow : Window
                     var chat = new ChatWindow
                     {
                         Owner = this,
-                        StartVoiceOnLoad = true
+                        StartVoiceOnLoad = true,
+                        WakeWordCancellationToken = cancellationToken
                     };
 
                     EventHandler? completedHandler = null;
