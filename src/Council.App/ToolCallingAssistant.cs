@@ -4,6 +4,7 @@ using Council.App.Finance;
 using Council.App.Agents;
 using Council.App.Office;
 using Council.App.Phone;
+using Council.App.Python;
 using Council.App.Skills;
 using Council.App.Voice;
 using Council.App.Windows;
@@ -70,6 +71,7 @@ public sealed class ToolCallingAssistant
         _tools.Register(new WorkspaceTool("create_file", "Create a new file without overwriting. Required arguments: path, content. Parent folder must exist.", workspaceRoot));
         _tools.Register(new WorkspaceTool("create_folder", "Create a folder in the workspace. Required argument: path.", workspaceRoot));
         _tools.Register(new AbaqusStatusTool());
+        _tools.Register(new PythonRuntimeTool(workspaceRoot));
         _tools.Register(_indianMarketTool);
         _tools.Register(new DhanReadOnlyTool());
         _tools.Register(new DhanInstrumentLookupTool());
