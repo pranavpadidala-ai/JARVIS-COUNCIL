@@ -123,7 +123,7 @@ public partial class MainWindow : Window
     {
         _allowApplicationExit = true;
         _trayIcon.Visible = false;
-        Application.Current.Shutdown();
+        WpfApplication.Current.Shutdown();
     }
 
     private async void MainWindow_Loaded(object sender, RoutedEventArgs e)

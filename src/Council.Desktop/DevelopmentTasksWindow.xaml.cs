@@ -182,7 +182,7 @@ public partial class DevelopmentTasksWindow : Window
         if (TasksList.SelectedItem is not DevelopmentTask task)
             return;
 
-        var answer = MessageBox.Show(
+        var answer = WpfMessageBox.Show(
             $"Open a JARVIS chat with an explicit run request for '{task.Title}'?\n\nYou will review the request and press SEND in chat to start the guarded run.",
             "Prepare foreground task run",
             MessageBoxButton.YesNo,
