@@ -36,7 +36,7 @@ The token is printed once so it can be entered into a compatible local MCP clien
 | `ollama_status` | Checks local Ollama and lists installed models |
 | `ollama_chat` | Sends a prompt to an installed local Ollama model and returns its response |
 
-The Ollama tools connect only to `127.0.0.1:11434`; chat is limited to models reported as installed by Ollama and prompts up to 16,000 characters. No cloud model API is used for this path. The bridge does not accept arbitrary shell commands or arbitrary executable paths. File reads are restricted to the configured repository root, traversal and existing symlink/junction paths are rejected, and file extensions are allowlisted. Build/test output is truncated to a bounded size and each process has a ten-minute timeout.
+The Ollama tools connect only to `127.0.0.1:11434`; chat is limited to models reported as installed by Ollama and prompts up to 16,000 characters. The normal JARVIS Ollama provider and bridge send `think: false` by default to avoid verbose reasoning traces; set `JARVIS_OLLAMA_THINK=true` before launching JARVIS to explicitly enable thinking for compatible models. No cloud model API is used for this path. The bridge does not accept arbitrary shell commands or arbitrary executable paths. File reads are restricted to the configured repository root, traversal and existing symlink/junction paths are rejected, and file extensions are allowlisted. Build/test output is truncated to a bounded size and each process has a ten-minute timeout.
 
 ## Network and trust boundary
 
