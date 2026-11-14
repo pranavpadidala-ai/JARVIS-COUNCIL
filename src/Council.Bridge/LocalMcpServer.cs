@@ -1,29 +1,29 @@
-using System.Collections.Concurrent;
 using System.Diagnostics;
-using System.Net;
 using System.Security.Cryptography;
 using System.Text;
 using System.Text.Json;
 using Council.App;
+using Microsoft.AspNetCore.Builder;
+using Microsoft.AspNetCore.Http;
+using Microsoft.AspNetCore.Hosting;
+using Microsoft.AspNetCore.Server.Kestrel.Core;
+using Microsoft.Extensions.Logging;
 
 namespace Council.Bridge;
 
 /// <summary>
 /// Stateless MCP-over-HTTP endpoint for local development assistance.
-/// It binds to loopback only and exposes fixed, non-shell tools.
+/// Kestrel binds strictly to loopback; no HTTP.sys URL reservation or admin rights are required.
 /// </summary>
 public sealed class LocalMcpServer : IAsyncDisposable
 {
     private const int MaxRequestBytes = 1024 * 1024;
     private const int MaxOutputCharacters = 24_000;
-    private readonly HttpListener _listener = new();
     private readonly byte[] _token;
     private readonly WorkspacePathGuard _workspace;
     private readonly DevelopmentTaskQueueService _tasks;
-    private readonly CancellationTokenSource _stop = new();
-    private readonly ConcurrentDictionary<int, Task> _handlers = new();
-    private Task? _acceptLoop;
-    private int _handlerId;
+    private readonly WebApplication _app;
+    private bool _started;
 
     public LocalMcpServer(string workspaceRoot, string bearerToken, int port = 47822)
     {
@@ -35,158 +35,124 @@ public sealed class LocalMcpServer : IAsyncDisposable
         _workspace = new WorkspacePathGuard(workspaceRoot);
         _tasks = new DevelopmentTaskQueueService();
         _token = Encoding.UTF8.GetBytes(bearerToken);
-        _listener.Prefixes.Add($"http://127.0.0.1:{port}/");
         Port = port;
+
+        var builder = WebApplication.CreateBuilder(new WebApplicationOptions
+        {
+            Args = Array.Empty<string>(),
+            ContentRootPath = _workspace.Root
+        });
+        builder.Logging.ClearProviders();
+        builder.WebHost.UseUrls($"http://127.0.0.1:{port}");
+        builder.WebHost.ConfigureKestrel(options =>
+            options.Limits.MaxRequestBodySize = MaxRequestBytes);
+
+        _app = builder.Build();
+        _app.MapGet("/healthz", HandleHealthAsync);
+        _app.MapPost("/mcp", HandleMcpAsync);
+        _app.MapMethods("/mcp", ["GET", "PUT", "DELETE"], () => Results.StatusCode(StatusCodes.Status405MethodNotAllowed));
     }
 
     public int Port { get; }
 
-    public void Start()
+    public async Task StartAsync(CancellationToken cancellationToken = default)
     {
-        if (_acceptLoop is not null)
+        if (_started)
             throw new InvalidOperationException("The development bridge is already running.");
-
-        _listener.Start();
-        _acceptLoop = AcceptLoopAsync(_stop.Token);
+        await _app.StartAsync(cancellationToken);
+        _started = true;
     }
 
-    private async Task AcceptLoopAsync(CancellationToken cancellationToken)
+    public Task WaitForShutdownAsync(CancellationToken cancellationToken = default) =>
+        _app.WaitForShutdownAsync(cancellationToken);
+
+    private Task<IResult> HandleHealthAsync(HttpContext context)
     {
-        while (!cancellationToken.IsCancellationRequested)
+        if (!IsAuthorized(context.Request.Headers.Authorization.ToString()))
+            return Task.FromResult(Results.Unauthorized() as IResult);
+
+        return Task.FromResult(Results.Json(new
         {
-            HttpListenerContext context;
-            try
-            {
-                context = await _listener.GetContextAsync().WaitAsync(cancellationToken);
-            }
-            catch (OperationCanceledException)
-            {
-                break;
-            }
-            catch (HttpListenerException) when (cancellationToken.IsCancellationRequested)
-            {
-                break;
-            }
-
-            var id = Interlocked.Increment(ref _handlerId);
-            var task = HandleAsync(context, cancellationToken);
-            _handlers[id] = task;
-            _ = task.ContinueWith(
-                completed => { _handlers.TryRemove(id, out var ignored); },
-                CancellationToken.None,
-                TaskContinuationOptions.ExecuteSynchronously,
-                TaskScheduler.Default);
-        }
+            status = "online",
+            transport = "MCP over HTTP",
+            bind = "127.0.0.1",
+            workspace = _workspace.Root
+        }));
     }
 
-    private async Task HandleAsync(HttpListenerContext context, CancellationToken cancellationToken)
+    private async Task<IResult> HandleMcpAsync(HttpContext context)
     {
+        if (!IsAuthorized(context.Request.Headers.Authorization.ToString()))
+            return Results.Unauthorized();
+
+        if (!string.Equals(context.Request.ContentType?.Split(';')[0].Trim(), "application/json", StringComparison.OrdinalIgnoreCase))
+            return Results.Json(new { error = "Content-Type must be application/json." }, statusCode: StatusCodes.Status415UnsupportedMediaType);
+
+        if (context.Request.ContentLength is null)
+            return Results.Json(new { error = "Content-Length is required." }, statusCode: StatusCodes.Status411LengthRequired);
+
+        if (context.Request.ContentLength > MaxRequestBytes)
+            return Results.Json(new { error = "Request body is too large." }, statusCode: StatusCodes.Status413PayloadTooLarge);
+
+        JsonDocument document;
         try
         {
-            if (!IsAuthorized(context.Request.Headers["Authorization"]))
-            {
-                await WriteJsonAsync(context.Response, 401, new { error = "Unauthorized" }, cancellationToken);
-                return;
-            }
-
-            var path = context.Request.Url?.AbsolutePath.TrimEnd('/') ?? string.Empty;
-            if (context.Request.HttpMethod == "GET" && path == "/healthz")
-            {
-                await WriteJsonAsync(context.Response, 200, new
-                {
-                    status = "online",
-                    transport = "MCP over HTTP",
-                    bind = "127.0.0.1",
-                    workspace = _workspace.Root
-                }, cancellationToken);
-                return;
-            }
-
-            if (context.Request.HttpMethod != "POST" || path != "/mcp")
-            {
-                await WriteJsonAsync(context.Response, 404, new { error = "Not found" }, cancellationToken);
-                return;
-            }
-
-            if (context.Request.ContentLength64 > MaxRequestBytes)
-            {
-                await WriteJsonAsync(context.Response, 413, new { error = "Request body is too large." }, cancellationToken);
-                return;
-            }
-
-            if (!string.Equals(context.Request.ContentType?.Split(';')[0].Trim(), "application/json", StringComparison.OrdinalIgnoreCase))
-            {
-                await WriteJsonAsync(context.Response, 415, new { error = "Content-Type must be application/json." }, cancellationToken);
-                return;
-            }
-
-            using var document = await JsonDocument.ParseAsync(
-                context.Request.InputStream,
+            document = await JsonDocument.ParseAsync(
+                context.Request.Body,
                 new JsonDocumentOptions { MaxDepth = 32 },
-                cancellationToken);
+                context.RequestAborted);
+        }
+        catch (JsonException)
+        {
+            return Results.Json(new { error = "Malformed JSON-RPC request." }, statusCode: StatusCodes.Status400BadRequest);
+        }
+
+        using (document)
+        {
             var root = document.RootElement;
             if (root.ValueKind != JsonValueKind.Object ||
                 !root.TryGetProperty("method", out var methodNode) ||
                 methodNode.ValueKind != JsonValueKind.String)
-            {
-                await WriteJsonAsync(context.Response, 400, new { error = "Invalid JSON-RPC request." }, cancellationToken);
-                return;
-            }
+                return Results.Json(new { error = "Invalid JSON-RPC request." }, statusCode: StatusCodes.Status400BadRequest);
 
             var method = methodNode.GetString()!;
             var hasId = root.TryGetProperty("id", out var idNode);
             var id = hasId ? idNode.Clone() : (JsonElement?)null;
 
             if (!hasId || method == "notifications/initialized")
-            {
-                context.Response.StatusCode = 202;
-                context.Response.Close();
-                return;
-            }
+                return Results.StatusCode(StatusCodes.Status202Accepted);
 
             var parameters = root.TryGetProperty("params", out var paramsNode)
                 ? paramsNode
                 : default;
 
-            object result = method switch
-            {
-                "initialize" => new
-                {
-                    protocolVersion = "2024-11-05",
-                    capabilities = new { tools = new { listChanged = false } },
-                    serverInfo = new { name = "jarvis-local-development-bridge", version = "0.1.0" },
-                    instructions = "Loopback-only JARVIS development tools. File access is read-only. Build and test commands are fixed allowlisted operations."
-                },
-                "ping" => new { },
-                "tools/list" => new { tools = GetTools() },
-                "tools/call" => await CallToolAsync(parameters, cancellationToken),
-                _ => throw new McpMethodNotFoundException(method)
-            };
-
-            await WriteJsonAsync(context.Response, 200, new { jsonrpc = "2.0", id, result }, cancellationToken);
-        }
-        catch (McpMethodNotFoundException ex)
-        {
-            await WriteJsonAsync(context.Response, 200, new
-            {
-                jsonrpc = "2.0",
-                id = GetRequestId(context),
-                error = new { code = -32601, message = ex.Message }
-            }, CancellationToken.None);
-        }
-        catch (JsonException)
-        {
-            await WriteJsonAsync(context.Response, 400, new { error = "Malformed JSON-RPC request." }, CancellationToken.None);
-        }
-        catch (Exception ex)
-        {
             try
             {
-                await WriteJsonAsync(context.Response, 500, new { error = "Bridge request failed: " + SafeMessage(ex) }, CancellationToken.None);
+                object result = method switch
+                {
+                    "initialize" => new
+                    {
+                        protocolVersion = "2024-11-05",
+                        capabilities = new { tools = new { listChanged = false } },
+                        serverInfo = new { name = "jarvis-local-development-bridge", version = "0.1.0" },
+                        instructions = "Loopback-only JARVIS development tools. File access is read-only. Build and test commands are fixed allowlisted operations."
+                    },
+                    "ping" => new { },
+                    "tools/list" => new { tools = GetTools() },
+                    "tools/call" => await CallToolAsync(parameters, context.RequestAborted),
+                    _ => throw new McpMethodNotFoundException(method)
+                };
+
+                return Results.Json(new { jsonrpc = "2.0", id, result });
             }
-            catch
+            catch (McpMethodNotFoundException ex)
             {
-                context.Response.Abort();
+                return Results.Json(new
+                {
+                    jsonrpc = "2.0",
+                    id,
+                    error = new { code = -32601, message = ex.Message }
+                });
             }
         }
     }
@@ -344,47 +310,17 @@ public sealed class LocalMcpServer : IAsyncDisposable
         return supplied.Length == _token.Length && CryptographicOperations.FixedTimeEquals(supplied, _token);
     }
 
-    private static JsonElement? GetRequestId(HttpListenerContext context)
-    {
-        // Error responses for malformed/unknown methods need not echo an untrusted ID.
-        return null;
-    }
-
     private static string SafeMessage(Exception exception)
     {
         var message = exception.GetBaseException().Message;
         return message.Length <= 1000 ? message : message[..1000];
     }
 
-    private static async Task WriteJsonAsync(HttpListenerResponse response, int status, object payload, CancellationToken cancellationToken)
-    {
-        response.StatusCode = status;
-        response.ContentType = "application/json; charset=utf-8";
-        response.Headers["Cache-Control"] = "no-store";
-        var bytes = JsonSerializer.SerializeToUtf8Bytes(payload);
-        response.ContentLength64 = bytes.Length;
-        await response.OutputStream.WriteAsync(bytes, cancellationToken);
-        response.Close();
-    }
-
     public async ValueTask DisposeAsync()
     {
-        _stop.Cancel();
-        if (_listener.IsListening)
-            _listener.Stop();
-        if (_acceptLoop is not null)
-        {
-            try { await _acceptLoop; } catch (HttpListenerException) { }
-        }
-
-        var handlers = _handlers.Values.ToArray();
-        if (handlers.Length > 0)
-        {
-            try { await Task.WhenAll(handlers); } catch { }
-        }
-
-        _listener.Close();
-        _stop.Dispose();
+        if (_started)
+            await _app.StopAsync();
+        await _app.DisposeAsync();
         CryptographicOperations.ZeroMemory(_token);
     }
 
