@@ -149,6 +149,34 @@ public sealed class WorkspaceToolTests
         }
     }
 
+    [Fact]
+    public async Task List_files_skips_python_virtual_environments_and_bytecode()
+    {
+        var root = CreateWorkspace();
+        var venv = Path.Combine(root, "Models", "LocalAI", "piper-venv");
+        var cache = Path.Combine(venv, "Lib", "site-packages", "google", "protobuf", "compiler", "__pycache__");
+        Directory.CreateDirectory(cache);
+        await File.WriteAllTextAsync(Path.Combine(cache, "__init__.cpython-311.pyc"), "bytecode");
+        var independentCache = Path.Combine(root, "src", "__pycache__");
+        Directory.CreateDirectory(independentCache);
+        await File.WriteAllTextAsync(Path.Combine(independentCache, "module.cpython-311.pyc"), "bytecode");
+        await File.WriteAllTextAsync(Path.Combine(root, "loose.cpython-311.pyc"), "bytecode");
+        await File.WriteAllTextAsync(Path.Combine(root, "README.md"), "visible");
+        var tool = new WorkspaceTool("list_files", "list", root);
+
+        var result = await tool.ExecuteAsync(new Dictionary<string, string> { ["path"] = "" });
+
+        Assert.True(result.Success);
+        Assert.Contains("README.md", result.Message);
+        Assert.DoesNotContain("piper-venv", result.Message, StringComparison.OrdinalIgnoreCase);
+        Assert.DoesNotContain("__pycache__", result.Message, StringComparison.OrdinalIgnoreCase);
+        Assert.DoesNotContain(".pyc", result.Message, StringComparison.OrdinalIgnoreCase);
+        Assert.DoesNotContain("loose.cpython-311.pyc", result.Message, StringComparison.OrdinalIgnoreCase);
+        Assert.True(File.Exists(Path.Combine(cache, "__init__.cpython-311.pyc")));
+        Assert.True(File.Exists(Path.Combine(independentCache, "module.cpython-311.pyc")));
+        Assert.True(File.Exists(Path.Combine(root, "loose.cpython-311.pyc")));
+    }
+
     private static string CreateWorkspace()
     {
         var root = Path.Combine(Path.GetTempPath(), "JARVIS-ToolTests", Guid.NewGuid().ToString("N"));

@@ -827,45 +827,79 @@ public sealed class ToolCallingAssistant
         type = message = string.Empty;
         calls = [];
         var firstBrace = content.IndexOf('{');
-        var lastBrace = content.LastIndexOf('}');
-        if (firstBrace < 0 || lastBrace <= firstBrace) return false;
-        try
+        if (firstBrace < 0) return false;
+
+        // Models sometimes include brace characters inside a JSON string. Try each
+        // closing brace until the first complete JSON object is found instead of
+        // treating the final brace in the whole response as the object's boundary.
+        for (var endBrace = content.IndexOf('}', firstBrace); endBrace >= 0;
+             endBrace = content.IndexOf('}', endBrace + 1))
         {
-            using var doc = JsonDocument.Parse(content[firstBrace..(lastBrace + 1)]);
-            var root = doc.RootElement;
-            if (root.ValueKind != JsonValueKind.Object ||
-                !root.TryGetProperty("type", out var typeNode) ||
-                typeNode.ValueKind != JsonValueKind.String) return false;
-            type = typeNode.GetString() ?? "";
-            if (type == "message")
+            try
             {
-                if (!root.TryGetProperty("content", out var contentNode) ||
-                    contentNode.ValueKind != JsonValueKind.String) return false;
-                message = contentNode.GetString() ?? "";
-                return true;
-            }
-            if (type == "tool_call")
-            {
-                if (!TryReadToolCall(root, out var call)) return false;
-                calls.Add(call);
-                return true;
-            }
-            if (type == "tool_calls")
-            {
-                if (!root.TryGetProperty("calls", out var array) ||
-                    array.ValueKind != JsonValueKind.Array ||
-                    array.GetArrayLength() < 1 ||
-                    array.GetArrayLength() > MaxToolExecutionsPerTurn) return false;
-                foreach (var item in array.EnumerateArray())
+                using var doc = JsonDocument.Parse(content[firstBrace..(endBrace + 1)]);
+                var root = doc.RootElement;
+                if (root.ValueKind != JsonValueKind.Object ||
+                    !root.TryGetProperty("type", out var typeNode) ||
+                    typeNode.ValueKind != JsonValueKind.String)
+                    continue;
+
+                var parsedType = typeNode.GetString() ?? "";
+                if (parsedType == "message")
                 {
-                    if (!TryReadToolCall(item, out var call)) return false;
-                    calls.Add(call);
+                    if (!root.TryGetProperty("content", out var contentNode) ||
+                        contentNode.ValueKind != JsonValueKind.String)
+                        continue;
+                    type = parsedType;
+                    message = NormalizeModelMessage(contentNode.GetString() ?? "");
+                    return true;
                 }
-                return true;
+                if (parsedType == "tool_call")
+                {
+                    if (!TryReadToolCall(root, out var call)) continue;
+                    type = parsedType;
+                    calls.Add(call);
+                    return true;
+                }
+                if (parsedType == "tool_calls")
+                {
+                    if (!root.TryGetProperty("calls", out var array) ||
+                        array.ValueKind != JsonValueKind.Array ||
+                        array.GetArrayLength() < 1 ||
+                        array.GetArrayLength() > MaxToolExecutionsPerTurn)
+                        continue;
+                    var parsedCalls = new List<ToolCall>();
+                    var valid = true;
+                    foreach (var item in array.EnumerateArray())
+                    {
+                        if (!TryReadToolCall(item, out var call))
+                        {
+                            valid = false;
+                            break;
+                        }
+                        parsedCalls.Add(call);
+                    }
+                    if (!valid) continue;
+                    type = parsedType;
+                    calls.AddRange(parsedCalls);
+                    return true;
+                }
             }
-            return false;
+            catch (JsonException)
+            {
+                // This brace was inside a string or an incomplete candidate object.
+            }
         }
-        catch (JsonException) { return false; }
+        return false;
+    }
+
+    private static string NormalizeModelMessage(string message)
+    {
+        // Some small local models double-escape line breaks inside the JSON content.
+        // Render those as actual line breaks for the desktop transcript.
+        return message.Replace("\\r\\n", Environment.NewLine, StringComparison.Ordinal)
+            .Replace("\\n", Environment.NewLine, StringComparison.Ordinal)
+            .Replace("\\t", "    ", StringComparison.Ordinal);
     }
 
     private static bool TryReadToolCall(JsonElement node, out ToolCall call)

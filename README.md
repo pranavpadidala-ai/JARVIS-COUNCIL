@@ -193,6 +193,19 @@ Remove the logon task with:
 .\scripts\Install-JarvisAgentTask.ps1 -Uninstall
 ```
 
+## Local development bridge (MCP)
+
+A separate, loopback-only MCP endpoint lets a compatible local MCP client inspect the repository and run fixed validation commands. It does not change the JARVIS desktop UI.
+
+```powershell
+Set-ExecutionPolicy -Scope Process Bypass
+.\scripts\Start-JarvisDevBridge.ps1
+```
+
+The bridge listens at `http://127.0.0.1:47822/mcp` and prints a fresh per-run bearer token. In a second PowerShell window, run `scripts/Test-JarvisDevBridge.ps1` to securely enter the token and verify MCP, Ollama, and a local Qwen chat. It provides restricted workspace listing/reading, Git status, fixed `dotnet restore/build/test` commands, read-only development-task status and task creation in the existing queue, and direct local Ollama health/model/chat tools for testing Qwen without a cloud API. Ollama access is restricted to `127.0.0.1:11434` and installed models. Ollama thinking is disabled by default for concise answers and can be enabled with `JARVIS_OLLAMA_THINK=true`. It does not expose arbitrary shell commands or direct file writes. Tasks created through the bridge are not approved or executed automatically.
+
+**Important:** this first version is reachable only from the same Windows PC. It is not yet connected to ChatGPT's cloud. A separate supported remote MCP connector and authenticated TLS relay are required before this chat can invoke it. Never expose the local port through router forwarding or an unauthenticated tunnel. See [the bridge architecture and security notes](docs/architecture/local-development-bridge.md).
+
 ## Interactive commands
 
 | Command | Action |
