@@ -67,6 +67,15 @@ public class CommandPolicyTests
         Assert.False(_policy.IsAllowed(command));
     }
 
+    [Fact]
+    public void Only_the_fixed_python_unit_test_command_is_allowed()
+    {
+        Assert.True(_policy.IsAllowed("py -3.11 -m unittest discover -s tests/python -v"));
+        Assert.False(_policy.IsAllowed("py -3.11 script.py"));
+        Assert.False(_policy.IsAllowed("python -c print(1)"));
+        Assert.False(_policy.IsAllowed("py -3.11 -m unittest discover -s tests/python -v; whoami"));
+    }
+
     [Theory]
     [InlineData("notepad")]
     [InlineData("python")]
