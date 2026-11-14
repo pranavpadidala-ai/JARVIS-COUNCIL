@@ -6,6 +6,7 @@ on:
       - feature/first-usable-desktop
       - feature/persistent-development-agent
       - bounded-autonomous-loop
+      - feature/local-mcp-development-bridge
   pull_request:
     branches:
       - feature/safe-workspace-tools
