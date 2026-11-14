@@ -1,14 +1,19 @@
+using System.Text.Json;
+using Council.Dev.Recovery;
+
 namespace Council.Dev.Tasks;
 
 public sealed class TaskManager
 {
     private readonly TaskStore _store;
+    private readonly TaskCheckpointStore? _checkpointStore;
     private readonly List<DevelopmentTask> _tasks = [];
 
-    public TaskManager(TaskStore store)
+    public TaskManager(TaskStore store, TaskCheckpointStore? checkpointStore = null)
     {
         ArgumentNullException.ThrowIfNull(store);
         _store = store;
+        _checkpointStore = checkpointStore;
     }
 
     public IReadOnlyList<DevelopmentTask> Tasks => _tasks;
@@ -32,28 +37,64 @@ public sealed class TaskManager
     {
         await using var fileLock = await _store.AcquireExclusiveLockAsync(cancellationToken);
         var latest = await _store.LoadUnlockedAsync(cancellationToken);
-        var recovered = 0;
+        var recoveredTasks = new List<DevelopmentTask>();
 
         foreach (var task in latest)
         {
             var wasRunning = task.Status == TaskStatus.Running;
-            var wasClaimedButNotStarted =
-                task.Status == TaskStatus.Pending && task.ApprovalConsumedAtUtc.HasValue;
+            var wasClaimedButNotStarted = task.Status == TaskStatus.Pending && task.ApprovalConsumedAtUtc.HasValue;
             if (!wasRunning && !wasClaimedButNotStarted)
                 continue;
+
+            TaskCheckpoint? checkpoint = null;
+            if (_checkpointStore is not null)
+            {
+                try { checkpoint = await _checkpointStore.LoadAsync(task.Id, cancellationToken); }
+                catch (Exception ex) when (ex is IOException or JsonException or InvalidDataException)
+                {
+                    task.FailureClassification = "checkpoint_unreadable";
+                }
+            }
 
             task.Status = TaskStatus.Paused;
             task.IsApproved = false;
             task.ApprovalConsumedAtUtc = null;
             task.UpdatedAtUtc = DateTime.UtcNow;
-            task.CurrentStep = "Interrupted by host shutdown; fresh user approval is required to resume.";
-            recovered++;
+            if (checkpoint is null)
+            {
+                task.CurrentStep = task.FailureClassification == "checkpoint_unreadable"
+                    ? "Recovered after interruption, but the checkpoint could not be read. Inspect repository state before resuming."
+                    : "Interrupted by host shutdown; review task state and grant fresh approval before resuming.";
+            }
+            else
+            {
+                task.CompletedSteps = checkpoint.CompletedSteps.ToList();
+                task.CurrentStep = string.IsNullOrWhiteSpace(checkpoint.NextAction)
+                    ? "Recovered from checkpoint. Inspect repository state before resuming."
+                    : checkpoint.NextAction;
+                task.ProviderRoute = checkpoint.ProviderRoute;
+                task.ModelAlias = checkpoint.ModelAlias;
+                task.GitCommitSha = checkpoint.GitCommitSha;
+                task.GitWorkingTreeStatus = checkpoint.GitWorkingTreeStatus;
+                task.BuildLogPath = checkpoint.BuildLogPath;
+                task.TestLogPath = checkpoint.TestLogPath;
+                task.FailureClassification = checkpoint.FailureClassification;
+                task.IdempotencyKey = checkpoint.IdempotencyKey;
+                task.Artifacts = checkpoint.Artifacts.ToList();
+                task.AttemptCount = Math.Max(task.AttemptCount, checkpoint.RetryCount);
+            }
+            recoveredTasks.Add(task);
         }
 
-        if (recovered > 0)
+        if (recoveredTasks.Count > 0)
+        {
             await _store.SaveUnlockedAsync(latest, cancellationToken);
+            if (_checkpointStore is not null)
+                foreach (var task in recoveredTasks)
+                    await SaveCheckpointAsync(task, cancellationToken);
+        }
         ReplaceTasks(latest);
-        return recovered;
+        return recoveredTasks.Count;
     }
 
     public async Task<DevelopmentTask> CreateAsync(
@@ -100,6 +141,8 @@ public sealed class TaskManager
         task.UpdatedAtUtc = DateTime.UtcNow;
         task.CurrentStep = "Approved by user; waiting for the local development agent.";
         await _store.SaveUnlockedAsync(latest, cancellationToken);
+        if (status is TaskStatus.Running or TaskStatus.Paused or TaskStatus.Failed)
+            await SaveCheckpointAsync(task, cancellationToken);
         ReplaceTasks(latest);
         return true;
     }
@@ -186,9 +229,21 @@ public sealed class TaskManager
         if (task is null)
             return false;
 
+        var previousStep = task.CurrentStep;
+        if (!string.IsNullOrWhiteSpace(previousStep) &&
+            !string.Equals(previousStep, currentStep?.Trim(), StringComparison.Ordinal))
+        {
+            task.CompletedSteps.Add(previousStep.Length > 2000 ? previousStep[..2000] + " [truncated]" : previousStep);
+            if (task.CompletedSteps.Count > 100)
+                task.CompletedSteps.RemoveRange(0, task.CompletedSteps.Count - 100);
+        }
         task.CurrentStep = currentStep?.Trim() ?? string.Empty;
+        if (task.CurrentStep.Length > 8000)
+            task.CurrentStep = task.CurrentStep[..8000] + " [truncated]";
         task.UpdatedAtUtc = DateTime.UtcNow;
         await _store.SaveUnlockedAsync(latest, cancellationToken);
+        if (task.Status is TaskStatus.Running or TaskStatus.Paused or TaskStatus.Failed)
+            await SaveCheckpointAsync(task, cancellationToken);
         ReplaceTasks(latest);
         return true;
     }
@@ -206,8 +261,93 @@ public sealed class TaskManager
         task.AttemptCount++;
         task.UpdatedAtUtc = DateTime.UtcNow;
         await _store.SaveUnlockedAsync(latest, cancellationToken);
+        if (task.Status is TaskStatus.Running or TaskStatus.Paused or TaskStatus.Failed)
+            await SaveCheckpointAsync(task, cancellationToken);
         ReplaceTasks(latest);
         return true;
+    }
+
+    public async Task<bool> UpdateExecutionContextAsync(
+        Guid taskId, string? providerRoute, string? modelAlias, string? gitCommitSha,
+        string? gitWorkingTreeStatus, CancellationToken cancellationToken = default)
+    {
+        await using var fileLock = await _store.AcquireExclusiveLockAsync(cancellationToken);
+        var latest = await _store.LoadUnlockedAsync(cancellationToken);
+        var task = latest.FirstOrDefault(item => item.Id == taskId);
+        if (task is null) return false;
+        task.ProviderRoute = providerRoute ?? task.ProviderRoute;
+        task.ModelAlias = modelAlias ?? task.ModelAlias;
+        task.GitCommitSha = gitCommitSha ?? task.GitCommitSha;
+        task.GitWorkingTreeStatus = gitWorkingTreeStatus ?? task.GitWorkingTreeStatus;
+        task.UpdatedAtUtc = DateTime.UtcNow;
+        await _store.SaveUnlockedAsync(latest, cancellationToken);
+        if (task.Status is TaskStatus.Running or TaskStatus.Paused or TaskStatus.Failed)
+            await SaveCheckpointAsync(task, cancellationToken);
+        ReplaceTasks(latest);
+        return true;
+    }
+
+    public async Task<bool> UpdateValidationReferencesAsync(
+        Guid taskId, string? buildLogPath, string? testLogPath, string? failureClassification,
+        CancellationToken cancellationToken = default)
+    {
+        await using var fileLock = await _store.AcquireExclusiveLockAsync(cancellationToken);
+        var latest = await _store.LoadUnlockedAsync(cancellationToken);
+        var task = latest.FirstOrDefault(item => item.Id == taskId);
+        if (task is null) return false;
+        task.BuildLogPath = buildLogPath ?? task.BuildLogPath;
+        task.TestLogPath = testLogPath ?? task.TestLogPath;
+        task.FailureClassification = failureClassification;
+        task.UpdatedAtUtc = DateTime.UtcNow;
+        await _store.SaveUnlockedAsync(latest, cancellationToken);
+        if (task.Status is TaskStatus.Running or TaskStatus.Paused or TaskStatus.Failed)
+            await SaveCheckpointAsync(task, cancellationToken);
+        ReplaceTasks(latest);
+        return true;
+    }
+
+    public async Task<bool> UpdateArtifactsAsync(
+        Guid taskId, IReadOnlyList<TaskArtifactSnapshot> artifacts,
+        CancellationToken cancellationToken = default)
+    {
+        ArgumentNullException.ThrowIfNull(artifacts);
+        if (artifacts.Count > 500)
+            throw new ArgumentException("At most 500 artifact references may be checkpointed.", nameof(artifacts));
+        await using var fileLock = await _store.AcquireExclusiveLockAsync(cancellationToken);
+        var latest = await _store.LoadUnlockedAsync(cancellationToken);
+        var task = latest.FirstOrDefault(item => item.Id == taskId);
+        if (task is null) return false;
+        task.Artifacts = artifacts.ToList();
+        task.UpdatedAtUtc = DateTime.UtcNow;
+        await _store.SaveUnlockedAsync(latest, cancellationToken);
+        if (task.Status is TaskStatus.Running or TaskStatus.Paused or TaskStatus.Failed)
+            await SaveCheckpointAsync(task, cancellationToken);
+        ReplaceTasks(latest);
+        return true;
+    }
+
+    private Task SaveCheckpointAsync(DevelopmentTask task, CancellationToken cancellationToken)
+    {
+        if (_checkpointStore is null) return Task.CompletedTask;
+        return _checkpointStore.SaveAsync(new TaskCheckpoint
+        {
+            TaskId = task.Id,
+            Objective = string.IsNullOrWhiteSpace(task.Description) ? task.Title : task.Title + Environment.NewLine + task.Description,
+            CompletedSteps = task.CompletedSteps.ToArray(),
+            NextAction = task.CurrentStep,
+            Artifacts = task.Artifacts.ToArray(),
+            ProviderRoute = task.ProviderRoute,
+            ModelAlias = task.ModelAlias,
+            GitCommitSha = task.GitCommitSha,
+            GitWorkingTreeStatus = task.GitWorkingTreeStatus,
+            BuildLogPath = task.BuildLogPath,
+            TestLogPath = task.TestLogPath,
+            RetryCount = task.AttemptCount,
+            FailureClassification = task.FailureClassification,
+            IdempotencyKey = task.IdempotencyKey,
+            CreatedAtUtc = task.CreatedAtUtc,
+            UpdatedAtUtc = DateTime.UtcNow
+        }, cancellationToken);
     }
 
     public DevelopmentTask? Find(Guid taskId) =>
@@ -239,6 +379,16 @@ public sealed class TaskManager
                 current.ApprovedAtUtc = saved.ApprovedAtUtc;
                 current.ApprovalConsumedAtUtc = saved.ApprovalConsumedAtUtc;
                 current.CurrentStep = saved.CurrentStep;
+                current.CompletedSteps = saved.CompletedSteps;
+                current.ProviderRoute = saved.ProviderRoute;
+                current.ModelAlias = saved.ModelAlias;
+                current.GitCommitSha = saved.GitCommitSha;
+                current.GitWorkingTreeStatus = saved.GitWorkingTreeStatus;
+                current.BuildLogPath = saved.BuildLogPath;
+                current.TestLogPath = saved.TestLogPath;
+                current.FailureClassification = saved.FailureClassification;
+                current.IdempotencyKey = saved.IdempotencyKey;
+                current.Artifacts = saved.Artifacts;
                 synchronized.Add(current);
             }
             else
