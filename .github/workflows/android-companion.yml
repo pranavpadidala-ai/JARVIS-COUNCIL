@@ -1,8 +1,13 @@
 name: Android companion build
 
 on:
+  push:
+    branches: [bounded-autonomous-loop]
+    paths:
+      - "android/JarvisPhone/**"
+      - ".github/workflows/android-companion.yml"
   pull_request:
-    branches: [feature/safe-workspace-tools]
+    branches: [bounded-autonomous-loop]
     paths:
       - "android/JarvisPhone/**"
       - ".github/workflows/android-companion.yml"
