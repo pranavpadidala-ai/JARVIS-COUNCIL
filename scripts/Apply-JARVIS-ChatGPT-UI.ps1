@@ -57,8 +57,8 @@ $newXaml = @'
 <Window x:Class="Council.Desktop.ChatWindow"
         xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
-        Title="JARVIS" Height="740" Width="1220"
-        MinHeight="600" MinWidth="900"
+        Title="JARVIS" Height="700" Width="1160"
+        MinHeight="560" MinWidth="860"
         Background="#212121" Foreground="#ECECEC"
         WindowStartupLocation="CenterOwner">
   <Window.Resources>
