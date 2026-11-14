@@ -145,6 +145,20 @@ public static class DesktopProviderSettingsStore
                  normalizedModel.Any(character => char.IsWhiteSpace(character) || char.IsControl(character)))
             throw new ArgumentException("Enter a model ID of 1–160 characters with no spaces or control characters.", nameof(model));
 
+        if (normalizedProvider == "omniroute")
+        {
+            if (!normalizedModel.Contains('/') ||
+                normalizedModel.Equals("auto", StringComparison.OrdinalIgnoreCase))
+                throw new ArgumentException("OmniRoute requires an exact provider/model ID; the auto alias is blocked.", nameof(model));
+
+            var allowedModels = (Environment.GetEnvironmentVariable("OMNIROUTE_FREE_MODELS") ?? string.Empty)
+                .Split(new[] { ';', ',' }, StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
+            if (!allowedModels.Contains(normalizedModel, StringComparer.OrdinalIgnoreCase))
+                throw new ArgumentException(
+                    "This OmniRoute model is not in OMNIROUTE_FREE_MODELS. Add only an exact model ID you have verified as free.",
+                    nameof(model));
+        }
+
         return new DesktopProviderSelection(normalizedProvider, normalizedModel);
     }
 

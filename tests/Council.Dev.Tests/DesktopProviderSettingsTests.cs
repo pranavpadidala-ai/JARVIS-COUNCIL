@@ -72,6 +72,23 @@ public sealed class DesktopProviderSettingsTests
     }
 
     [Fact]
+    public void OmniRouteRequiresAnExactModelInTheExplicitAllowlist()
+    {
+        using var workspace = new TemporaryWorkspace();
+        using var environment = new EnvironmentSnapshot("JARVIS_AI_PROVIDER", "OMNIROUTE_MODEL", "OMNIROUTE_FREE_MODELS");
+        Environment.SetEnvironmentVariable("OMNIROUTE_FREE_MODELS", "free-provider/model-a;free-provider/model-b");
+        var path = Path.Combine(workspace.Path, "desktop-settings.json");
+
+        DesktopProviderSettingsStore.SaveAndApply("omniroute", "free-provider/model-a", path);
+        Assert.Equal("free-provider/model-a", Environment.GetEnvironmentVariable("OMNIROUTE_MODEL"));
+
+        Assert.Throws<ArgumentException>(() =>
+            DesktopProviderSettingsStore.SaveAndApply("omniroute", "paid-provider/model-x", path));
+        Assert.Throws<ArgumentException>(() =>
+            DesktopProviderSettingsStore.SaveAndApply("omniroute", "auto", path));
+    }
+
+    [Fact]
     public void MockSelectionDoesNotNeedOrStoreAModel()
     {
         using var workspace = new TemporaryWorkspace();

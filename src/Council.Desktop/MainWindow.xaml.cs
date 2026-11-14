@@ -332,13 +332,14 @@ public partial class MainWindow : Window
             var checks = await RuntimeHealthCheck.RunAsync();
             var ready = checks.Count(check => check.Status == "READY");
             var optional = checks.Count(check => check.Status == "OPTIONAL");
+            var attentionCount = checks.Count(check => check.Status is "NOT READY" or "UNSUPPORTED");
             var attention = checks
                 .Where(check => check.Status is "NOT READY" or "UNSUPPORTED")
                 .Select(check => check.Component)
                 .Take(3)
                 .ToArray();
 
-            if (attention.Length == 0)
+            if (attentionCount == 0)
             {
                 RuntimeReadinessText.Foreground = new System.Windows.Media.SolidColorBrush(
                     System.Windows.Media.Color.FromRgb(73, 221, 182));
@@ -347,7 +348,7 @@ public partial class MainWindow : Window
             else
             {
                 RuntimeReadinessText.Foreground = System.Windows.Media.Brushes.Orange;
-                RuntimeReadinessText.Text = $"{attention.Length} checks need attention: " +
+                RuntimeReadinessText.Text = $"{attentionCount} checks need attention: " +
                     string.Join(", ", attention);
             }
         }
