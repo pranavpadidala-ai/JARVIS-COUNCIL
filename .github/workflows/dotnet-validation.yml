@@ -1,6 +1,7 @@
 name: .NET 8 build and test
 
 on:
+  workflow_dispatch:
   push:
     branches:
       - feature/first-usable-desktop
@@ -13,7 +14,7 @@ on:
       - bounded-autonomous-loop
 
 concurrency:
-  group: jarvis-validation-pr-${{ github.event.pull_request.number || github.ref }}
+  group: jarvis-validation-${{ github.event.pull_request.head.ref || github.ref_name }}
   cancel-in-progress: true
 
 permissions:
