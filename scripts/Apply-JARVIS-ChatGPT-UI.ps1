@@ -178,7 +178,7 @@ $newXaml = @'
           </Border>
           <StackPanel Margin="10,0,0,0" VerticalAlignment="Center">
             <TextBlock Text="JARVIS" FontSize="17" FontWeight="SemiBold" Foreground="#F5F5F5"/>
-            <TextBlock Text="PERSONAL AI" FontSize="9" Foreground="#999999" CharacterSpacing="120"/>
+            <TextBlock Text="PERSONAL AI" FontSize="9" Foreground="#999999"/>
           </StackPanel>
         </DockPanel>
 
@@ -292,6 +292,7 @@ $newXaml = @'
         <Grid.RowDefinitions>
           <RowDefinition Height="Auto"/>
           <RowDefinition Height="Auto"/>
+          <RowDefinition Height="Auto"/>
         </Grid.RowDefinitions>
         <Border Grid.Row="0" Background="{StaticResource ComposerBrush}" BorderBrush="#444444"
                 BorderThickness="1" CornerRadius="22" Padding="15,10">
@@ -329,9 +330,9 @@ $newXaml = @'
           <TextBlock Grid.Column="1" Text="Enter to send · Shift+Enter for a new line"
                      Foreground="#7D7D7D" FontSize="10" VerticalAlignment="Center"/>
         </Grid>
-        <TextBlock Grid.Row="1" Text="JARVIS can make mistakes. Verify important information."
+        <TextBlock Grid.Row="2" Text="JARVIS can make mistakes. Verify important information."
                    Foreground="#777777" FontSize="10" HorizontalAlignment="Center"
-                   VerticalAlignment="Bottom" Margin="0,24,0,0"/>
+                   VerticalAlignment="Center" Margin="0,5,0,0"/>
       </Grid>
     </Grid>
   </Grid>
@@ -425,7 +426,7 @@ $newMethods = @'
 
     private async void QuickCommand_Click(object sender, RoutedEventArgs e)
     {
-        if (sender is not Button button || button.Tag is not string command)
+        if (sender is not System.Windows.Controls.Button button || button.Tag is not string command)
             return;
         MessageInput.Text = command;
         await SendMessageAsync();
@@ -448,7 +449,7 @@ $newMethods = @'
         var messageRoot = new Border
         {
             MaxWidth = 860,
-            HorizontalAlignment = HorizontalAlignment.Stretch,
+            HorizontalAlignment = WpfHorizontalAlignment.Stretch,
             Padding = new Thickness(0, 15, 0, 15),
             Background = System.Windows.Media.Brushes.Transparent
         };
@@ -462,7 +463,7 @@ $newMethods = @'
                 CornerRadius = new CornerRadius(18),
                 Padding = new Thickness(17, 12, 17, 12),
                 MaxWidth = 690,
-                HorizontalAlignment = HorizontalAlignment.Right
+                HorizontalAlignment = WpfHorizontalAlignment.Right
             };
             var userText = new TextBlock
             {
@@ -479,7 +480,7 @@ $newMethods = @'
         {
             var identity = new StackPanel
             {
-                Orientation = Orientation.Horizontal,
+                Orientation = System.Windows.Controls.Orientation.Horizontal,
                 VerticalAlignment = VerticalAlignment.Center,
                 Margin = new Thickness(0, 0, 0, 10)
             };
@@ -496,7 +497,7 @@ $newMethods = @'
                 Text = "◉",
                 Foreground = new SolidColorBrush(WpfColor.FromRgb(104, 220, 207)),
                 FontSize = 17,
-                HorizontalAlignment = HorizontalAlignment.Center,
+                HorizontalAlignment = WpfHorizontalAlignment.Center,
                 VerticalAlignment = VerticalAlignment.Center
             };
             identity.Children.Add(avatar);
@@ -516,7 +517,7 @@ $newMethods = @'
                 Orientation = Orientation.Horizontal,
                 Margin = new Thickness(-6, 7, 0, 0)
             };
-            var copyButton = new Button
+            var copyButton = new System.Windows.Controls.Button
             {
                 Content = "Copy response",
                 Style = (Style)FindResource("MessageActionButton"),
@@ -719,7 +720,7 @@ $newMethods = @'
         DockPanel.SetDock(label, Dock.Left);
         header.Children.Add(label);
 
-        var copyCode = new Button
+        var copyCode = new System.Windows.Controls.Button
         {
             Content = "Copy code",
             Style = (Style)FindResource("MessageActionButton"),
