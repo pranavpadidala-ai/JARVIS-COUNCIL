@@ -398,6 +398,17 @@ if ($code.Contains($oldKeyBlock)) {
     throw 'Could not locate the message input keyboard handler. No files were written.'
 }
 
+# Remove a previously generated chat-helper section before regenerating it.
+# This makes the script safe to rerun after a failed build.
+$generatedStart = $code.IndexOf('    private async void NewChat_Click(')
+if ($generatedStart -ge 0) {
+    $generatedMessageStart = $code.IndexOf('    private void AddMessage(', $generatedStart)
+    if ($generatedMessageStart -lt 0) {
+        throw 'Found a prior generated chat section but could not locate its AddMessage method. No files were written.'
+    }
+    $code = $code.Substring(0, $generatedStart) + $code.Substring($generatedMessageStart)
+}
+
 # Replace only the final AddMessage method and append focused rendering helpers.
 $methodStart = $code.LastIndexOf('    private void AddMessage(')
 $classClose = $code.LastIndexOf('}')
