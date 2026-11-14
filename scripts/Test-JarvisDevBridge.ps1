@@ -64,7 +64,7 @@ try {
 
     $tools = Invoke-JarvisMcp -Method "tools/list"
     $toolNames = @($tools.result.tools | ForEach-Object { $_.name })
-    foreach ($requiredTool in @("workspace_list", "dotnet_build", "ollama_status", "ollama_chat")) {
+    foreach ($requiredTool in @("workspace_list", "dotnet_build", "development_task_list", "ollama_status", "ollama_chat")) {
         if ($toolNames -notcontains $requiredTool) {
             throw "Expected MCP tool '$requiredTool' was not advertised."
         }
