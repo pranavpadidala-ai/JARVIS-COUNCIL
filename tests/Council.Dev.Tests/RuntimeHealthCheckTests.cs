@@ -100,7 +100,9 @@ public sealed class RuntimeHealthCheckTests
             Content = new StringContent("""{"models":[]}""", Encoding.UTF8, "application/json")
         })));
         var workspace = Path.Combine(Path.GetTempPath(), "JARVIS-Doctor", Guid.NewGuid().ToString("N"));
-        var model = Path.Combine(workspace, "Models", "LocalAI", "WakeWord", "model");
+        var model = Path.Combine(
+            workspace, "Models", "LocalAI", "WakeWord",
+            "sherpa-onnx-kws-zipformer-gigaspeech-3.3M-2024-01-01");
         var runtime = Path.Combine(workspace, "Models", "LocalAI", "wakeword-venv", "Scripts");
         var script = Path.Combine(workspace, "python", "jarvis_runtime");
         Directory.CreateDirectory(model);
