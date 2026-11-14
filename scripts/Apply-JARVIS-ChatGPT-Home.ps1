@@ -32,8 +32,8 @@ $newXaml = @'
 <Window x:Class="Council.Desktop.MainWindow"
         xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
-        Title="JARVIS — Personal AI" Height="940" Width="1520"
-        MinHeight="780" MinWidth="1180" WindowStartupLocation="CenterScreen"
+        Title="JARVIS — Personal AI" Height="850" Width="1340"
+        MinHeight="620" MinWidth="980" WindowStartupLocation="CenterScreen"
         Background="#212121" Foreground="#ECECEC">
   <Window.Resources>
     <Style x:Key="NavButton" TargetType="Button">
