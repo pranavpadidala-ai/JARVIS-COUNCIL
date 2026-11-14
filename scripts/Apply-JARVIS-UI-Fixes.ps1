@@ -91,7 +91,6 @@ if ($rx.IsMatch($chat)) {
             SelectionTextBrush = Brushes.White,
             CaretBrush = new SolidColorBrush(WpfColor.FromRgb(65, 221, 244)),
             FontSize = 14,
-            MaxHeight = 520
         };
 
         var messageMenu = new ContextMenu();
