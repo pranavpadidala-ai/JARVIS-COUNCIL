@@ -25,11 +25,24 @@ if (Test-Path (Join-Path $trader 'it.py')) {
             throw 'Indian Trader requires Python 3.8 or newer.'
         }
         Write-Host 'Running Indian Trader offline test suite...'
+        $agentInstallRoot = Join-Path (Split-Path -Parent $trader) '.claude'
+        $agentInstallPath = Join-Path $agentInstallRoot 'agents'
+        $createdAgentInstall = $false
+        if (-not (Test-Path $agentInstallPath)) {
+            New-Item -ItemType Directory -Force -Path $agentInstallPath | Out-Null
+            Copy-Item (Join-Path $trader 'agents\\*.md') $agentInstallPath -Force
+            $createdAgentInstall = $true
+        }
         Push-Location $trader
         try {
             & python -m unittest discover -s tests -v
             if ($LASTEXITCODE -ne 0) { throw 'Indian Trader upstream tests failed.' }
-        } finally { Pop-Location }
+        } finally {
+            Pop-Location
+            if ($createdAgentInstall -and (Test-Path $agentInstallRoot)) {
+                Remove-Item $agentInstallRoot -Recurse -Force
+            }
+        }
     }
 }
 
