@@ -72,7 +72,7 @@ public sealed class LocalMcpServer : IAsyncDisposable
             var task = HandleAsync(context, cancellationToken);
             _handlers[id] = task;
             _ = task.ContinueWith(
-                _ => _handlers.TryRemove(id, out _),
+                completed => { _handlers.TryRemove(id, out var ignored); },
                 CancellationToken.None,
                 TaskContinuationOptions.ExecuteSynchronously,
                 TaskScheduler.Default);
@@ -303,9 +303,13 @@ public sealed class LocalMcpServer : IAsyncDisposable
 
     private static object Tool(string name, string description, object? properties = null, params string[] required)
     {
-        var schema = properties is null
-            ? new { type = "object", properties = new Dictionary<string, object>(), required = Array.Empty<string>(), additionalProperties = false }
-            : new { type = "object", properties, required, additionalProperties = false };
+        var schema = new Dictionary<string, object>
+        {
+            ["type"] = "object",
+            ["properties"] = properties ?? new Dictionary<string, object>(),
+            ["required"] = required,
+            ["additionalProperties"] = false
+        };
         return new { name, description, inputSchema = schema };
     }
 
