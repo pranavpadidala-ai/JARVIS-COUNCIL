@@ -229,17 +229,34 @@ public sealed class TaskManager
         if (task is null)
             return false;
 
-        var previousStep = task.CurrentStep;
-        if (!string.IsNullOrWhiteSpace(previousStep) &&
-            !string.Equals(previousStep, currentStep?.Trim(), StringComparison.Ordinal))
-        {
-            task.CompletedSteps.Add(previousStep.Length > 2000 ? previousStep[..2000] + " [truncated]" : previousStep);
-            if (task.CompletedSteps.Count > 100)
-                task.CompletedSteps.RemoveRange(0, task.CompletedSteps.Count - 100);
-        }
         task.CurrentStep = currentStep?.Trim() ?? string.Empty;
         if (task.CurrentStep.Length > 8000)
             task.CurrentStep = task.CurrentStep[..8000] + " [truncated]";
+        task.UpdatedAtUtc = DateTime.UtcNow;
+        await _store.SaveUnlockedAsync(latest, cancellationToken);
+        if (task.Status is TaskStatus.Running or TaskStatus.Paused or TaskStatus.Failed)
+            await SaveCheckpointAsync(task, cancellationToken);
+        ReplaceTasks(latest);
+        return true;
+    }
+
+    public async Task<bool> CompleteStepAsync(
+        Guid taskId, string completedStep, CancellationToken cancellationToken = default)
+    {
+        if (string.IsNullOrWhiteSpace(completedStep))
+            throw new ArgumentException("A completed step description is required.", nameof(completedStep));
+        await using var fileLock = await _store.AcquireExclusiveLockAsync(cancellationToken);
+        var latest = await _store.LoadUnlockedAsync(cancellationToken);
+        var task = latest.FirstOrDefault(item => item.Id == taskId);
+        if (task is null) return false;
+        var normalized = completedStep.Trim();
+        if (normalized.Length > 2000) normalized = normalized[..2000] + " [truncated]";
+        if (!task.CompletedSteps.Contains(normalized, StringComparer.Ordinal))
+        {
+            task.CompletedSteps.Add(normalized);
+            if (task.CompletedSteps.Count > 100)
+                task.CompletedSteps.RemoveRange(0, task.CompletedSteps.Count - 100);
+        }
         task.UpdatedAtUtc = DateTime.UtcNow;
         await _store.SaveUnlockedAsync(latest, cancellationToken);
         if (task.Status is TaskStatus.Running or TaskStatus.Paused or TaskStatus.Failed)
