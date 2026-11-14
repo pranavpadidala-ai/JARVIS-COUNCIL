@@ -39,6 +39,16 @@ function Find-OllamaExecutable {
     return $null
 }
 
+function Test-InstalledModel([string[]]$InstalledModels, [string]$ModelName) {
+    foreach ($installed in $InstalledModels) {
+        if ([string]::Equals($installed, $ModelName, [StringComparison]::OrdinalIgnoreCase) -or
+            $installed.StartsWith(($ModelName + ":"), [StringComparison]::OrdinalIgnoreCase)) {
+            return $true
+        }
+    }
+    return $false
+}
+
 function Test-OllamaServer {
     try {
         $null = Invoke-RestMethod -Uri "http://127.0.0.1:11434/api/tags" -TimeoutSec 3
@@ -156,7 +166,8 @@ else {
 
 $installedTags = Invoke-RestMethod -Uri "http://127.0.0.1:11434/api/tags" -TimeoutSec 10
 $installedModels = @($installedTags.models | ForEach-Object { $_.name })
-$visionReady = ($installedModels -contains "qwen3-vl:2b") -and ($installedModels -contains "glm-ocr")
+$visionReady = (Test-InstalledModel -InstalledModels $installedModels -ModelName "qwen3-vl:2b") -and
+    (Test-InstalledModel -InstalledModels $installedModels -ModelName "glm-ocr")
 
 Set-UserSetting "JARVIS_AI_PROVIDER" "ollama"
 Set-UserSetting "JARVIS_VISION_PROVIDER" "ollama"
