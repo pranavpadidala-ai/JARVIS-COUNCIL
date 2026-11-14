@@ -30,6 +30,7 @@
 
   <ItemGroup>
     <Content Include="Skills\**\*.md" CopyToOutputDirectory="PreserveNewest" />
+    <Content Include="..\..\python\jarvis_runtime\worker.py" Link="python\jarvis_runtime\worker.py" CopyToOutputDirectory="PreserveNewest" />
   </ItemGroup>
 
 </Project>
