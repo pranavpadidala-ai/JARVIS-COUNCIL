@@ -2,9 +2,14 @@ using System.IO;
 using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Input;
+using KeyEventArgs = System.Windows.Input.KeyEventArgs;
+using WpfColor = System.Windows.Media.Color;
+using WpfColorConverter = System.Windows.Media.ColorConverter;
+using WpfHorizontalAlignment = System.Windows.HorizontalAlignment;
 using System.Windows.Media;
 using Council.App.Chat;
 using Council.App.Voice;
+using Council.Desktop.Automation;
 using System.Windows.Threading;
 
 namespace Council.Desktop;
@@ -45,7 +50,7 @@ public partial class ChatWindow : Window
         {
             if (!string.IsNullOrWhiteSpace(InitialPrompt))
                 MessageInput.Text = InitialPrompt;
-            _session = await AssistantSession.CreateAsync();
+            _session = await AssistantSession.CreateAsync(additionalTools: [new WindowsAccessibilityTool()]);
             ProviderStatus.Text = $"●  {_session.ProviderName}";
             PhoneInboxButton.ToolTip = _session.PhoneBridgeStatus;
             await RefreshPhoneInboxCountAsync();
@@ -244,20 +249,20 @@ public partial class ChatWindow : Window
     {
         var card = new Border
         {
-            Background = new SolidColorBrush((Color)ColorConverter.ConvertFromString(assistant ? "#10283A" : "#14202C")),
-            BorderBrush = new SolidColorBrush((Color)ColorConverter.ConvertFromString(assistant ? "#1B5B70" : "#263C4D")),
+            Background = new SolidColorBrush((WpfColor)WpfColorConverter.ConvertFromString(assistant ? "#10283A" : "#14202C")),
+            BorderBrush = new SolidColorBrush((WpfColor)WpfColorConverter.ConvertFromString(assistant ? "#1B5B70" : "#263C4D")),
             BorderThickness = new Thickness(1),
             CornerRadius = new CornerRadius(8),
             Padding = new Thickness(12),
             Margin = new Thickness(0, 0, 0, 10),
-            HorizontalAlignment = assistant ? HorizontalAlignment.Left : HorizontalAlignment.Right,
+            HorizontalAlignment = assistant ? WpfHorizontalAlignment.Left : WpfHorizontalAlignment.Right,
             MaxWidth = 680
         };
         var stack = new StackPanel();
         stack.Children.Add(new TextBlock
         {
             Text = speaker,
-            Foreground = new SolidColorBrush((Color)ColorConverter.ConvertFromString(assistant ? "#39DDF4" : "#A9C4D2")),
+            Foreground = new SolidColorBrush((WpfColor)WpfColorConverter.ConvertFromString(assistant ? "#39DDF4" : "#A9C4D2")),
             FontSize = 10,
             FontWeight = FontWeights.Bold,
             Margin = new Thickness(0, 0, 0, 6)
@@ -265,7 +270,7 @@ public partial class ChatWindow : Window
         stack.Children.Add(new TextBlock
         {
             Text = content,
-            Foreground = new SolidColorBrush((Color)ColorConverter.ConvertFromString("#D7F1FA")),
+            Foreground = new SolidColorBrush((WpfColor)WpfColorConverter.ConvertFromString("#D7F1FA")),
             FontSize = 13,
             TextWrapping = TextWrapping.Wrap
         });

@@ -1,5 +1,6 @@
 using System.IO;
 using System.Windows;
+using WpfMessageBox = System.Windows.MessageBox;
 using System.Windows.Controls;
 using System.Windows.Threading;
 using Council.App;
@@ -123,7 +124,7 @@ public partial class DevelopmentTasksWindow : Window
         if (TasksList.SelectedItem is not DevelopmentTask task)
             return;
 
-        var answer = MessageBox.Show(
+        var answer = WpfMessageBox.Show(
             $"Approve '{task.Title}' for one background execution?\n\nThe local development agent must be running. It will only run from a clean Git tree, create a checkpoint, validate with build/tests, and commit after successful validation.",
             "Approve background development task",
             MessageBoxButton.YesNo,
@@ -181,7 +182,7 @@ public partial class DevelopmentTasksWindow : Window
         if (TasksList.SelectedItem is not DevelopmentTask task)
             return;
 
-        var answer = MessageBox.Show(
+        var answer = WpfMessageBox.Show(
             $"Open a JARVIS chat with an explicit run request for '{task.Title}'?\n\nYou will review the request and press SEND in chat to start the guarded run.",
             "Prepare foreground task run",
             MessageBoxButton.YesNo,

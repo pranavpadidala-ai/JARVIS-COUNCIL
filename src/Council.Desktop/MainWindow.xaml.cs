@@ -1,8 +1,11 @@
 using System.Diagnostics;
+using System.ComponentModel;
+using Forms = System.Windows.Forms;
 using System.IO;
 using System.Runtime.InteropServices;
 using System.Windows;
 using System.Windows.Threading;
+using WpfApplication = System.Windows.Application;
 using Council.App.Chat;
 using Council.Memory;
 
@@ -31,13 +34,26 @@ public partial class MainWindow : Window
     private readonly DispatcherTimer _clock = new() { Interval = TimeSpan.FromSeconds(1) };
     private readonly DispatcherTimer _telemetry = new() { Interval = TimeSpan.FromSeconds(2) };
     private readonly Process _process = Process.GetCurrentProcess();
+    private readonly Forms.NotifyIcon _trayIcon;
+    private bool _allowApplicationExit;
     private TimeSpan _lastCpu;
     private DateTime _lastCpuAt = DateTime.UtcNow;
 
     public MainWindow()
     {
         InitializeComponent();
+        _trayIcon = CreateTrayIcon();
         Loaded += MainWindow_Loaded;
+        Closing += MainWindow_Closing;
+        StateChanged += (_, _) =>
+        {
+            if (WindowState == WindowState.Minimized && !_allowApplicationExit)
+            {
+                WindowState = WindowState.Normal;
+                Hide();
+            }
+        };
+        WpfApplication.Current.SessionEnding += (_, _) => _allowApplicationExit = true;
         _clock.Tick += (_, _) => ClockText.Text = DateTime.Now.ToString("ddd, dd MMM yyyy  •  HH:mm:ss");
         ClockText.Text = DateTime.Now.ToString("ddd, dd MMM yyyy  •  HH:mm:ss");
         _clock.Start();
@@ -51,8 +67,63 @@ public partial class MainWindow : Window
         {
             _clock.Stop();
             _telemetry.Stop();
+            _trayIcon.Visible = false;
+            _trayIcon.Dispose();
             _process.Dispose();
         };
+    }
+
+
+    private Forms.NotifyIcon CreateTrayIcon()
+    {
+        var menu = new Forms.ContextMenuStrip();
+        menu.Items.Add("Open Command Center", null, (_, _) => RestoreFromTray());
+        menu.Items.Add("Open JARVIS Chat", null, (_, _) =>
+        {
+            RestoreFromTray();
+            OpenChatWithPrompt(null);
+        });
+        menu.Items.Add(new Forms.ToolStripSeparator());
+        menu.Items.Add("Exit JARVIS", null, (_, _) => ExitFromTray());
+
+        var icon = new Forms.NotifyIcon
+        {
+            Icon = System.Drawing.SystemIcons.Application,
+            Text = "JARVIS - Right-click to open or exit",
+            ContextMenuStrip = menu,
+            Visible = true
+        };
+        icon.DoubleClick += (_, _) => RestoreFromTray();
+        return icon;
+    }
+
+    private void MainWindow_Closing(object? sender, CancelEventArgs e)
+    {
+        if (_allowApplicationExit)
+            return;
+
+        e.Cancel = true;
+        Hide();
+        _trayIcon.ShowBalloonTip(
+            1400,
+            "JARVIS is still running",
+            "Use the JARVIS tray icon and choose Exit JARVIS to close it.",
+            Forms.ToolTipIcon.Info);
+    }
+
+    private void RestoreFromTray()
+    {
+        Show();
+        if (WindowState == WindowState.Minimized)
+            WindowState = WindowState.Normal;
+        Activate();
+    }
+
+    private void ExitFromTray()
+    {
+        _allowApplicationExit = true;
+        _trayIcon.Visible = false;
+        WpfApplication.Current.Shutdown();
     }
 
     private async void MainWindow_Loaded(object sender, RoutedEventArgs e)
