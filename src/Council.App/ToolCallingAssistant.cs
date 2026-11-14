@@ -966,10 +966,15 @@ public sealed class ToolCallingAssistant
         {
             try
             {
-                var instincts = (await _instincts.ListAsync(cancellationToken))
-                    .OrderByDescending(item => item.Confidence)
-                    .ThenByDescending(item => item.UpdatedAt)
-                    .Take(8)
+                var storedInstincts = await _instincts.ListAsync(cancellationToken);
+                var instincts = MemoryRecallEngine.Rank(
+                        userInput,
+                        storedInstincts,
+                        item => item.Trigger,
+                        item => item.UpdatedAt,
+                        item => item.Confidence,
+                        maxResults: 8)
+                    .Select(hit => hit.Item)
                     .ToArray();
                 if (instincts.Length > 0)
                 {
@@ -990,8 +995,16 @@ public sealed class ToolCallingAssistant
         {
             try
             {
-                var facts = await _facts.ListAsync(cancellationToken);
-                if (facts.Count > 0)
+                var storedFacts = await _facts.ListAsync(cancellationToken);
+                var facts = MemoryRecallEngine.Rank(
+                        userInput,
+                        storedFacts,
+                        fact => fact.Fact,
+                        fact => fact.CreatedAt,
+                        maxResults: 8)
+                    .Select(hit => hit.Item)
+                    .ToArray();
+                if (facts.Length > 0)
                 {
                     var savedFacts = string.Join(Environment.NewLine,
                         facts.Select(fact => $"- {fact.Fact}"));
