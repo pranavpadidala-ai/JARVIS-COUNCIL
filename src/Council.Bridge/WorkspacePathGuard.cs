@@ -39,7 +39,7 @@ public sealed class WorkspacePathGuard
 
         var normalized = relativePath.Replace('\\', '/');
         var segments = normalized.Split('/', StringSplitOptions.RemoveEmptyEntries);
-        if (segments.Any(segment => segment is "." or ".." || segment.Contains(':') || IsSensitiveName(segment)))
+        if (segments.Any(segment => segment is "." or ".." || segment.Contains(':') || HiddenNames.Contains(segment) || IsSensitiveName(segment)))
             throw new UnauthorizedAccessException("Path traversal, sensitive directories and drive-qualified paths are not allowed.");
 
         var fullPath = Path.GetFullPath(Path.Combine(Root, normalized));
