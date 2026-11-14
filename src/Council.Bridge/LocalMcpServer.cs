@@ -67,8 +67,10 @@ public sealed class LocalMcpServer : IAsyncDisposable
             }
 
             if (context.Request.Headers.TryGetValue("Origin", out var origins) &&
-                origins.Count > 0 &&
-                (!Uri.TryCreate(origins[0], UriKind.Absolute, out var origin) || !IsLoopbackHost(origin.Host)))
+                origins.Any(value =>
+                    !Uri.TryCreate(value, UriKind.Absolute, out var origin) ||
+                    origin.Scheme != Uri.UriSchemeHttp ||
+                    !IsLoopbackHost(origin.Host)))
             {
                 context.Response.StatusCode = StatusCodes.Status403Forbidden;
                 return;
