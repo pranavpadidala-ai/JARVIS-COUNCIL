@@ -13,7 +13,7 @@ public sealed class WorkspaceTool : ITool
     private const long MaxSearchBytesScanned = 20_000_000;
     private static readonly HashSet<string> BlockedDirectories = new(StringComparer.OrdinalIgnoreCase)
     {
-        ".git", "bin", "obj", "node_modules", ".vs"
+        ".git", "bin", "obj", "node_modules", ".vs", "venv", ".venv", "piper-venv", "__pycache__"
     };
     private static readonly HashSet<string> BlockedFiles = new(StringComparer.OrdinalIgnoreCase)
     {
@@ -211,5 +211,6 @@ public sealed class WorkspaceTool : ITool
 
     private static bool IsBlockedEntry(string path) =>
         BlockedDirectories.Contains(Path.GetFileName(path)) ||
-        BlockedFiles.Contains(Path.GetFileName(path));
+        BlockedFiles.Contains(Path.GetFileName(path)) ||
+        string.Equals(Path.GetExtension(path), ".pyc", StringComparison.OrdinalIgnoreCase);
 }
