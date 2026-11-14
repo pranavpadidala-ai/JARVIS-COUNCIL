@@ -78,8 +78,8 @@ public sealed class LocalMcpServer : IAsyncDisposable
 
             await next();
         });
-        _app.MapGet("/healthz", HandleHealthAsync);
-        _app.MapPost("/mcp", HandleMcpAsync);
+        _app.MapGet("/healthz", (Delegate)HandleHealthAsync);
+        _app.MapPost("/mcp", (Delegate)HandleMcpAsync);
         _app.MapMethods("/mcp", ["GET", "PUT", "DELETE"], () => Results.StatusCode(StatusCodes.Status405MethodNotAllowed));
     }
 
