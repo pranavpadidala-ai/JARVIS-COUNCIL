@@ -202,9 +202,7 @@ public partial class MainWindow : Window
         {
             // The user unchecked the tray item or exited JARVIS.
         }
-        catch (Exception ex) when (ex is InvalidOperationException or IOException or
-                                   UnauthorizedAccessException or DllNotFoundException or
-                                   BadImageFormatException or PlatformNotSupportedException)
+        catch (Exception ex) when (ex is not OutOfMemoryException)
         {
             await Dispatcher.InvokeAsync(() =>
             {

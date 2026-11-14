@@ -52,6 +52,12 @@ jobs:
             Remove-Item (Join-Path $PWD 'integrations/.claude') -Recurse -Force -ErrorAction SilentlyContinue
           }
 
+      - name: Test wake-word token generation
+        shell: pwsh
+        run: |
+          python -m unittest discover -s tests/python -v
+          if ($LASTEXITCODE -ne 0) { throw 'Wake-word token generator tests failed.' }
+
       - name: Restore
         run: dotnet restore JARVIS.Council.sln
 
