@@ -17,6 +17,9 @@ namespace Council.Desktop;
 public partial class ChatWindow : Window
 {
     public string? InitialPrompt { get; set; }
+    public bool StartVoiceOnLoad { get; set; }
+    public CancellationToken WakeWordCancellationToken { get; set; }
+    public event EventHandler? VoiceTurnCompleted;
 
     private AssistantSession? _session;
     private bool _sending;
@@ -61,11 +64,20 @@ public partial class ChatWindow : Window
                 AddMessage(message.Role == "user" ? "YOU" : "JARVIS", message.Content, message.Role != "user");
             if (_session.MessageCount == 0)
                 AddMessage("JARVIS", "Hello. I'm ready. What would you like me to work on?", true);
+
+            if (StartVoiceOnLoad)
+            {
+                _speakReplies = true;
+                SpeakButton.Content = "  SPEAK: ON  ";
+                await CaptureVoiceCommandAsync(notifyWakeWordCompletion: true);
+            }
         }
         catch (Exception ex)
         {
             ProviderStatus.Text = "●  Initialization issue";
             AddMessage("JARVIS", $"I couldn't initialize the assistant: {ex.GetBaseException().Message}", true);
+            if (StartVoiceOnLoad)
+                VoiceTurnCompleted?.Invoke(this, EventArgs.Empty);
         }
     }
 
@@ -111,7 +123,10 @@ public partial class ChatWindow : Window
 
     private async void Send_Click(object sender, RoutedEventArgs e) => await SendMessageAsync();
 
-    private async void Voice_Click(object sender, RoutedEventArgs e)
+    private async void Voice_Click(object sender, RoutedEventArgs e) =>
+        await CaptureVoiceCommandAsync();
+
+    private async Task CaptureVoiceCommandAsync(bool notifyWakeWordCompletion = false)
     {
         if (_voiceCapture is not null)
         {
@@ -124,10 +139,14 @@ public partial class ChatWindow : Window
         if (!OperatingSystem.IsWindows())
         {
             ProviderStatus.Text = "●  Voice input requires Windows";
+            if (notifyWakeWordCompletion)
+                VoiceTurnCompleted?.Invoke(this, EventArgs.Empty);
             return;
         }
 
-        var capture = new CancellationTokenSource();
+        var capture = notifyWakeWordCompletion
+            ? CancellationTokenSource.CreateLinkedTokenSource(WakeWordCancellationToken)
+            : new CancellationTokenSource();
         _voiceCapture = capture;
         VoiceButton.Content = "  STOP  ";
         StopButton.IsEnabled = true;
@@ -158,6 +177,8 @@ public partial class ChatWindow : Window
             capture.Dispose();
             VoiceButton.Content = "  VOICE  ";
             StopButton.IsEnabled = _turnCancellation is not null;
+            if (notifyWakeWordCompletion)
+                VoiceTurnCompleted?.Invoke(this, EventArgs.Empty);
         }
     }
 
