@@ -109,6 +109,16 @@ public sealed class DevelopmentTaskQueueService
         IsApproved = task.IsApproved,
         ApprovedAtUtc = task.ApprovedAtUtc,
         ApprovalConsumedAtUtc = task.ApprovalConsumedAtUtc,
-        CurrentStep = task.CurrentStep
+        CurrentStep = task.CurrentStep,
+        CompletedSteps = task.CompletedSteps.ToList(),
+        ProviderRoute = task.ProviderRoute,
+        ModelAlias = task.ModelAlias,
+        GitCommitSha = task.GitCommitSha,
+        GitWorkingTreeStatus = task.GitWorkingTreeStatus,
+        BuildLogPath = task.BuildLogPath,
+        TestLogPath = task.TestLogPath,
+        FailureClassification = task.FailureClassification,
+        IdempotencyKey = task.IdempotencyKey,
+        Artifacts = task.Artifacts.ToList()
     };
 }
