@@ -60,6 +60,27 @@ public sealed class WorkspacePathGuardTests
         }
     }
 
+
+    [Theory]
+    [InlineData(".env")]
+    [InlineData("api-token.txt")]
+    [InlineData("service-secret.txt")]
+    public void ReadTextFile_RejectsSensitiveFileNames(string fileName)
+    {
+        var root = CreateRoot();
+        try
+        {
+            File.WriteAllText(Path.Combine(root, fileName), "sensitive-value");
+            var guard = new WorkspacePathGuard(root);
+
+            Assert.Throws<UnauthorizedAccessException>(() => guard.ReadTextFile(fileName));
+        }
+        finally
+        {
+            Directory.Delete(root, recursive: true);
+        }
+    }
+
     [Fact]
     public void ListEntries_HidesGitAndBuildDirectories()
     {
