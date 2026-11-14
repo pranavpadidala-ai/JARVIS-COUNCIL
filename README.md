@@ -30,6 +30,15 @@ Launch the WPF Command Center and chat window from PowerShell:
 
 ```powershell
 .\scripts\Start-JarvisDesktop.ps1
+
+To install or refresh a normal Windows desktop shortcut (no administrator rights required):
+
+```powershell
+.\scripts\Install-JarvisDesktopShortcut.ps1
+```
+
+The shortcut starts PowerShell hidden, defaults to local Ollama when no provider is selected, builds the WPF app in Release mode, and launches the compiled desktop executable as a separate process. The build is incremental, so unchanged code does not require a full rebuild. Add -BuildNow to build and verify the desktop app before creating the shortcut. Re-run the installer after moving the repository to another folder.
+
 ```
 
 The desktop chat uses the same provider setting as the main application. For a private, no-API-credit local setup, install Ollama and the small local model stack once:
