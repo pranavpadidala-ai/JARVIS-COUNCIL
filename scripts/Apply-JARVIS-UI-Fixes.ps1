@@ -148,7 +148,7 @@ if ($rx.IsMatch($chat)) {
     $chat = $chat.Replace('Background = Brushes.Transparent', 'Background = System.Windows.Media.Brushes.Transparent')
     $chat = $chat.Replace('SelectionTextBrush = Brushes.White', 'SelectionTextBrush = System.Windows.Media.Brushes.White')
     $chat = $chat.Replace('Clipboard.SetText(textToCopy)', 'System.Windows.Clipboard.SetText(textToCopy)')
-} elseif ($chat -notmatch 'var messageText = new TextBox') {
+} elseif ($chat -notmatch 'var messageText = new (?:System\.Windows\.Controls\.)?TextBox') {
     throw 'Transcript renderer did not match the expected source. Nothing was modified.'
 }
 $chat = $chat.Replace(
