@@ -156,6 +156,11 @@ public sealed class AutonomousDevelopmentExecutor : IDevelopmentExecutor
                 return DevelopmentExecutionResult.Failed(
                     failure);
             }
+
+            await _taskManager.CompleteStepAsync(
+                task.Id,
+                $"{action.Type} -> {action.Target}",
+                CancellationToken.None);
         }
 
         await _taskManager.UpdateStepAsync(
