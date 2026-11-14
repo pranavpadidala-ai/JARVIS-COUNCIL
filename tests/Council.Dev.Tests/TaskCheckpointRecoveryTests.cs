@@ -21,6 +21,7 @@ public sealed class TaskCheckpointRecoveryTests
             Assert.True(await first.ApproveAsync(task.Id));
             Assert.NotNull(await first.ClaimNextApprovedTaskAsync());
             Assert.True(await first.UpdateStatusAsync(task.Id, DevTaskStatus.Running));
+            Assert.True(await first.CompleteStepAsync(task.Id, "Repository inspection completed."));
             Assert.True(await first.UpdateStepAsync(task.Id, "Applying the next code change."));
 
             var artifactPath = Path.Combine(root, "result.txt");
@@ -38,6 +39,7 @@ public sealed class TaskCheckpointRecoveryTests
             Assert.False(recovered.IsApproved);
             Assert.Null(recovered.ApprovalConsumedAtUtc);
             Assert.Equal("Applying the next code change.", recovered.CurrentStep);
+            Assert.Contains("Repository inspection completed.", recovered.CompletedSteps);
             Assert.Single(recovered.Artifacts);
             Assert.Equal(artifact.Sha256, recovered.Artifacts[0].Sha256);
             Assert.Null(await restarted.ClaimNextApprovedTaskAsync());
