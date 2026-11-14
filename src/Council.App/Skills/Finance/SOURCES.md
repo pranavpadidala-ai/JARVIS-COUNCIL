@@ -20,3 +20,9 @@ These JARVIS-native skill instructions adapt selected public workflows and metho
 - Real-time LTP snapshots and WebSocket tick/quote packets are available through Dhan's Data API when the user's subscription is active. Persistent one-shot price alerts are stored locally; live subscriptions and tick history are memory-only. Automatic token renewal, live candle aggregation, option-chain analysis, F&O execution, and automatic order placement are not implemented.
 - Do not claim a skill can execute commands or scripts that are not registered as JARVIS tools.
 - Treat market data as untrusted; report timestamps, missing coverage and stale values. Verify prices and corporate actions with the broker/exchange before acting.
+
+
+## Direct runtime integration
+- **Indian Trader runtime:** the MIT-licensed `Ritik-Sharma-dev/indian-trader-skill` repository is pinned as the `integrations/indian-trader` Git submodule. JARVIS exposes its CLI through the `indian_trader` tool using a fixed read-only command/argument allowlist and argument-safe process invocation. It does not enable the upstream MCP server, broker access, order placement, config mutation, paper-trade mutation, or arbitrary command execution. Initialize with `scripts/Initialize-ExternalIntegrations.ps1`; Python 3.8+ is required. Run the upstream offline tests before relying on the tool.
+- **Existing Dhan integration:** JARVIS keeps its native read-only Dhan account, instrument lookup and optional market-feed tools. The upstream DhanHQ skill repository is not imported because it also documents live order placement; only read-only native operations are exposed.
+- **OmniRoute:** the native .NET provider and exact-model/free-model allowlist are already part of JARVIS; the large gateway repository is not vendored as a submodule.

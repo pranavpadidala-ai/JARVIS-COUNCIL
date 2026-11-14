@@ -1,0 +1,9 @@
+[submodule "integrations/openjarvis"]
+	path = integrations/openjarvis
+	url = https://github.com/open-jarvis/OpenJarvis.git
+[submodule "integrations/indian-trader"]
+	path = integrations/indian-trader
+	url = https://github.com/Ritik-Sharma-dev/indian-trader-skill.git
+[submodule "integrations/indian-trading-skills"]
+	path = integrations/indian-trading-skills
+	url = https://github.com/kishorkukreja/finance-trading-skills.git
