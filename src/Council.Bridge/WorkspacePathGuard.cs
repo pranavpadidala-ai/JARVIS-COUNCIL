@@ -27,6 +27,8 @@ public sealed class WorkspacePathGuard
         Root = Path.GetFullPath(root);
         if (!Directory.Exists(Root))
             throw new DirectoryNotFoundException("Workspace root does not exist: " + Root);
+        if ((File.GetAttributes(Root) & FileAttributes.ReparsePoint) != 0)
+            throw new UnauthorizedAccessException("A symbolic link or junction cannot be used as the workspace root.");
     }
 
     public string Resolve(string relativePath)
@@ -67,14 +69,27 @@ public sealed class WorkspacePathGuard
         if (!File.Exists(fullPath))
             throw new FileNotFoundException("Workspace file was not found.", relativePath);
 
-        if (!ReadableExtensions.Contains(Path.GetExtension(fullPath)))
-            throw new UnauthorizedAccessException("This file type is not readable through the development bridge.");
+        var fileName = Path.GetFileName(fullPath);
+        if (IsSensitiveName(fileName) || !ReadableExtensions.Contains(Path.GetExtension(fullPath)))
+            throw new UnauthorizedAccessException("This file name or type is not readable through the development bridge.");
 
         var info = new FileInfo(fullPath);
         if (info.Length > maxBytes)
             throw new InvalidOperationException($"File exceeds the {maxBytes} byte read limit.");
 
         return File.ReadAllText(fullPath);
+    }
+
+    private static bool IsSensitiveName(string name)
+    {
+        var value = name.ToLowerInvariant();
+        return value.StartsWith(".env", StringComparison.Ordinal) ||
+               value.Contains("secret", StringComparison.Ordinal) ||
+               value.Contains("credential", StringComparison.Ordinal) ||
+               value.Contains("password", StringComparison.Ordinal) ||
+               value.Contains("token", StringComparison.Ordinal) ||
+               value.Contains("api-key", StringComparison.Ordinal) ||
+               value.Contains("apikey", StringComparison.Ordinal);
     }
 
     public IReadOnlyList<object> ListEntries(string relativePath = "")
@@ -84,7 +99,7 @@ public sealed class WorkspacePathGuard
             throw new DirectoryNotFoundException("Workspace directory was not found.");
 
         return Directory.EnumerateFileSystemEntries(directory)
-            .Where(path => !HiddenNames.Contains(Path.GetFileName(path)))
+            .Where(path => !HiddenNames.Contains(Path.GetFileName(path)) && !IsSensitiveName(Path.GetFileName(path)))
             .Where(path => (File.GetAttributes(path) & FileAttributes.ReparsePoint) == 0)
             .OrderBy(path => Path.GetFileName(path), StringComparer.OrdinalIgnoreCase)
             .Take(200)
