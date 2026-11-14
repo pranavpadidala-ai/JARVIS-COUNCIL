@@ -100,6 +100,40 @@ public sealed class LocalMcpServerTests
         }
     }
 
+
+    [Fact]
+    public async Task OllamaChat_RejectsOversizedPromptBeforeCallingLocalService()
+    {
+        var root = CreateRoot();
+        var token = Convert.ToBase64String(Guid.NewGuid().ToByteArray()) + Convert.ToBase64String(Guid.NewGuid().ToByteArray());
+        try
+        {
+            await using var server = new LocalMcpServer(root, token, GetFreePort());
+            await server.StartAsync();
+
+            using var client = CreateClient(server.Port, token);
+            var prompt = new string('x', 16_001);
+            var requestJson = JsonSerializer.Serialize(new
+            {
+                jsonrpc = "2.0",
+                id = 5,
+                method = "tools/call",
+                @params = new { name = "ollama_chat", arguments = new { model = "not-installed", prompt } }
+            });
+
+            using var response = await PostMcpAsync(client, requestJson);
+            using var document = JsonDocument.Parse(await response.Content.ReadAsStringAsync());
+            var result = document.RootElement.GetProperty("result");
+
+            Assert.True(result.GetProperty("isError").GetBoolean());
+            Assert.Contains("16,000-character", result.GetProperty("content")[0].GetProperty("text").GetString());
+        }
+        finally
+        {
+            Directory.Delete(root, recursive: true);
+        }
+    }
+
     private static HttpClient CreateClient(int port, string token)
     {
         var client = new HttpClient { BaseAddress = new Uri($"http://127.0.0.1:{port}") };
