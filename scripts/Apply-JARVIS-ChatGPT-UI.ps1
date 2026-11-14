@@ -434,7 +434,7 @@ $newMethods = @'
 
     private void Suggestion_Click(object sender, RoutedEventArgs e)
     {
-        if (sender is Button button && button.Tag is string prompt)
+        if (sender is System.Windows.Controls.Button button && button.Tag is string prompt)
         {
             MessageInput.Text = prompt;
             MessageInput.Focus();
@@ -481,7 +481,7 @@ $newMethods = @'
             var identity = new StackPanel
             {
                 Orientation = System.Windows.Controls.Orientation.Horizontal,
-                VerticalAlignment = VerticalAlignment.Center,
+                VerticalAlignment = System.Windows.VerticalAlignment.Center,
                 Margin = new Thickness(0, 0, 0, 10)
             };
             var avatar = new Border
@@ -498,7 +498,7 @@ $newMethods = @'
                 Foreground = new SolidColorBrush(WpfColor.FromRgb(104, 220, 207)),
                 FontSize = 17,
                 HorizontalAlignment = WpfHorizontalAlignment.Center,
-                VerticalAlignment = VerticalAlignment.Center
+                VerticalAlignment = System.Windows.VerticalAlignment.Center
             };
             identity.Children.Add(avatar);
             identity.Children.Add(new TextBlock
@@ -506,8 +506,8 @@ $newMethods = @'
                 Text = speaker,
                 Foreground = new SolidColorBrush(WpfColor.FromRgb(235, 235, 235)),
                 FontSize = 12,
-                FontWeight = FontWeights.SemiBold,
-                VerticalAlignment = VerticalAlignment.Center
+                FontWeight = System.Windows.FontWeights.SemiBold,
+                VerticalAlignment = System.Windows.VerticalAlignment.Center
             });
             messageStack.Children.Add(identity);
             messageStack.Children.Add(CreateFormattedContent(content));
@@ -581,7 +581,7 @@ $newMethods = @'
                 var headingText = new TextBlock
                 {
                     FontSize = level == 1 ? 22 : level == 2 ? 18 : 16,
-                    FontWeight = FontWeights.SemiBold,
+                    FontWeight = System.Windows.FontWeights.SemiBold,
                     Foreground = new SolidColorBrush(WpfColor.FromRgb(242, 242, 242)),
                     TextWrapping = TextWrapping.Wrap,
                     Margin = new Thickness(0, 13, 0, 7)
@@ -664,14 +664,14 @@ $newMethods = @'
             {
                 target.Inlines.Add(new System.Windows.Documents.Run(token.Substring(2, token.Length - 4))
                 {
-                    FontWeight = FontWeights.SemiBold
+                    FontWeight = System.Windows.FontWeights.SemiBold
                 });
             }
             else if (token.Length >= 2 && token[0] == (char)96 && token[token.Length - 1] == (char)96)
             {
                 target.Inlines.Add(new System.Windows.Documents.Run(token.Substring(1, token.Length - 2))
                 {
-                    FontFamily = new FontFamily("Consolas"),
+                    FontFamily = new System.Windows.Media.FontFamily("Consolas"),
                     FontSize = 13,
                     Foreground = new SolidColorBrush(WpfColor.FromRgb(171, 215, 205)),
                     Background = new SolidColorBrush(WpfColor.FromRgb(48, 55, 53))
@@ -681,7 +681,7 @@ $newMethods = @'
             {
                 target.Inlines.Add(new System.Windows.Documents.Run(token.Substring(1, token.Length - 2))
                 {
-                    FontStyle = FontStyles.Italic
+                    FontStyle = System.Windows.FontStyles.Italic
                 });
             }
             cursor = match.Index + match.Length;
@@ -714,8 +714,8 @@ $newMethods = @'
             Text = string.IsNullOrWhiteSpace(language) ? "CODE" : language.ToUpperInvariant(),
             Foreground = new SolidColorBrush(WpfColor.FromRgb(158, 158, 158)),
             FontSize = 10,
-            FontWeight = FontWeights.SemiBold,
-            VerticalAlignment = VerticalAlignment.Center
+            FontWeight = System.Windows.FontWeights.SemiBold,
+            VerticalAlignment = System.Windows.VerticalAlignment.Center
         };
         DockPanel.SetDock(label, Dock.Left);
         header.Children.Add(label);
@@ -742,7 +742,7 @@ $newMethods = @'
             Foreground = new SolidColorBrush(WpfColor.FromRgb(220, 220, 220)),
             BorderThickness = new Thickness(0),
             Padding = new Thickness(0),
-            FontFamily = new FontFamily("Consolas"),
+            FontFamily = new System.Windows.Media.FontFamily("Consolas"),
             FontSize = 12,
             MinHeight = 34,
             MaxHeight = 250,
