@@ -30,7 +30,7 @@ if (Test-Path (Join-Path $trader 'it.py')) {
         $createdAgentInstall = $false
         if (-not (Test-Path $agentInstallPath)) {
             New-Item -ItemType Directory -Force -Path $agentInstallPath | Out-Null
-            Copy-Item (Join-Path $trader 'agents\\*.md') $agentInstallPath -Force
+            Copy-Item (Join-Path (Join-Path $trader 'agents') '*.md') $agentInstallPath -Force
             $createdAgentInstall = $true
         }
         Push-Location $trader
