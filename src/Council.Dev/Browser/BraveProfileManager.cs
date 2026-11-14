@@ -1,4 +1,6 @@
 using System.Diagnostics;
+using System.Net;
+using System.Net.Sockets;
 using System.Text.Json;
 
 namespace Council.Dev.Browser;
@@ -6,7 +8,7 @@ namespace Council.Dev.Browser;
 public sealed class BraveProfileManager : IDisposable
 {
     private sealed record StoredProfiles(List<BraveProfile> Profiles);
-    private sealed record RunningSession(Process Process, FileStream Lock, BraveProfileMode Mode);
+    private sealed record RunningSession(Process Process, FileStream Lock, BraveProfileMode Mode, int? DebuggingPort);
 
     private readonly string _root;
     private readonly string _metadataPath;
@@ -89,7 +91,7 @@ public sealed class BraveProfileManager : IDisposable
             if (_running.TryGetValue(profileId, out var session))
             {
                 if (!session.Process.HasExited)
-                    return new BraveProfileStatus(profile, true, session.Mode, session.Process.Id);
+                    return new BraveProfileStatus(profile, true, session.Mode, session.Process.Id, session.DebuggingPort.HasValue, session.DebuggingPort);
                 _running.Remove(profileId);
                 session.Process.Dispose();
                 session.Lock.Dispose();
@@ -100,7 +102,7 @@ public sealed class BraveProfileManager : IDisposable
     }
 
     public async Task<BraveProfileStatus> LaunchProfileAsync(string profileId, BraveProfileMode mode,
-        string? startUrl = null, CancellationToken cancellationToken = default)
+        string? startUrl = null, CancellationToken cancellationToken = default, bool enableAutomation = false)
     {
         if (startUrl is not null && (startUrl.Length > 2048 ||
             !Uri.TryCreate(startUrl, UriKind.Absolute, out var uri) ||
@@ -115,7 +117,7 @@ public sealed class BraveProfileManager : IDisposable
             if (_running.TryGetValue(profileId, out var existing))
             {
                 if (!existing.Process.HasExited)
-                    return new BraveProfileStatus(profile, true, existing.Mode, existing.Process.Id);
+                    return new BraveProfileStatus(profile, true, existing.Mode, existing.Process.Id, existing.DebuggingPort.HasValue, existing.DebuggingPort);
                 _running.Remove(profileId);
                 existing.Process.Dispose();
                 existing.Lock.Dispose();
@@ -133,14 +135,25 @@ public sealed class BraveProfileManager : IDisposable
                 start.ArgumentList.Add("--user-data-dir=" + profile.DataDirectory);
                 start.ArgumentList.Add("--no-first-run");
                 start.ArgumentList.Add("--disable-sync");
+                int? debuggingPort = null;
+                if (enableAutomation)
+                {
+                    debuggingPort = ReserveLoopbackPort();
+                    start.ArgumentList.Add("--remote-debugging-address=127.0.0.1");
+                    start.ArgumentList.Add("--remote-debugging-port=" + debuggingPort.Value);
+                    // Only allow local JARVIS clients to connect to this profile's DevTools endpoint.
+                    start.ArgumentList.Add("--remote-allow-origins=http://127.0.0.1:" + debuggingPort.Value +
+                        ",http://localhost:" + debuggingPort.Value);
+                }
                 if (mode == BraveProfileMode.Headless) { start.ArgumentList.Add("--headless=new"); start.ArgumentList.Add("--disable-gpu"); }
                 if (startUrl is not null) start.ArgumentList.Add(startUrl);
                 startedProcess = Process.Start(start) ?? throw new InvalidOperationException("Brave did not start.");
-                _running[profileId] = new RunningSession(startedProcess, profileLock, mode);
+                _running[profileId] = new RunningSession(startedProcess, profileLock, mode, debuggingPort);
                 var updated = profile with { LastUsedAtUtc = DateTime.UtcNow };
                 _profiles[_profiles.FindIndex(p => p.Id == profileId)] = updated;
                 await SaveMetadataAsync(cancellationToken);
-                return new BraveProfileStatus(updated, true, mode, startedProcess.Id);
+                return new BraveProfileStatus(updated, true, mode, startedProcess.Id,
+                    debuggingPort.HasValue, debuggingPort);
             }
             catch
             {
@@ -214,6 +227,13 @@ public sealed class BraveProfileManager : IDisposable
             if (Directory.Exists(expected)) Directory.Delete(expected, true);
         }
         finally { _gate.Release(); }
+    }
+
+    private static int ReserveLoopbackPort()
+    {
+        using var listener = new TcpListener(IPAddress.Loopback, 0);
+        listener.Start();
+        return ((IPEndPoint)listener.LocalEndpoint).Port;
     }
 
     private BraveProfile Find(string id) => _profiles.FirstOrDefault(p => p.Id == id)

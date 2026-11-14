@@ -61,6 +61,18 @@ The desktop conversation history is stored locally under `%LOCALAPPDATA%\JARVIS\
 
 You can begin teaching the desktop assistant immediately: send `/remember I prefer concise answers with worked engineering examples` to save a personal fact. Use `/memories` to review facts and `/forget <id>` to remove one. To teach a repeatable project practice, use `/learn when I ask for a four-point bending setup => first confirm whether the support span is divided into three equal parts`; use `/instincts` to review learned practices and `/forget-instinct <id>` to remove one. `/skills` and `/agents` list JARVIS capabilities; `/clear` clears conversation history and explicit facts but retains learned project practices. Facts and practices are encrypted with Windows DPAPI for the current Windows account and are included as context when relevant. This is explicit memory-based personalization, not fine-tuning the underlying language model. Do not store passwords, API keys, OTPs or other secrets.
 
+### Browser automation with Playwright
+
+JARVIS can attach Playwright for .NET to a dedicated Brave profile that was launched with `automation=true`. Ordinary launches do not open a debugging port. When requested, Brave receives a randomly reserved DevTools port bound to `127.0.0.1`; the endpoint is not exposed to other devices on the network. JARVIS does not install or launch a second browser engine for this integration.
+
+The initial browser tool is deliberately limited to:
+- inspecting a bounded amount of visible page text and tab metadata;
+- navigating to public HTTP/HTTPS URLs (not local/private-network destinations);
+- searching through exactly one accessible search box;
+- clicking one uniquely identified, ordinary public hyperlink.
+
+It cannot click buttons, submit forms, perform downloads/uploads, enter credentials/OTPs/payment details, or perform financial, destructive or irreversible actions. Browser page text and links are untrusted input. Playwright's CDP connection is lower fidelity than its native Playwright transport, so screenshot verification remains available for sites or interactions that do not work reliably.
+
 ## Choose an AI provider
 
 Set configuration in the current PowerShell session. Do not commit API keys or place them in the project workspace.

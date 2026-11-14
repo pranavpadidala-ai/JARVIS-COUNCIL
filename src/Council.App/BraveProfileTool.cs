@@ -17,7 +17,7 @@ public sealed class BraveProfileTool : ITool
     public string Name => "brave_profiles";
     public string Description =>
         "Manage isolated Brave browser profiles for legitimate browsing, research, testing and user-authorized GUI tasks. " +
-        "Actions: list; create (label, purpose, optional temporary=true|false); launch (profile_id, mode=headless|visible, optional http(s) url); " +
+        "Actions: list; create (label, purpose, optional temporary=true|false); launch (profile_id, mode=headless|visible, optional http(s) url, optional automation=true); " +
         "status (profile_id); close (profile_id); delete_temp (profile_id). " +
         "Never use profiles to evade provider quotas or rotate consumer AI logins. Authentication state is never copied or exported.";
 
@@ -53,14 +53,22 @@ public sealed class BraveProfileTool : ITool
                 }
                 case "launch":
                 {
-                    if (!Only("action", "profile_id", "mode", "url") ||
+                    if (!Only("action", "profile_id", "mode", "url", "automation") ||
                         !arguments.TryGetValue("profile_id", out var id))
                         return new ToolResult(false, "launch requires profile_id; mode=headless|visible and url are optional.");
                     var modeText = arguments.TryGetValue("mode", out var m) ? m : "visible";
                     if (!Enum.TryParse<BraveProfileMode>(modeText, true, out var mode))
                         return new ToolResult(false, "mode must be headless or visible.");
                     arguments.TryGetValue("url", out var url);
-                    var status = await _manager.LaunchProfileAsync(id, mode, url, cancellationToken);
+                    var enableAutomation = false;
+                    if (arguments.TryGetValue("automation", out var automationText) &&
+                        !bool.TryParse(automationText, out enableAutomation))
+                        return new ToolResult(false, "automation must be true or false.");
+                    var status = await _manager.LaunchProfileAsync(
+                        id, mode, url, cancellationToken, enableAutomation: enableAutomation);
+                    if (enableAutomation && !status.AutomationEnabled)
+                        return new ToolResult(false,
+                            "This profile is already running without browser automation enabled. Do not restart it automatically; use another profile or obtain explicit confirmation before closing it.");
                     return new ToolResult(true, "Brave profile launched: " + JsonSerializer.Serialize(status));
                 }
                 case "status":
