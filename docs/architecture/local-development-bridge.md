@@ -1,6 +1,6 @@
 # Local JARVIS Development Bridge
 
-Status: implementation complete; local Windows smoke test pending.
+Status: implementation complete; local Windows smoke test passed on Windows PowerShell 5.1 with the user's installed Ollama models.
 
 ## Purpose
 
@@ -20,7 +20,7 @@ The script generates a fresh 256-bit bearer token for that run and starts the br
 - MCP endpoint: `http://127.0.0.1:47822/mcp`
 - Health endpoint: `http://127.0.0.1:47822/healthz`
 
-The token is printed once so it can be entered into a compatible local MCP client. Keep it private. Stopping the bridge invalidates the token; the next start generates a new one. In a second PowerShell window, run `scripts/Test-JarvisDevBridge.ps1`; it securely prompts for the token, checks MCP and Ollama, selects an installed Qwen model when available, and runs a short local chat smoke test.
+The token is printed once so it can be entered into a compatible local MCP client. Keep it private. Stopping the bridge invalidates the token; the next start generates a new one. In a second PowerShell window, run `scripts/Test-JarvisDevBridge.ps1`; it securely prompts for the token, checks MCP and Ollama, selects an installed Qwen model when available, and runs a short local chat smoke test. Verified successfully: authenticated health check, MCP initialization, discovery of all 10 tools, Ollama model discovery (`glm-ocr:latest`, `qwen3-vl:2b`, `qwen3.5:2b-q4_K_M`), and a successful `qwen3-vl:2b` response (`JARVIS QWEN TEST PASSED`).
 
 ## Available tools
 
