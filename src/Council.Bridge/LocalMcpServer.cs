@@ -88,9 +88,9 @@ public sealed class LocalMcpServer : IAsyncDisposable
         if (!string.Equals(context.Request.ContentType?.Split(';')[0].Trim(), "application/json", StringComparison.OrdinalIgnoreCase))
             return Results.Json(new { error = "Content-Type must be application/json." }, statusCode: StatusCodes.Status415UnsupportedMediaType);
 
-        var acceptsJson = context.Request.Headers.Accept.Any(value =>
+        var acceptsJson = context.Request.Headers["Accept"].Any(value =>
             value?.Split(',').Any(item => item.Trim().StartsWith("application/json", StringComparison.OrdinalIgnoreCase)) == true);
-        var acceptsEventStream = context.Request.Headers.Accept.Any(value =>
+        var acceptsEventStream = context.Request.Headers["Accept"].Any(value =>
             value?.Split(',').Any(item => item.Trim().StartsWith("text/event-stream", StringComparison.OrdinalIgnoreCase)) == true);
         if (!acceptsJson || !acceptsEventStream)
             return Results.Json(new { error = "Accept must include application/json and text/event-stream." }, statusCode: StatusCodes.Status406NotAcceptable);
