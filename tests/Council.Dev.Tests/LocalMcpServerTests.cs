@@ -60,6 +60,8 @@ public sealed class LocalMcpServerTests
             Assert.Contains("workspace_read_file", names);
             Assert.Contains("dotnet_build", names);
             Assert.Contains("development_task_create", names);
+            Assert.Contains("ollama_status", names);
+            Assert.Contains("ollama_chat", names);
         }
         finally
         {
