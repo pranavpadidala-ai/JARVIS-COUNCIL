@@ -1,6 +1,7 @@
 using Council.AI.Providers;
 using Council.App;
 using Council.Core.Models;
+using Council.Core.Providers;
 using Council.Memory;
 
 namespace Council.Dev.Tests;
@@ -35,6 +36,34 @@ public sealed class DesktopToolCallingAssistantTests
             if (Directory.Exists(directory))
                 Directory.Delete(directory, recursive: true);
         }
+    }
+
+    [Fact]
+    public async Task ProcessMessageAsync_parses_json_with_braces_and_normalizes_escaped_line_breaks()
+    {
+        var directory = Path.Combine(Path.GetTempPath(), "jarvis-desktop-runtime-tests", Guid.NewGuid().ToString("N"));
+        Directory.CreateDirectory(directory);
+        try
+        {
+            var provider = new FixedResponseProvider("""{"type":"message","content":"Line one\\nLine two {example}"}""");
+            var assistant = new ToolCallingAssistant(provider, directory);
+
+            var response = await assistant.ProcessMessageAsync("test response formatting");
+
+            Assert.Equal("Line one" + Environment.NewLine + "Line two {example}", response);
+        }
+        finally
+        {
+            Directory.Delete(directory, recursive: true);
+        }
+    }
+
+    private sealed class FixedResponseProvider(string content) : IAIProvider
+    {
+        public string Name => "Test provider";
+
+        public Task<AIResponse> AskAsync(AIRequest request, CancellationToken cancellationToken = default) =>
+            Task.FromResult(new AIResponse(Name, content, "test-model"));
     }
 
     [Fact]
