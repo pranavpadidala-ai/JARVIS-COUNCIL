@@ -178,6 +178,17 @@ Remove the logon task with:
 .\scripts\Install-JarvisAgentTask.ps1 -Uninstall
 ```
 
+## Optional offline wake-word
+
+Wake-word listening is disabled by default. Install its small English CPU model once:
+
+```powershell
+Set-ExecutionPolicy -Scope Process Bypass
+.\scripts\Install-WakeWord.ps1
+```
+
+The model and its tiny SentencePiece helper environment are stored under `Models\LocalAI` on the JARVIS drive. The installer checks the model's Apache-2.0 declaration and does not add model weights to Git. To enable listening, right-click the JARVIS tray icon and select **Listen for Hey JARVIS**. Uncheck it to mute. The wake-word detector stops and releases the microphone before the existing Whisper command capture starts; the listener is re-armed after the voice turn. Audio is processed locally and is not recorded or uploaded by this detector.
+
 ## Local development bridge (MCP)
 
 A separate, loopback-only MCP endpoint lets a compatible local MCP client inspect the repository and run fixed validation commands. It does not change the JARVIS desktop UI.
