@@ -27,7 +27,7 @@
   </ItemGroup>
 
   <ItemGroup>
-    <ProjectReference Include="..\\..\\src\\Council.Bridge\\Council.Bridge.csproj" />
+    <ProjectReference Include="../../src/Council.Bridge/Council.Bridge.csproj" />
   </ItemGroup>
 
 </Project>
