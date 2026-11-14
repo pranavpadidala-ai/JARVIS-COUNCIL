@@ -48,6 +48,8 @@ public sealed class OllamaProvider : IAIProvider
                 content = message.Content
             }).ToArray(),
             ["stream"] = false,
+            // Keep ordinary chat concise; enable deliberate reasoning only when explicitly requested.
+            ["think"] = string.Equals(Environment.GetEnvironmentVariable("JARVIS_OLLAMA_THINK"), "true", StringComparison.OrdinalIgnoreCase),
             ["keep_alive"] = Environment.GetEnvironmentVariable("JARVIS_OLLAMA_KEEP_ALIVE") ?? "30s",
             ["options"] = new
             {
