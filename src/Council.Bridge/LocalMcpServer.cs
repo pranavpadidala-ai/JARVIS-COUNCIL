@@ -1,4 +1,5 @@
 using System.Diagnostics;
+using System.Net;
 using System.Security.Cryptography;
 using System.Text;
 using System.Text.Json;
@@ -49,11 +50,32 @@ public sealed class LocalMcpServer : IAsyncDisposable
             ContentRootPath = _workspace.Root
         });
         builder.Logging.ClearProviders();
-        builder.WebHost.UseUrls($"http://127.0.0.1:{port}");
         builder.WebHost.ConfigureKestrel(options =>
-            options.Limits.MaxRequestBodySize = MaxRequestBytes);
+        {
+            // Bind directly to the loopback interface; URL environment variables cannot widen this listener.
+            options.Listen(IPAddress.Loopback, port);
+            options.Limits.MaxRequestBodySize = MaxRequestBytes;
+        });
 
         _app = builder.Build();
+        _app.Use(async (context, next) =>
+        {
+            if (!IsLoopbackHost(context.Request.Host.Host))
+            {
+                context.Response.StatusCode = StatusCodes.Status400BadRequest;
+                return;
+            }
+
+            if (context.Request.Headers.TryGetValue("Origin", out var origins) &&
+                origins.Count > 0 &&
+                (!Uri.TryCreate(origins[0], UriKind.Absolute, out var origin) || !IsLoopbackHost(origin.Host)))
+            {
+                context.Response.StatusCode = StatusCodes.Status403Forbidden;
+                return;
+            }
+
+            await next();
+        });
         _app.MapGet("/healthz", HandleHealthAsync);
         _app.MapPost("/mcp", HandleMcpAsync);
         _app.MapMethods("/mcp", ["GET", "PUT", "DELETE"], () => Results.StatusCode(StatusCodes.Status405MethodNotAllowed));
@@ -460,6 +482,10 @@ public sealed class LocalMcpServer : IAsyncDisposable
         value.ValueKind == JsonValueKind.String
             ? value.GetString() ?? string.Empty
             : string.Empty;
+
+    private static bool IsLoopbackHost(string host) =>
+        string.Equals(host, "localhost", StringComparison.OrdinalIgnoreCase) ||
+        (IPAddress.TryParse(host, out var address) && IPAddress.IsLoopback(address));
 
     private bool IsAuthorized(string? header)
     {
