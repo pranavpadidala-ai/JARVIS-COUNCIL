@@ -785,6 +785,15 @@ $newMethods = @'
 
 $code = $code.Substring(0, $methodStart) + $newMethods + [Environment]::NewLine + '}'
 
+# Fail before writing if any generated event handler appears more than once.
+foreach ($methodName in @('NewChat_Click', 'QuickCommand_Click', 'Suggestion_Click')) {
+    $escapedName = [regex]::Escape($methodName)
+    $methodMatches = [regex]::Matches($code, "(?m)^\s*private\s+(?:async\s+)?void\s+$escapedName\s*\(")
+    if ($methodMatches.Count -ne 1) {
+        throw "Expected exactly one $methodName method after generation; found $($methodMatches.Count). No files were written."
+    }
+}
+
 # Validate the XAML and key event/control bindings before backing up or writing.
 try {
     $null = [xml]$newXaml
