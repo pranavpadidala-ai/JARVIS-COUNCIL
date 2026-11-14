@@ -16,7 +16,7 @@ public sealed class BuildTestExecutorTests
         var result = await new BuildTestExecutor(fake, workspace.Path).RunAsync();
 
         Assert.True(result.Success);
-        Assert.Equal("Build and .NET tests passed.", result.Message);
+        Assert.Equal("Build and tests passed.", result.Message);
         Assert.NotNull(result.BuildResult);
         Assert.NotNull(result.TestResult);
         Assert.Null(result.PythonValidationResult);
