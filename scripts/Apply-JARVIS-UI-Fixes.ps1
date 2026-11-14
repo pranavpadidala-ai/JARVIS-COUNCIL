@@ -1,4 +1,7 @@
 #requires -Version 5.1
+param(
+    [string]$RepoRoot
+)
 $ErrorActionPreference = 'Stop'
 
 function Invoke-Native {
@@ -12,12 +15,24 @@ function Invoke-Native {
     return $code
 }
 
-$root = (& git rev-parse --show-toplevel 2>$null | Select-Object -First 1)
-if ($LASTEXITCODE -ne 0 -or [string]::IsNullOrWhiteSpace($root)) {
-    throw 'Run this script from inside the JARVIS repository.'
+$candidateRoot = $RepoRoot
+if ([string]::IsNullOrWhiteSpace($candidateRoot) -and
+    -not [string]::IsNullOrWhiteSpace($env:JARVIS_REPO_ROOT)) {
+    $candidateRoot = $env:JARVIS_REPO_ROOT
 }
-$root = $root.Trim()
-Set-Location $root
+if ([string]::IsNullOrWhiteSpace($candidateRoot)) {
+    $candidateRoot = (Get-Location).Path
+}
+if (-not (Test-Path -LiteralPath $candidateRoot -PathType Container)) {
+    throw "Repository folder does not exist: $candidateRoot"
+}
+$rootResult = & git -C $candidateRoot rev-parse --show-toplevel 2>$null
+$rootExitCode = $LASTEXITCODE
+if ($rootExitCode -ne 0 -or [string]::IsNullOrWhiteSpace(($rootResult | Select-Object -First 1))) {
+    throw "The supplied folder is not a Git repository: $candidateRoot"
+}
+$root = ($rootResult | Select-Object -First 1).Trim()
+Set-Location -LiteralPath $root
 
 $appPath = Join-Path $root 'src\Council.Desktop\App.xaml'
 $chatPath = Join-Path $root 'src\Council.Desktop\ChatWindow.xaml.cs'
@@ -29,7 +44,7 @@ foreach ($path in @($appPath, $chatPath, $mainPath)) {
 # Do not overwrite any UI file that has acquired local edits since the review package.
 $old = $ErrorActionPreference
 $ErrorActionPreference = 'Continue'
-$uiStatus = & git status --short -- src/Council.Desktop/App.xaml src/Council.Desktop/ChatWindow.xaml.cs src/Council.Desktop/MainWindow.xaml 2>$null
+$uiStatus = & git -C $root status --short -- src/Council.Desktop/App.xaml src/Council.Desktop/ChatWindow.xaml.cs src/Council.Desktop/MainWindow.xaml 2>$null
 $gitCode = $LASTEXITCODE
 $ErrorActionPreference = $old
 if ($gitCode -ne 0) { throw 'Could not inspect UI file status.' }
@@ -221,7 +236,7 @@ Write-Host ''
 Write-Host '=== FINAL GIT STATUS ===' -ForegroundColor Cyan
 $old = $ErrorActionPreference
 $ErrorActionPreference = 'Continue'
-& git status --short
+& git -C $root status --short
 $ErrorActionPreference = $old
 
 if ($failedTests -gt 0) {
