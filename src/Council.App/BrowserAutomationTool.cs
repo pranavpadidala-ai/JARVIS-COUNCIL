@@ -251,7 +251,7 @@ public sealed class BrowserAutomationTool : ITool
             normalized.EndsWith(".lan", StringComparison.Ordinal) ||
             normalized.EndsWith(".internal", StringComparison.Ordinal) ||
             normalized == "home.arpa" ||
-            !normalized.Contains('.', StringComparison.Ordinal))
+            !normalized.Contains('.'))
             return true;
 
         if (!IPAddress.TryParse(normalized, out var address))
