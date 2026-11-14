@@ -36,6 +36,7 @@ public partial class MainWindow : Window
     private readonly DispatcherTimer _telemetry = new() { Interval = TimeSpan.FromSeconds(2) };
     private readonly Process _process = Process.GetCurrentProcess();
     private readonly Forms.NotifyIcon _trayIcon;
+    private readonly bool _startHidden;
     private bool _allowApplicationExit;
     private readonly WakeWordService _wakeWordService = new();
     private Forms.ToolStripMenuItem? _wakeWordMenuItem;
@@ -44,9 +45,13 @@ public partial class MainWindow : Window
     private TimeSpan _lastCpu;
     private DateTime _lastCpuAt = DateTime.UtcNow;
 
-    public MainWindow()
+    public MainWindow(bool startHidden = false)
     {
+        _startHidden = startHidden;
         InitializeComponent();
+        ShowInTaskbar = !startHidden;
+        if (startHidden)
+            Opacity = 0;
         _trayIcon = CreateTrayIcon();
         Loaded += MainWindow_Loaded;
         Closing += MainWindow_Closing;
@@ -239,6 +244,7 @@ public partial class MainWindow : Window
 
     private void RestoreFromTray()
     {
+        Opacity = 1;
         Show();
         if (WindowState == WindowState.Minimized)
             WindowState = WindowState.Normal;
@@ -283,6 +289,14 @@ public partial class MainWindow : Window
         {
             ProviderStatusText.Text = "●  Check provider configuration";
             MemoryCountText.Text = "Memory status unavailable";
+        }
+        finally
+        {
+            if (_startHidden)
+            {
+                WindowState = WindowState.Normal;
+                Hide();
+            }
         }
     }
 

@@ -1,12 +1,19 @@
 [CmdletBinding()]
 param(
-    [switch]$BuildOnly
+    [switch]$BuildOnly,
+    [switch]$NoBuild,
+    [switch]$StartMinimized
 )
 
 $ErrorActionPreference = "Stop"
 $repoRoot = Split-Path -Parent $PSScriptRoot
 $desktopProject = Join-Path $repoRoot "src\Council.Desktop\Council.Desktop.csproj"
 $solution = Join-Path $repoRoot "JARVIS.Council.sln"
+$desktopExecutable = Join-Path $repoRoot "src\Council.Desktop\bin\Release\net8.0-windows\Council.Desktop.exe"
+
+if ($BuildOnly -and $NoBuild) {
+    throw "Use either -BuildOnly or -NoBuild, not both."
+}
 
 if (-not (Get-Command dotnet -ErrorAction SilentlyContinue)) {
     throw ".NET 8 SDK was not found. Install the .NET 8 SDK, reopen PowerShell, and run this script again."
@@ -42,17 +49,27 @@ if ($env:JARVIS_AI_PROVIDER -eq "ollama") {
 
 Push-Location $repoRoot
 try {
-    Write-Host "Restoring JARVIS..." -ForegroundColor Cyan
-    dotnet restore $solution
-    if ($LASTEXITCODE -ne 0) { throw "dotnet restore failed." }
+    if (-not $NoBuild) {
+        Write-Host "Restoring JARVIS..." -ForegroundColor Cyan
+        dotnet restore $solution
+        if ($LASTEXITCODE -ne 0) { throw "dotnet restore failed." }
 
-    Write-Host "Building desktop JARVIS..." -ForegroundColor Cyan
-    dotnet build $desktopProject --configuration Release --no-restore
-    if ($LASTEXITCODE -ne 0) { throw "Desktop build failed. See the errors above." }
+        Write-Host "Building desktop JARVIS..." -ForegroundColor Cyan
+        dotnet build $desktopProject --configuration Release --no-restore
+        if ($LASTEXITCODE -ne 0) { throw "Desktop build failed. See the errors above." }
+    }
+    elseif (-not (Test-Path $desktopExecutable -PathType Leaf)) {
+        throw "The prebuilt desktop executable was not found. Run .\scripts\Start-JarvisDesktop.ps1 once without -NoBuild before enabling automatic startup."
+    }
 
     if (-not $BuildOnly) {
         Write-Host "Starting JARVIS Command Center..." -ForegroundColor Green
-        dotnet run --project $desktopProject --configuration Release --no-build
+        $runArguments = @("run", "--project", $desktopProject, "--configuration", "Release", "--no-build")
+        if ($StartMinimized) {
+            $runArguments += "--"
+            $runArguments += "--start-hidden"
+        }
+        & dotnet @runArguments
         if ($LASTEXITCODE -ne 0) { throw "JARVIS exited with an error." }
     }
 }

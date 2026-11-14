@@ -1,92 +1,98 @@
 # JARVIS Build Status
 
-Last updated: 2026-11-13
+Last updated: 2026-11-14
 
 ## Phase 1 — First usable desktop JARVIS
 
-Status: **merged and CI-verified**.
+Status: **implemented and Windows CI-verified; physical-laptop smoke test still pending.**
 
 - Default branch: `bounded-autonomous-loop`.
-- Merge commit: `d7e86b767c1f638b8982275632a51e20f0dd44a5`.
-- Desktop chat uses the shared bounded `ToolCallingAssistant` runtime.
-- Local Ollama, Gemini, OpenAI and explicitly allowlisted OmniRoute provider selection.
-- On-demand voice input/output and active-turn cancellation.
-- DPAPI-protected local conversation history and explicit fact memory.
-- Project-scoped explicit learning commands: `/learn`, `/instincts`, `/forget-instinct`.
-- Desktop tools include the existing workspace, Office, web research, specialist-agent, market-monitoring, Abaqus diagnostic and visible-computer-use capabilities, subject to their existing safety gates.
-- Windows .NET build: 0 warnings, 0 errors.
-- Tests: 299 passed, 0 failed, 0 skipped (CI run 43453631992).
+- Desktop chat uses the shared bounded tool-calling runtime.
+- Local Ollama plus optional Gemini, OpenAI and explicitly allowlisted OmniRoute.
+- WPF Command Center, chat, local tray, hide/restore/exit and task queue.
+- DPAPI-protected local conversation history and explicit user-managed fact memory.
+- Explicit project practices via `/learn`, `/instincts`, `/forget-instinct`.
+- BM25-style offline memory retrieval selects relevant history, facts and project practices without embeddings or a vector database.
+- On-demand Whisper transcription and Piper/Windows speech output.
+- Optional offline sherpa-onnx wake-word listener, disabled by default and controlled from the tray.
+- Windows build and automated tests passed on the latest PR #26 head: 349 .NET tests, plus 201 Indian Trader and 3 wake-phrase token-generation tests. Post-merge default-branch validation is tracked separately.
+- Local Ollama performance, wake-word microphone accuracy, audio-driver handoff and the phone/Abaqus hardware paths still require the user's own laptop/device tests.
 
 ### First-run instructions
 
-From the user's existing local clone, update the default branch and launch:
+From the existing local clone:
 
 ```powershell
 git pull origin bounded-autonomous-loop
 Set-ExecutionPolicy -Scope Process Bypass
-.\scripts\Install-LocalModels.ps1
-.\scripts\Start-JarvisDesktop.ps1
+.\scripts\Setup-JarvisDesktop.ps1
 ```
 
-The model installer may take time because it downloads the local chat, vision/OCR and speech models. For a smaller first test, the user can set `JARVIS_AI_PROVIDER=ollama` and install only the chat model before launching. The desktop launcher builds the WPF app and starts the Command Center.
+This installs the small local brain and launches the desktop. Optional vision/OCR/voice models are separate. To install the offline wake-word model later:
 
-Teaching commands:
-- `/remember <fact>` — save a personal preference/fact.
+```powershell
+.\scripts\Install-WakeWord.ps1
+```
+
+Wake-word remains off until the user right-clicks the JARVIS tray icon and checks **Listen for Hey JARVIS**.
+
+### Optional Windows sign-in startup
+
+The current PR adds `scripts/Install-JarvisDesktopStartup.ps1`. After it is merged, running that script creates a per-user Windows Startup shortcut. It starts the desktop hidden in the tray on sign-in, without rebuilding, opening the microphone, enabling wake-word or starting the background development agent. Use `-Uninstall` to remove the shortcut. This optional change is not yet merged.
+
+### Teaching commands
+
+- `/remember <fact>` — save a personal fact or preference.
 - `/learn <trigger> => <action>` — save a repeatable project practice.
 - `/memories` and `/instincts` — review saved knowledge.
 - `/forget <id>` and `/forget-instinct <id>` — remove an item.
-- `/skills` and `/agents` — inspect JARVIS capabilities.
+- `/skills` and `/agents` — inspect capabilities.
 - `/clear` — clear conversation and explicit facts while retaining learned practices.
 
-This is explicit memory-based personalization, not fine-tuning of the underlying language model. The first desktop build has passed CI but has not yet been exercised on the user's physical laptop; local model speed, microphone permissions and audio drivers still need first-run confirmation.
+This is explicit memory-based personalization, not fine-tuning of the underlying language model.
 
 ## Phase 2 — Persistent local development agent
 
-Status: **next implementation phase**.
+Status: **implemented, opt-in, automated-test coverage exists; actual long-running use on the user's laptop not yet verified.**
 
-Goal: let JARVIS make progress on user-approved development tasks on the Windows laptop without requiring an active ChatGPT tab or desktop chat window.
+- Durable task queue, checkpoints and restart recovery.
+- One-shot user approval before a task can execute in the background.
+- Optional Windows logon task installer and low-CPU idle queue polling.
+- Git checkpoints, build/test validation and bounded execution.
+- Desktop task queue supports status review, approval and revocation.
+- The desktop auto-start shortcut is separate and does not install/start this worker.
 
-Required work:
-1. Background host with a low-CPU idle loop and graceful shutdown/restart recovery.
-2. Durable task queue with explicit approval state. Creating a task must never silently authorize execution.
-3. Single-instance and cross-process queue locking so desktop chat and the background host cannot overwrite each other's task state.
-4. Clean-Git preflight, checkpoint, bounded execution, build/test validation, commit-on-success and rollback-on-failure.
-5. Resume/pause/retry policy, persistent progress logs and user-visible status/major-failure notifications.
-6. Windows logon startup/install/uninstall scripts and a health/diagnostic command.
-7. Tests for duplicate hosts, restart recovery, approval enforcement, cancellation and rollback.
+## Phase 3 — Desktop workflow and browser completion
 
-Safety constraints:
-- Only tasks explicitly approved by the user may run in the background.
-- Never place trades, submit payments, expose credentials, or perform destructive/non-development actions from the background host.
-- Never run GUI/Abaqus solver work unattended; those remain explicit interactive actions.
-- Keep API keys, local models, conversations, recordings, embeddings and task data out of Git.
+Status: **partially implemented.**
 
-## Phase 3 — Desktop workflow completion
+- Tray and optional browser profile management integrated.
+- Playwright CDP attach is limited to JARVIS-owned profiles, loopback-only and explicitly enabled.
+- FlaUI provides read-only foreground control metadata. Screenshot verification remains necessary, especially for engineering software.
+- Optional Windows desktop startup is in the current unmerged PR.
+- Editing arbitrary existing Office documents and broad browser form automation are not claimed as complete.
 
-- File drop/attachment and workspace selection.
-- Live task/agent panels backed by real runtime state (no placeholder claims).
-- Searchable conversation and knowledge-base views.
-- Better Office document review and controlled editing of existing files.
-- Clear model/vision/audio readiness diagnostics.
+## Phase 4 — Voice and learning
 
-## Phase 4 — Personal voice and knowledge learning
+Status: **partially implemented.**
 
-- Inventory and pilot the user's M4A recordings before processing all 1,392 files.
-- Verify the user's own voice segments; exclude other speakers unless they have explicitly consented.
-- Build a local searchable knowledge/style profile from approved recordings and exported AI prompt histories.
-- Evaluate Telugu/English voice synthesis and only then consider voice fine-tuning.
-- Keep all personal datasets local and outside Git.
+- On-demand Whisper speech recognition and local Piper/Windows speech output.
+- Optional CPU-only local wake-word detection, tray-muted by default.
+- Memory retrieval ranks old conversations, explicit facts and learned practices with deterministic local scoring.
+- Real-room false-positive/false-negative performance and microphone handoff need testing on the user's device.
+- Personal voice fine-tuning/dataset work remains future work and requires consent-aware review.
 
-## Phase 5 — Phone, watch and wider automation
+## Phase 5 — Phone, engineering and wider automation
 
-- Validate the Android companion on the user's phone.
-- Extend the authenticated queue bridge and read-only monitoring.
-- Evaluate watch notifications/control after the phone bridge is stable.
+Status: **partially implemented.**
 
-## Session handoff rules
+- Phone bridge and Android companion source exist; end-to-end testing on the user's devices remains required.
+- Abaqus diagnostics and visible computer interaction exist; deeper Abaqus-specific modelling/solver workflows remain incomplete and must stay user-confirmed.
+- Indian market analysis and monitoring exist; broker actions remain read-only.
+- Smartwatch and hardware kill-switch integration remain future work.
 
-- Always audit the current default branch, all branches, open PRs and latest CI before modifying code.
-- Check whether a failing issue was already fixed on another branch before implementing a duplicate fix.
-- Merge only verified work; preserve unverified work on a separate branch.
-- Update this file when a phase changes state or a significant decision is made.
-- Do not claim local-device validation unless the user has run it or a supported remote test has actually been performed.
+## Validation policy
+
+- A hosted Windows CI pass proves compilation and automated tests on that runner, not end-to-end operation on the user's laptop.
+- Merge only exact PR heads whose restore, Release build, PowerShell validation and test steps all pass.
+- Do not state a feature is hardware-verified until the relevant physical device or application has been tested.
