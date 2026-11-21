@@ -38,6 +38,9 @@ public partial class MainWindow : Window
     private readonly DispatcherTimer _reminderCheck = new() { Interval = TimeSpan.FromSeconds(30) };
     private readonly Council.App.Reminders.ReminderStore _reminders = new();
     private readonly Council.App.Focus.FocusCoach _focus = new();
+    private readonly Council.App.Proactive.ProactiveAdvisor _advisor = new();
+    private readonly Council.App.Health.HabitTracker _habits = new();
+    private DateTimeOffset _nextSuggestionCheck = DateTimeOffset.Now.AddMinutes(1);
     private readonly Process _process = Process.GetCurrentProcess();
     private readonly Forms.NotifyIcon _trayIcon;
     private bool _allowApplicationExit;
@@ -89,7 +92,7 @@ public partial class MainWindow : Window
         };
 
         // Reminders set through chat are delivered here as tray notifications, even while the window is hidden.
-        _reminderCheck.Tick += (_, _) => { DeliverDueReminders(); CheckFocus(); };
+        _reminderCheck.Tick += (_, _) => { DeliverDueReminders(); CheckFocus(); ShowProactiveSuggestion(); };
         _reminderCheck.Start();
         Dispatcher.BeginInvoke(new Action(DeliverDueReminders), DispatcherPriority.ApplicationIdle); // catch ones missed while JARVIS was closed
 
@@ -112,6 +115,36 @@ public partial class MainWindow : Window
         };
     }
 
+
+    /// <summary>Every 5 minutes, shows at most one rule-based suggestion (see ProactiveAdvisor).</summary>
+    private void ShowProactiveSuggestion()
+    {
+        var now = DateTimeOffset.Now;
+        if (now < _nextSuggestionCheck) return;
+        _nextSuggestionCheck = now.AddMinutes(5);
+        try
+        {
+            var power = Forms.SystemInformation.PowerStatus;
+            int? battery = power.BatteryChargeStatus.HasFlag(Forms.BatteryChargeStatus.NoSystemBattery) || power.BatteryLifePercent > 1
+                ? null : (int)Math.Round(power.BatteryLifePercent * 100);
+            var memory = new MemoryStatus();
+            int? memoryLoad = GlobalMemoryStatusEx(memory) ? (int)memory.MemoryLoad : null;
+            var today = now.LocalDateTime.Date;
+            var context = new Council.App.Proactive.ProactiveContext(
+                now,
+                _habits.PendingToday(now),
+                _reminders.ListPending().Count(r => r.DueAt.LocalDateTime.Date == today),
+                _habits.TodayValue("water", now),
+                battery,
+                power.PowerLineStatus == Forms.PowerLineStatus.Online,
+                memoryLoad,
+                _focus.Active() is not null,
+                UserIdle.Duration() < TimeSpan.FromMinutes(5));
+            if (_advisor.Next(context) is { } suggestion)
+                _trayIcon.ShowBalloonTip(8000, "JARVIS: " + suggestion.Title, suggestion.Text, Forms.ToolTipIcon.Info);
+        }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or System.Text.Json.JsonException or InvalidOperationException) { }
+    }
 
     /// <summary>During a focus session, nudges the user when a distracting window is in front.</summary>
     private void CheckFocus()
