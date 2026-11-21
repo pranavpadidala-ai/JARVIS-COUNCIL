@@ -5,6 +5,7 @@ using Council.Dev.Execution;
 using Council.Dev.Git;
 using Council.Dev.Loop;
 using Council.Dev.Planning;
+using Council.Dev.Recovery;
 using Council.Dev.Runner;
 using Council.Dev.Tasks;
 using Council.Dev.Terminal;
@@ -44,7 +45,8 @@ public sealed class AutonomousDevelopmentTool : ITool
             throw new DirectoryNotFoundException("Development workspace does not exist: " + root);
 
         var configuredTaskStore = taskStorePath ?? Environment.GetEnvironmentVariable("JARVIS_TASK_STORE_PATH");
-        _tasks = new TaskManager(new TaskStore(configuredTaskStore));
+        var checkpointRoot = Environment.GetEnvironmentVariable("JARVIS_CHECKPOINTS_PATH");
+        _tasks = new TaskManager(new TaskStore(configuredTaskStore), new TaskCheckpointStore(checkpointRoot));
         var terminal = new TerminalController();
         var workspace = new SafeWorkspaceExecutor(root);
         var actions = new DevelopmentActionExecutor(workspace, terminal, root);

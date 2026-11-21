@@ -4,6 +4,7 @@ using Council.App.Finance;
 using Council.App.Phone;
 using Council.Core.Models;
 using Council.Core.Providers;
+using Council.Execution.Tools;
 using Council.Memory;
 
 namespace Council.App.Chat;
@@ -50,7 +51,7 @@ public sealed class AssistantSession : IAsyncDisposable
         _history = history;
     }
 
-    public static async Task<AssistantSession> CreateAsync(CancellationToken cancellationToken = default)
+    public static async Task<AssistantSession> CreateAsync(CancellationToken cancellationToken = default, IEnumerable<ITool>? additionalTools = null)
     {
         var provider = CreateProvider();
         var localData = Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData);
@@ -106,7 +107,8 @@ public sealed class AssistantSession : IAsyncDisposable
             imageProvider,
             cloudSpeechProvider: null,
             indianMarketTool: new IndianMarketTool(),
-            documentImageProvider: documentImageProvider);
+            documentImageProvider: documentImageProvider,
+            additionalTools: additionalTools);
 
         var phoneInbox = new PhoneCommandInbox();
         PhoneCommandBridgeService? phoneBridge = null;

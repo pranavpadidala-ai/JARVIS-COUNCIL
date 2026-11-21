@@ -1,14 +1,16 @@
 # JARVIS Build Progress
 
-Last updated: 2026-11-13
+Last updated: 2026-11-14
 
 ## Current integration state
 
 - Integration branch: `bounded-autonomous-loop`
-- Current integration head at this update: `73c505a06cd14dd14139294d8e16cfb8f4423660`
-- Latest merged feature: desktop development-task queue and approval controls (PR #10, merge commit `2279eca5ce9aa3f538e04a5610b606826cb5ac81`)
-- Latest feature-branch validation: PR #10 head `e1d41194ddf803615573bab9e761b2f2a819c322`, Windows .NET 8 Release build passed, PowerShell syntax validation passed, **310 tests passed / 0 failed** (workflow run `43470127221`).
-- Integration validation after PR #10 and the progress documentation update is running: workflow run `43470686430`. Do not describe the current integration head as fully green until this run completes successfully.
+- Current integration branch: `bounded-autonomous-loop`; latest merged commit in this session: `c29e576168201abd20ea5c42db47bcbf990915fd` (PR #18).
+- PR #13 (one-command local-first desktop installer) merged as `e934593b14bd25294289e593a0f38fbcb79e72a3`. Its feature-branch Windows CI passed; post-merge integration validation is running (workflow run `43577451045`).
+- PR #18 (authenticated loopback-only local MCP development bridge) merged as `c29e576168201abd20ea5c42db47bcbf990915fd`. Exact PR head `8cc531ad0608c8833826eca6ddebf50546e6e46c` passed Windows .NET 8 build, PowerShell syntax validation and the automated suite; PR validation run `43576656479` succeeded. Local Windows PowerShell 5.1 bridge/Ollama/Qwen smoke test was reported successful by the user.
+- Post-merge integration validation for PR #18 is running (workflow run `43577487130`). Do not mark the latest integration head fully green until it completes.
+- PR #14's Android debug APK and .NET checks both passed on its old head, but its base became stale. A replacement PR #19 was opened from the current integration head to re-enable Android CI for `bounded-autonomous-loop`; its workflow result is pending.
+- PR #17 (durable checkpoints and Brave profiles) is green on its feature head, but targets `unified/jarvis-available`, not the primary `bounded-autonomous-loop`. Do not merge until its intended integration target and dependency relationship are reconciled.
 
 ## Merged and verified capabilities
 

@@ -26,6 +26,21 @@ The normal startup is the interactive JARVIS assistant. `--doctor` checks the co
 
 ## Windows desktop app (first usable build)
 
+For a first-time local setup, use the one-command installer. It checks for .NET 8 and Ollama, starts the local Ollama service, downloads the small Qwen brain model if needed, saves local-first settings for your Windows user, then builds and launches the desktop app:
+
+```powershell
+Set-ExecutionPolicy -Scope Process Bypass
+.\scripts\Setup-JarvisDesktop.ps1
+```
+
+The core model download is approximately 2 GB. To install the optional vision, engineering OCR, multilingual speech-recognition and speech-synthesis models as well, run:
+
+```powershell
+.\scripts\Setup-JarvisDesktop.ps1 -FullLocalStack
+```
+
+Use `-NoLaunch` to install/configure without opening the desktop, or `-SkipModelDownload` when the core model is already installed. The optional full stack requires several additional GB of downloads. The installer does not configure a paid cloud provider or start the optional background development worker.
+
 Launch the WPF Command Center and chat window from PowerShell:
 
 ```powershell
@@ -40,7 +55,7 @@ To install or refresh a normal Windows desktop shortcut (no administrator rights
 
 The shortcut starts PowerShell hidden, defaults to local Ollama when no provider is selected, builds the WPF app in Release mode, and launches the compiled desktop executable as a separate process. The build is incremental, so unchanged code does not require a full rebuild. Add the -BuildNow switch to build and verify the desktop app before creating the shortcut. Re-run the installer after moving the repository to another folder.
 
-For a private, no-API-credit local setup, install Ollama and the small local model stack once:
+The desktop Command Center stays available in the Windows system tray: minimizing or closing its window hides it instead of stopping JARVIS. Double-click the tray icon to restore it, right-click for Command Center or Chat, and choose Exit JARVIS to fully close the application. This is a local tray feature; it does not keep the microphone listening. The desktop chat uses the same provider setting as the main application. For a private, no-API-credit local setup, install Ollama and the small local model stack once:
 
 ```powershell
 Set-ExecutionPolicy -Scope Process Bypass
@@ -52,9 +67,21 @@ $env:OLLAMA_MODEL = "qwen3.5:2b-q4_K_M"
 
 The dashboard's **AI Provider & Model** panel lets you choose Local Ollama, Gemini, OpenAI, OmniRoute or Mock and enter the exact model ID. Select **Apply for New Chats** to use the choice in subsequently opened chat windows; already-open chats retain their current provider. The selection is saved to %LOCALAPPDATA%\JARVIS\desktop-settings.json. Only the provider name and model ID are saved there—API keys are not stored in this settings file. Cloud providers still require their existing credentials to be configured locally. OmniRoute accepts only a model ID already present in the explicit OMNIROUTE_FREE_MODELS allowlist. The **Refresh Status** button runs JARVIS's read-only readiness checks; it verifies local Ollama/model availability and credential configuration, but does not make a billable cloud test request.
 
-The desktop conversation history is stored locally under %LOCALAPPDATA%\JARVIS\Memory\desktop-conversation.jsonl and protected with Windows DPAPI. The desktop chat calls the same bounded tool-calling runtime as the console assistant, including workspace file tools, public web research, Office document tools, Indian equity monitoring, Abaqus diagnostics, specialist agents, and explicitly requested visible-desktop computer use. Voice is on-demand: press VOICE to open the microphone, press STOP to cancel capture, and toggle SPEAK to read replies aloud. The dashboard provides system telemetry and launches chat. Its Tasks navigation opens a queue view to create tasks, review current steps, grant or revoke one-shot background approvals, and open explicit foreground run requests in chat. The background worker remains optional and must be started separately. Some dashboard cards are informational and do not imply a background agent or market feed is running.
+The desktop conversation history is stored locally under `%LOCALAPPDATA%\JARVIS\Memory\desktop-conversation.jsonl` and protected with Windows DPAPI. The desktop chat now calls the same bounded tool-calling runtime as the console assistant, including workspace file tools, public web research, Office document tools, Indian equity monitoring, Abaqus diagnostics, specialist agents, and explicitly requested visible-desktop computer use. The Windows desktop chat also provides a read-only FlaUI/UIA3 inspector for visible control names, types, automation IDs and bounds in the currently foreground app; it never reads text-entry values. This gives JARVIS a deterministic accessibility view before it uses the existing screenshot-verified mouse/keyboard controller. Voice is on-demand: press VOICE to open the microphone, press STOP to cancel capture, and toggle SPEAK to read replies aloud. The dashboard provides system telemetry and launches chat. Its Tasks navigation opens a queue view to create tasks, review current steps, grant or revoke one-shot background approvals, and open explicit foreground run requests in chat. The background worker remains optional and must be started separately. Some dashboard cards are informational and do not imply a background agent or market feed is running.
 
 You can begin teaching the desktop assistant immediately: send /remember I prefer concise answers with worked engineering examples to save a personal fact. Use /memories to review facts and /forget <id> to remove one. To teach a repeatable project practice, use /learn when I ask for a four-point bending setup => first confirm whether the support span is divided into three equal parts; use /instincts to review learned practices and /forget-instinct <id> to remove one. /skills and /agents list JARVIS capabilities; /clear clears conversation history and explicit facts but retains learned project practices. Facts and practices are encrypted with Windows DPAPI for the current Windows account and are included as context when relevant. This is explicit memory-based personalization, not fine-tuning the underlying language model. Do not store passwords, API keys, OTPs or other secrets.
+
+### Browser automation with Playwright
+
+JARVIS can attach Playwright for .NET to a dedicated Brave profile that was launched with `automation=true`. Ordinary launches do not open a debugging port. When requested, Brave receives a randomly reserved DevTools port bound to `127.0.0.1`; the endpoint is not exposed to other devices on the network. JARVIS does not install or launch a second browser engine for this integration.
+
+The initial browser tool is deliberately limited to:
+- inspecting a bounded amount of visible page text and tab metadata;
+- navigating to public HTTP/HTTPS URLs (not local/private-network destinations);
+- searching through exactly one accessible search box;
+- clicking one uniquely identified, ordinary public hyperlink.
+
+It cannot click buttons, submit forms, perform downloads/uploads, enter credentials/OTPs/payment details, or perform financial, destructive or irreversible actions. Browser page text and links are untrusted input. Playwright's CDP connection is lower fidelity than its native Playwright transport, so screenshot verification remains available for sites or interactions that do not work reliably.
 
 ## Choose an AI provider
 
@@ -129,7 +156,7 @@ The OmniRoute adapter rejects the `auto` alias and any model ID not present in t
 
 ## What JARVIS can do
 
-- **Conversation and memory:** optional local conversation history, deterministic keyword retrieval, explicit long-term facts, and encrypted project-scoped learned practices with confidence/evidence tracking.
+- **Conversation and memory:** optional DPAPI-protected local history; offline BM25-style retrieval that weights rare terms, normalizes common English inflections, considers phrase proximity and recency, and selects only relevant saved facts and project practices; explicit long-term facts and encrypted learned practices with confidence/evidence tracking.
 - **Specialist agents:** native delegated agents for planning, architecture, TDD, code review, security review, build-error diagnosis, research, documentation, and structural engineering. Each invocation has an isolated context and role-specific read-only tool allowlist; up to four independent agents can run in parallel.
 - **Specialist skills:** discovers Markdown skills for development, engineering, research, Office, productivity, and other workflows.
 - **Workspace tools:** list, search, read and create files inside the configured project workspace.

@@ -1,7 +1,7 @@
 using System.IO;
 using System.Windows;
-using System.Windows.Controls;
 using WpfMessageBox = System.Windows.MessageBox;
+using System.Windows.Controls;
 using System.Windows.Threading;
 using Council.App;
 using Council.Dev.Tasks;

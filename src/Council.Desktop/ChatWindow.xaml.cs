@@ -9,6 +9,7 @@ using WpfHorizontalAlignment = System.Windows.HorizontalAlignment;
 using System.Windows.Media;
 using Council.App.Chat;
 using Council.App.Voice;
+using Council.Desktop.Automation;
 using System.Windows.Threading;
 
 namespace Council.Desktop;
@@ -52,7 +53,7 @@ public partial class ChatWindow : Window
         {
             if (!string.IsNullOrWhiteSpace(InitialPrompt))
                 MessageInput.Text = InitialPrompt;
-            _session = await AssistantSession.CreateAsync();
+            _session = await AssistantSession.CreateAsync(additionalTools: [new WindowsAccessibilityTool()]);
             ProviderStatus.Text = $"●  {_session.ProviderName}";
             PhoneInboxButton.ToolTip = _session.PhoneBridgeStatus;
             await RefreshPhoneInboxCountAsync();
