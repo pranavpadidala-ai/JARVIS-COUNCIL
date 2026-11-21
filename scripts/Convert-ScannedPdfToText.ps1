@@ -1,13 +1,15 @@
 [CmdletBinding()]
 param(
-    # A scanned PDF (no text layer), e.g. an old Indian Standard.
+    # A scanned PDF (no text layer), e.g. an old Indian Standard, or an image (PNG, JPG, BMP, TIFF, GIF).
     [Parameter(Mandatory = $true)][string]$Pdf,
     # Output .txt for the JARVIS library. Default: next to the PDF with the same name.
     [string]$Output,
     # Render width in pixels. Higher reads small print better but is slower.
     [int]$Width = 2000,
     # Short pause between pages so a small laptop stays cool.
-    [int]$PauseMilliseconds = 300
+    [int]$PauseMilliseconds = 300,
+    # Stop after this many pages (0 = all). JARVIS chat uses a limit so a reply never waits for a whole book.
+    [int]$MaxPages = 0
 )
 
 # OCR with the engine built into Windows 10/11 (free, offline, no download).
@@ -53,8 +55,30 @@ $engine = [Windows.Media.Ocr.OcrEngine]::TryCreateFromUserProfileLanguages()
 if ($null -eq $engine) { throw "Windows OCR is not available for your display language. Add English (United States) in Windows language settings." }
 
 $file = Wait-Operation ([Windows.Storage.StorageFile]::GetFileFromPathAsync($Pdf)) ([Windows.Storage.StorageFile])
+
+# A photo or screenshot: one page, no rendering needed.
+if ([IO.Path]::GetExtension($Pdf).ToLowerInvariant() -in @(".png", ".jpg", ".jpeg", ".bmp", ".tif", ".tiff", ".gif")) {
+    $imageStream = Wait-Operation ($file.OpenAsync([Windows.Storage.FileAccessMode]::Read)) ([Windows.Storage.Streams.IRandomAccessStream])
+    try {
+        $decoder = Wait-Operation ([Windows.Graphics.Imaging.BitmapDecoder]::CreateAsync($imageStream)) ([Windows.Graphics.Imaging.BitmapDecoder])
+        $bitmap = Wait-Operation ($decoder.GetSoftwareBitmapAsync()) ([Windows.Graphics.Imaging.SoftwareBitmap])
+        if ($bitmap.PixelWidth -gt [Windows.Media.Ocr.OcrEngine]::MaxImageDimension -or $bitmap.PixelHeight -gt [Windows.Media.Ocr.OcrEngine]::MaxImageDimension) {
+            throw "The image is larger than Windows OCR accepts ($([Windows.Media.Ocr.OcrEngine]::MaxImageDimension) px per side). Resize it first."
+        }
+        $result = Wait-Operation ($engine.RecognizeAsync($bitmap)) ([Windows.Media.Ocr.OcrResult])
+        $text = ($result.Lines | ForEach-Object { $_.Text }) -join "`n"
+        [IO.File]::WriteAllText($Output, "`n=== PAGE 1 ===`n$text`n", [Text.Encoding]::UTF8)
+        $bitmap.Dispose()
+    }
+    finally { $imageStream.Dispose() }
+    Write-Host "Done: $Output" -ForegroundColor Green
+    return
+}
+
 $document = Wait-Operation ([Windows.Data.Pdf.PdfDocument]::LoadFromFileAsync($file)) ([Windows.Data.Pdf.PdfDocument])
 $pageCount = [int]$document.PageCount
+$totalPages = $pageCount
+if ($MaxPages -gt 0 -and $MaxPages -lt $pageCount) { $pageCount = $MaxPages }
 
 # Resume: find the last complete page already written.
 $done = 0
@@ -103,4 +127,7 @@ for ($index = $done; $index -lt $pageCount; $index++) {
     if ($PauseMilliseconds -gt 0) { Start-Sleep -Milliseconds $PauseMilliseconds }
 }
 
+if ($pageCount -lt $totalPages) {
+    Write-Host "Read the first $pageCount of $totalPages pages (page limit). Run again with -MaxPages 0 for the rest."
+}
 Write-Host "Done: $Output" -ForegroundColor Green
