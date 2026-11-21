@@ -218,8 +218,18 @@ public partial class ChatWindow : Window
         var prompt = MessageInput.Text.Trim();
         MessageInput.Clear();
         AddMessage("YOU", prompt, false);
+        var emergencyStop = Council.App.Safety.EmergencyStopSwitch.Default;
+        var isResume = prompt.Equals("/resume", StringComparison.OrdinalIgnoreCase);
+        if (emergencyStop.IsHalted && !isResume)
+        {
+            AddMessage("JARVIS", "Emergency stop is ON, so I'm not doing anything. Type /resume or use \"Resume JARVIS\" in the tray menu.", true);
+            return;
+        }
         _sending = true;
-        using var turnCancellation = new CancellationTokenSource();
+        // Linked to the master emergency stop so a halt from the tray cancels this request too.
+        using var turnCancellation = isResume
+            ? new CancellationTokenSource()
+            : CancellationTokenSource.CreateLinkedTokenSource(emergencyStop.Token);
         _turnCancellation = turnCancellation;
         StopButton.IsEnabled = true;
         ProviderStatus.Text = "●  Thinking...";

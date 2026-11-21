@@ -138,6 +138,19 @@ public partial class MainWindow : Window
         _wakeWordMenuItem.CheckedChanged += WakeWordMenuItem_CheckedChanged;
         menu.Items.Add(_wakeWordMenuItem);
         menu.Items.Add(new Forms.ToolStripSeparator());
+        var stopItem = new Forms.ToolStripMenuItem("EMERGENCY STOP")
+        {
+            ToolTipText = "Cancel everything JARVIS is doing, block all tools and close the microphone until you resume."
+        };
+        stopItem.Click += (_, _) =>
+        {
+            var stop = Council.App.Safety.EmergencyStopSwitch.Default;
+            if (stop.IsHalted) stop.Resume(); else stop.Halt("Stopped from the tray menu");
+        };
+        menu.Items.Add(stopItem);
+        Council.App.Safety.EmergencyStopSwitch.Default.Changed += (_, _) =>
+            Dispatcher.BeginInvoke(new Action(() => ApplyEmergencyStopState(stopItem)));
+        menu.Items.Add(new Forms.ToolStripSeparator());
         menu.Items.Add("Exit JARVIS", null, (_, _) => ExitFromTray());
 
         var icon = new Forms.NotifyIcon
@@ -152,10 +165,38 @@ public partial class MainWindow : Window
     }
 
 
+    private void ApplyEmergencyStopState(Forms.ToolStripMenuItem stopItem)
+    {
+        var stop = Council.App.Safety.EmergencyStopSwitch.Default;
+        if (stop.IsHalted)
+        {
+            stopItem.Text = "Resume JARVIS";
+            if (_wakeWordMenuItem is { Checked: true })
+                _wakeWordMenuItem.Checked = false; // closes the microphone through StopWakeWordListener
+            _trayIcon.Text = "JARVIS - STOPPED";
+            _trayIcon.ShowBalloonTip(5000, "JARVIS emergency stop",
+                "Everything was cancelled and no tools will run. Right-click the tray icon and choose Resume JARVIS to continue.",
+                Forms.ToolTipIcon.Warning);
+        }
+        else
+        {
+            stopItem.Text = "EMERGENCY STOP";
+            _trayIcon.Text = "JARVIS - Right-click to open or exit";
+            _trayIcon.ShowBalloonTip(2500, "JARVIS resumed", "Tools are available again.", Forms.ToolTipIcon.Info);
+        }
+    }
+
     private void WakeWordMenuItem_CheckedChanged(object? sender, EventArgs e)
     {
         if (_wakeWordMenuItem is null)
             return;
+
+        if (_wakeWordMenuItem.Checked && Council.App.Safety.EmergencyStopSwitch.Default.IsHalted)
+        {
+            _wakeWordMenuItem.Checked = false;
+            _trayIcon.ShowBalloonTip(3000, "JARVIS is stopped", "Resume JARVIS before turning listening on.", Forms.ToolTipIcon.Warning);
+            return;
+        }
 
         if (!_wakeWordMenuItem.Checked)
         {
