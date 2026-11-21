@@ -114,12 +114,52 @@ public sealed class WindowsComputerUseToolTests
         Assert.Empty(desktop.Actions);
     }
 
+    [Fact]
+    public async Task ObserveTellsTheVisionModelWhereThePointerIs()
+    {
+        var vision = new FakeVision();
+        var tool = new WindowsComputerUseTool(vision, new PointerDesktop((640, 360)));
+        Assert.True((await tool.ExecuteAsync(new Dictionary<string, string> { ["action"] = "begin", ["purpose"] = "Explain what is wrong here" })).Success);
+        var observed = await tool.ExecuteAsync(new Dictionary<string, string> { ["action"] = "observe", ["task"] = "The user says: here it is wrong." });
+        Assert.True(observed.Success, observed.Message);
+        Assert.Contains("Mouse pointer at (640, 360)", observed.Message);
+        Assert.Contains("mouse pointer is at (640, 360)", vision.LastPrompt);
+        Assert.Contains("\"here\"", vision.LastPrompt);
+    }
+
+    [Fact]
+    public async Task ObserveIgnoresAPointerOutsideThePrimaryScreen()
+    {
+        var vision = new FakeVision();
+        var tool = new WindowsComputerUseTool(vision, new PointerDesktop((2500, 100)));
+        Assert.True((await tool.ExecuteAsync(new Dictionary<string, string> { ["action"] = "begin", ["purpose"] = "Inspect the screen" })).Success);
+        var observed = await tool.ExecuteAsync(new Dictionary<string, string> { ["action"] = "observe" });
+        Assert.True(observed.Success, observed.Message);
+        Assert.DoesNotContain("Mouse pointer at", observed.Message);
+        Assert.Contains("pointer position is not available", vision.LastPrompt);
+    }
+
+    private sealed class PointerDesktop((int X, int Y) pointer) : IWindowsDesktopAdapter
+    {
+        public bool IsAvailable => true;
+        public (int Width, int Height) GetPrimaryScreenSize() => (1920, 1080);
+        public byte[] CapturePrimaryScreen() => [1, 2, 3];
+        public (int X, int Y)? GetCursorPosition() => pointer;
+        public void Click(int x, int y, string button, int clicks) { }
+        public void Drag(int startX, int startY, int endX, int endY) { }
+        public void TypeText(string text) { }
+        public void PressKey(string key) { }
+        public void Scroll(int x, int y, int delta) { }
+    }
+
     private sealed class FakeVision : IImageUnderstandingProvider
     {
         public int CallCount { get; private set; }
+        public string LastPrompt { get; private set; } = "";
         public Task<string> DescribeImagesAsync(string prompt, IReadOnlyList<AIImage> images, CancellationToken cancellationToken = default)
         {
             CallCount++;
+            LastPrompt = prompt;
             Assert.Single(images);
             Assert.Equal("image/png", images[0].MimeType);
             return Task.FromResult("Abaqus property dialog visible; the displayed thickness is 3.0 mm.");
