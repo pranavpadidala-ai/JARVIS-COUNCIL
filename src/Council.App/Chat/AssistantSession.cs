@@ -16,7 +16,7 @@ namespace Council.App.Chat;
 public sealed class AssistantSession : IAsyncDisposable
 {
     private const string MemoryHelp =
-        "Teach JARVIS with /remember followed by a fact. Use /memories to review saved facts and /forget followed by an ID to remove one. Never save passwords, API keys, OTPs or other secrets. Use /learn <trigger> => <action> to teach a project practice, /instincts to review practices, /forget-instinct <id> to remove one, /skills and /agents to inspect JARVIS capabilities, and /clear to clear conversation and explicit facts.";
+        "Teach JARVIS with /remember followed by a fact. Use /memories to review saved facts and /forget followed by an ID to remove one. Never save passwords, API keys, OTPs or other secrets. Use /learn <trigger> => <action> to teach a project practice, /instincts to review practices, /forget-instinct <id> to remove one, ask \"What did you learn?\" (or /learned) for a summary, /skills and /agents to inspect JARVIS capabilities, and /clear to clear conversation and explicit facts.";
 
     private readonly IAIProvider _provider;
     private readonly ConversationMemoryStore _memory;
@@ -25,6 +25,7 @@ public sealed class AssistantSession : IAsyncDisposable
     private readonly PhoneCommandInbox _phoneInbox;
     private readonly PhoneCommandBridgeService? _phoneBridge;
     private List<AIMessage> _history;
+    private readonly DateTimeOffset _sessionStarted = DateTimeOffset.UtcNow;
 
     public string PhoneBridgeStatus { get; }
 
@@ -239,6 +240,23 @@ public sealed class AssistantSession : IAsyncDisposable
         {
             message = MemoryHelp;
         }
+        else if (prompt.Equals("/emergency-stop", StringComparison.OrdinalIgnoreCase) ||
+                 prompt.Equals("/stop-all", StringComparison.OrdinalIgnoreCase))
+        {
+            Council.App.Safety.EmergencyStopSwitch.Default.Halt("Stopped from chat");
+            message = "Emergency stop is ON. Running work was cancelled and no tools will run. Type /resume or use the tray menu to resume.";
+        }
+        else if (prompt.Equals("/actions", StringComparison.OrdinalIgnoreCase) ||
+                 prompt.Equals("/log", StringComparison.OrdinalIgnoreCase))
+        {
+            message = Council.App.Safety.ActionLog.Default.Describe();
+        }
+        else if (prompt.Equals("/resume", StringComparison.OrdinalIgnoreCase))
+        {
+            var stop = Council.App.Safety.EmergencyStopSwitch.Default;
+            message = stop.IsHalted ? "JARVIS resumed. Tools are available again." : "JARVIS was not stopped.";
+            stop.Resume();
+        }
         else if (prompt.Equals("/clear", StringComparison.OrdinalIgnoreCase))
         {
             await _assistant.ClearConversationAsync(cancellationToken);
@@ -255,6 +273,13 @@ public sealed class AssistantSession : IAsyncDisposable
         else if (prompt.Equals("/agents", StringComparison.OrdinalIgnoreCase))
         {
             message = await _assistant.ListAgentsAsync(cancellationToken);
+        }
+        else if (LearningSummary.IsLearningQuestion(prompt))
+        {
+            message = LearningSummary.Build(
+                await _facts.ListAsync(cancellationToken),
+                await _assistant.GetLearnedPracticesAsync(cancellationToken),
+                _sessionStarted);
         }
         else if (prompt.Equals("/instincts", StringComparison.OrdinalIgnoreCase))
         {

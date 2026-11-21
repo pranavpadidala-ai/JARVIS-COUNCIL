@@ -43,7 +43,7 @@ This note picks up where the cloud work stopped, so you can carry on in Claude C
 2. Open a PR for `feature/claude-provider-2026-11` into the integration branch.
 3. Check tools, memory, the task queue, approvals, browser automation and the bounded autonomous loop end to end.
 4. Check that the cloud model IDs are correct: `gemini-3.6-flash`, `gpt-5.2`, `gemini-3.8-flash` (vision).
-5. `scripts/Install-JARVIS-BrowserAutomation.ps1` is an old generator. Don't run it, because it would add the browser tool a second time. Consider removing it, with the owner's OK.
+5. Done: the old generator `scripts/Install-JARVIS-BrowserAutomation.ps1` and `src/Council.App/Program.cs.backup` were removed with the owner's OK (2026-11-21).
 6. Ollama settings are already light: `OLLAMA_MAX_LOADED_MODELS=1`, `NUM_PARALLEL=1` and a 30 s keep-alive. No change is needed.
 
 ## Local model research (from the "Pick the best local AI models" work)
