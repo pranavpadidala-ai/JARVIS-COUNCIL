@@ -175,9 +175,14 @@
                 <TextBlock Text="READY WHEN YOU ARE" Foreground="#EAEAEA" FontSize="12" FontWeight="SemiBold"/>
                 <TextBlock Text="Open the full JARVIS conversation with voice, memory and assistant tools." Foreground="#A0A0A0" FontSize="11" TextWrapping="Wrap" Margin="0,5,10,0"/>
               </StackPanel>
-              <Button Grid.Column="1" Content="OPEN JARVIS CHAT  →" Background="#E8E8E8" Foreground="#171717"
+              <!-- The text is an explicit TextBlock: the app-wide TextBlock style (pale text for the dark theme)
+                   would otherwise override the button's dark Foreground and leave pale text on this light button. -->
+              <Button Grid.Column="1" Background="#E8E8E8" Foreground="#171717"
                       BorderThickness="0" Padding="17,11" FontSize="11" FontWeight="SemiBold"
-                      VerticalAlignment="Center" Click="OpenConsole_Click"/>
+                      VerticalAlignment="Center" Click="OpenConsole_Click"
+                      AutomationProperties.Name="Open JARVIS chat">
+                <TextBlock Text="OPEN JARVIS CHAT  →" Foreground="#171717"/>
+              </Button>
             </Grid>
           </Border>
 
