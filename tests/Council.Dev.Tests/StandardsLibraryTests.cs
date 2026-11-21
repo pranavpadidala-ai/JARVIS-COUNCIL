@@ -39,7 +39,7 @@ public sealed class StandardsLibraryTests : IDisposable
     {
         var library = new StandardsLibrary(_root);
         Assert.Equal(40, library.Search("6.1.3 partial factor")[0].Page);
-        Assert.All(library.Search("aluminium", document: "dwight"), hit => Assert.Equal("Dwight book", hit.Document));
+        Assert.All(library.Search("aluminium", documentFilter: "dwight"), hit => Assert.Equal("Dwight book", hit.Document));
     }
 
     [Fact]
