@@ -35,6 +35,8 @@ public partial class MainWindow : Window
 
     private readonly DispatcherTimer _clock = new() { Interval = TimeSpan.FromSeconds(1) };
     private readonly DispatcherTimer _telemetry = new() { Interval = TimeSpan.FromSeconds(2) };
+    private readonly DispatcherTimer _reminderCheck = new() { Interval = TimeSpan.FromSeconds(30) };
+    private readonly Council.App.Reminders.ReminderStore _reminders = new();
     private readonly Process _process = Process.GetCurrentProcess();
     private readonly Forms.NotifyIcon _trayIcon;
     private bool _allowApplicationExit;
@@ -70,6 +72,11 @@ public partial class MainWindow : Window
         UpdateTelemetry();
         _telemetry.Start();
 
+        // Reminders set through chat are delivered here as tray notifications, even while the window is hidden.
+        _reminderCheck.Tick += (_, _) => DeliverDueReminders();
+        _reminderCheck.Start();
+        Dispatcher.BeginInvoke(new Action(DeliverDueReminders), DispatcherPriority.ApplicationIdle); // catch ones missed while JARVIS was closed
+
         Closed += async (_, _) =>
         {
             _wakeWordCancellation?.Cancel();
@@ -82,12 +89,37 @@ public partial class MainWindow : Window
             _wakeWordCancellation?.Dispose();
             _clock.Stop();
             _telemetry.Stop();
+            _reminderCheck.Stop();
             _trayIcon.Visible = false;
             _trayIcon.Dispose();
             _process.Dispose();
         };
     }
 
+
+    private void DeliverDueReminders()
+    {
+        IReadOnlyList<Council.App.Reminders.Reminder> due;
+        try { due = _reminders.ClaimDue(DateTimeOffset.Now); }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or InvalidOperationException)
+        {
+            _reminderCheck.Stop(); // a damaged or locked file should not raise an error every 30 seconds
+            _trayIcon.ShowBalloonTip(8000, "JARVIS reminders paused", ex.Message, Forms.ToolTipIcon.Warning);
+            return;
+        }
+
+        if (due.Count == 0)
+            return;
+
+        // Windows shows one balloon at a time, so several due reminders are combined into one.
+        var lines = due.Select(reminder =>
+            reminder.Text + (DateTimeOffset.Now - reminder.DueAt > TimeSpan.FromMinutes(2)
+                ? $" (due {reminder.DueAt.ToLocalTime():dd MMM HH:mm})"
+                : ""));
+        var title = due.Count == 1 ? "JARVIS reminder" : $"JARVIS: {due.Count} reminders";
+        _trayIcon.ShowBalloonTip(15000, title, string.Join(Environment.NewLine, lines), Forms.ToolTipIcon.Info);
+        System.Media.SystemSounds.Asterisk.Play();
+    }
 
     private Forms.NotifyIcon CreateTrayIcon()
     {
