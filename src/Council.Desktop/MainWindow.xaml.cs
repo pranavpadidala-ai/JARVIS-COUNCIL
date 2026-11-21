@@ -62,13 +62,28 @@ public partial class MainWindow : Window
         };
         WpfApplication.Current.SessionEnding += (_, _) => _allowApplicationExit = true;
         _clock.Tick += (_, _) => ClockText.Text = DateTime.Now.ToString("ddd, dd MMM yyyy  •  HH:mm:ss");
-        ClockText.Text = DateTime.Now.ToString("ddd, dd MMM yyyy  •  HH:mm:ss");
-        _clock.Start();
-
         _lastCpu = _process.TotalProcessorTime;
         _telemetry.Tick += (_, _) => UpdateTelemetry();
-        UpdateTelemetry();
-        _telemetry.Start();
+
+        // The dashboard is optional. Its clock and telemetry run only while it is on screen,
+        // so JARVIS uses almost no CPU when only the chat window or the tray icon is open.
+        IsVisibleChanged += (_, _) =>
+        {
+            if (IsVisible)
+            {
+                ClockText.Text = DateTime.Now.ToString("ddd, dd MMM yyyy  •  HH:mm:ss");
+                _lastCpu = _process.TotalProcessorTime;
+                _lastCpuAt = DateTime.UtcNow;
+                UpdateTelemetry();
+                _clock.Start();
+                _telemetry.Start();
+            }
+            else
+            {
+                _clock.Stop();
+                _telemetry.Stop();
+            }
+        };
 
         Closed += async (_, _) =>
         {
@@ -92,12 +107,8 @@ public partial class MainWindow : Window
     private Forms.NotifyIcon CreateTrayIcon()
     {
         var menu = new Forms.ContextMenuStrip();
-        menu.Items.Add("Open Command Center", null, (_, _) => RestoreFromTray());
-        menu.Items.Add("Open JARVIS Chat", null, (_, _) =>
-        {
-            RestoreFromTray();
-            OpenChatWithPrompt(null);
-        });
+        menu.Items.Add("Open JARVIS Chat", null, (_, _) => OpenChat());
+        menu.Items.Add("Dashboard and settings", null, (_, _) => RestoreFromTray());
         _wakeWordMenuItem = new Forms.ToolStripMenuItem("Listen for Hey JARVIS")
         {
             CheckOnClick = true,
@@ -115,7 +126,7 @@ public partial class MainWindow : Window
             ContextMenuStrip = menu,
             Visible = true
         };
-        icon.DoubleClick += (_, _) => RestoreFromTray();
+        icon.DoubleClick += (_, _) => OpenChat();
         return icon;
     }
 
@@ -177,10 +188,8 @@ public partial class MainWindow : Window
 
                 await Dispatcher.InvokeAsync(() =>
                 {
-                    RestoreFromTray();
                     var chat = new ChatWindow
                     {
-                        Owner = this,
                         StartVoiceOnLoad = true,
                         WakeWordCancellationToken = cancellationToken
                     };
@@ -444,37 +453,37 @@ public partial class MainWindow : Window
 
     private void OpenConsole_Click(object sender, RoutedEventArgs e)
     {
-        var chat = new ChatWindow { Owner = this };
+        var chat = new ChatWindow();
         chat.Show();
     }
 
     private void StartTask_Click(object sender, RoutedEventArgs e)
     {
-        var chat = new ChatWindow { Owner = this, InitialPrompt = "I want to start a new task. Help me plan it: " };
+        var chat = new ChatWindow { InitialPrompt = "I want to start a new task. Help me plan it: " };
         chat.Show();
     }
 
     private void TeachPreference_Click(object sender, RoutedEventArgs e)
     {
-        var chat = new ChatWindow { Owner = this, InitialPrompt = "/remember " };
+        var chat = new ChatWindow { InitialPrompt = "/remember " };
         chat.Show();
     }
 
     private void TeachWorkflow_Click(object sender, RoutedEventArgs e)
     {
-        var chat = new ChatWindow { Owner = this, InitialPrompt = "/learn " };
+        var chat = new ChatWindow { InitialPrompt = "/learn " };
         chat.Show();
     }
 
     private void ReviewMemory_Click(object sender, RoutedEventArgs e)
     {
-        var chat = new ChatWindow { Owner = this, InitialPrompt = "/memories" };
+        var chat = new ChatWindow { InitialPrompt = "/memories" };
         chat.Show();
     }
 
     private void RunWorkflow_Click(object sender, RoutedEventArgs e)
     {
-        var chat = new ChatWindow { Owner = this, InitialPrompt = "Help me plan a workflow and identify which steps can be safely automated: " };
+        var chat = new ChatWindow { InitialPrompt = "Help me plan a workflow and identify which steps can be safely automated: " };
         chat.Show();
     }
 
@@ -500,7 +509,41 @@ public partial class MainWindow : Window
 
     private void OpenChatWithPrompt(string? prompt)
     {
-        var chat = new ChatWindow { Owner = this, InitialPrompt = prompt };
+        var chat = new ChatWindow { InitialPrompt = prompt };
         chat.Show();
+    }
+
+    private ChatWindow? _mainChat;
+    private bool _toldAboutTray;
+
+    /// <summary>
+    /// Opens the main chat window, the default JARVIS screen. Reuses it if it is already open.
+    /// Closing it leaves JARVIS in the tray, so reminders and the wake word keep working.
+    /// </summary>
+    public void OpenChat()
+    {
+        if (_mainChat is { IsLoaded: true })
+        {
+            if (_mainChat.WindowState == WindowState.Minimized)
+                _mainChat.WindowState = WindowState.Normal;
+            _mainChat.Activate();
+            return;
+        }
+
+        _mainChat = new ChatWindow();
+        _mainChat.Closed += (_, _) =>
+        {
+            _mainChat = null;
+            if (_allowApplicationExit || _toldAboutTray)
+                return;
+            _toldAboutTray = true;
+            _trayIcon.ShowBalloonTip(
+                3000,
+                "JARVIS is still running",
+                "Double-click the JARVIS tray icon to chat again, or right-click it and choose Exit JARVIS.",
+                Forms.ToolTipIcon.Info);
+        };
+        _mainChat.Show();
+        _mainChat.Activate();
     }
 }
