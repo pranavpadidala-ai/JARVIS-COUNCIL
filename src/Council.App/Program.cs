@@ -104,6 +104,17 @@ switch (selectedProvider?.Trim().ToLowerInvariant())
             openAiApiKey, openAiModel);
         break;
 
+    case "claude":
+        var claudeApiKey = Environment.GetEnvironmentVariable("ANTHROPIC_API_KEY");
+        if (string.IsNullOrWhiteSpace(claudeApiKey))
+            throw new InvalidOperationException(
+                "ANTHROPIC_API_KEY is required for Claude.");
+
+        activeProvider = new ClaudeProvider(
+            claudeApiKey,
+            Environment.GetEnvironmentVariable("CLAUDE_MODEL") ?? ClaudeProvider.DefaultModel);
+        break;
+
     case "ollama":
         var localContextTokens = int.TryParse(
             Environment.GetEnvironmentVariable("JARVIS_OLLAMA_CONTEXT_TOKENS"), out var configuredContext)

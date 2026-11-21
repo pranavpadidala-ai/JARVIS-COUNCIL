@@ -48,6 +48,9 @@ switch ($provider) {
     "openai" {
         if ([string]::IsNullOrWhiteSpace($env:OPENAI_API_KEY)) { throw "OPENAI_API_KEY is required for the OpenAI background agent." }
     }
+    "claude" {
+        if ([string]::IsNullOrWhiteSpace($env:ANTHROPIC_API_KEY)) { throw "ANTHROPIC_API_KEY is required for the Claude background agent." }
+    }
     "omniroute" {
         if ([string]::IsNullOrWhiteSpace($env:OMNIROUTE_API_KEY) -or
             [string]::IsNullOrWhiteSpace($env:OMNIROUTE_MODEL) -or
@@ -56,7 +59,7 @@ switch ($provider) {
             throw "OmniRoute requires an API key, explicit model ID and exact approved model allowlist."
         }
     }
-    default { throw "Unsupported or non-functional provider '$provider'. Configure Ollama, Gemini, OpenAI or allowlisted OmniRoute." }
+    default { throw "Unsupported or non-functional provider '$provider'. Configure Ollama, Gemini, OpenAI, Claude or allowlisted OmniRoute." }
 }
 
 Push-Location $repoRoot

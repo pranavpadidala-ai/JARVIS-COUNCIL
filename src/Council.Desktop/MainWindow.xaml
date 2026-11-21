@@ -218,6 +218,7 @@
                       <ComboBoxItem Content="Local Ollama" Tag="ollama"/>
                       <ComboBoxItem Content="Google Gemini" Tag="gemini"/>
                       <ComboBoxItem Content="OpenAI" Tag="openai"/>
+                      <ComboBoxItem Content="Anthropic Claude" Tag="claude"/>
                       <ComboBoxItem Content="OmniRoute" Tag="omniroute"/>
                       <ComboBoxItem Content="Mock / test" Tag="mock"/>
                     </ComboBox>
