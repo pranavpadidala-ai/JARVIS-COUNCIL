@@ -45,3 +45,24 @@ This note picks up where the cloud work stopped, so you can carry on in Claude C
 4. Check that the cloud model IDs are correct: `gemini-3.6-flash`, `gpt-5.2`, `gemini-3.8-flash` (vision).
 5. `scripts/Install-JARVIS-BrowserAutomation.ps1` is an old generator. Don't run it, because it would add the browser tool a second time. Consider removing it, with the owner's OK.
 6. Ollama settings are already light: `OLLAMA_MAX_LOADED_MODELS=1`, `NUM_PARALLEL=1` and a 30 s keep-alive. No change is needed.
+
+## Local model research (from the "Pick the best local AI models" work)
+- `qwen3.5:4b` is installed (3.4 GB) but hasn't been benchmarked yet. To benchmark it:
+  - Use `num_predict` 300, `num_ctx` 2048 and `think: false`.
+  - Send one prompt at a time.
+  - Start only when at least 2.5 GB of RAM is free.
+  - The first attempt kept the CPU at 100% for several minutes and left about 1.1 GB free.
+- **Planned lineup**, with only one model loaded at a time:
+
+  | Role | Model |
+  |---|---|
+  | Main chat | `qwen3.5:4b` |
+  | Fallback, low RAM | `qwen3.5:2b-q4_K_M` |
+  | Document OCR | `glm-ocr` |
+  | Vision | `qwen3-vl:2b` |
+
+## Civil engineering plan
+1. Write IS 456, IS 800, IS 875 and IS 1893 calculators as C# tools, so the numbers come from code rather than the model.
+2. Build a local code library with free, local embeddings, so answers cite clauses.
+3. Later, fine-tune the 4B model on free Colab.
+4. Make a 30-question civil test set. Example: if Mu = 180 kNm and Mu,lim ≈ 129 kNm, the beam needs double reinforcement.
