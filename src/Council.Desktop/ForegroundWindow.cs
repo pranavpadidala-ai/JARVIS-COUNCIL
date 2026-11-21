@@ -17,3 +17,18 @@ internal static class ForegroundWindow
         return GetWindowText(handle, text, text.Capacity) > 0 ? text.ToString() : null;
     }
 }
+
+/// <summary>How long since the last keyboard or mouse input.</summary>
+internal static class UserIdle
+{
+    [StructLayout(LayoutKind.Sequential)]
+    private struct LastInputInfo { public uint Size; public uint Time; }
+
+    [DllImport("user32.dll")] private static extern bool GetLastInputInfo(ref LastInputInfo info);
+
+    public static TimeSpan Duration()
+    {
+        var info = new LastInputInfo { Size = (uint)Marshal.SizeOf<LastInputInfo>() };
+        return GetLastInputInfo(ref info) ? TimeSpan.FromMilliseconds(unchecked((uint)Environment.TickCount - info.Time)) : TimeSpan.Zero;
+    }
+}

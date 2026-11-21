@@ -144,6 +144,23 @@ public sealed class HabitTracker
         }
     }
 
+    /// <summary>Habits not yet done today (for proactive suggestions).</summary>
+    public IReadOnlyList<string> PendingToday(DateTimeOffset now)
+    {
+        lock (FileLock)
+        {
+            var state = Load();
+            var today = DateOnly.FromDateTime(now.LocalDateTime);
+            return state.Habits.Where(h => !DoneOn(state, h.Name, today)).Select(h => h.Name).ToList();
+        }
+    }
+
+    /// <summary>Today's total (water, steps, workout) or latest value (sleep, weight, mood), or null.</summary>
+    public double? TodayValue(string metric, DateTimeOffset now)
+    {
+        lock (FileLock) return DayValue(Load(), metric.ToLowerInvariant(), DateOnly.FromDateTime(now.LocalDateTime));
+    }
+
     private static bool DoneOn(HealthState state, string habit, DateOnly day) =>
         state.Entries.Any(e => e.Kind == "habit" && e.Name.Equals(habit, StringComparison.OrdinalIgnoreCase) && DateOnly.FromDateTime(e.At.LocalDateTime) == day);
 
