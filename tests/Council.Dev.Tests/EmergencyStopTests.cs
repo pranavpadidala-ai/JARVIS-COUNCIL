@@ -5,8 +5,18 @@ using Xunit;
 
 namespace Council.Dev.Tests;
 
-public class EmergencyStopTests
+public sealed class EmergencyStopTests : IDisposable
 {
+    private readonly string _logPath = Path.Combine(Path.GetTempPath(), "jarvis-actions-" + Guid.NewGuid().ToString("N") + ".jsonl");
+    private readonly ActionLog _log;
+
+    public EmergencyStopTests() => _log = new ActionLog(_logPath);
+
+    public void Dispose()
+    {
+        if (File.Exists(_logPath)) File.Delete(_logPath);
+    }
+
     [Fact]
     public async Task HaltedSwitchBlocksToolsWithoutRunningThem()
     {
@@ -14,7 +24,7 @@ public class EmergencyStopTests
         var tool = new CountingTool();
         stop.Halt("test");
 
-        var result = await ToolCallingAssistant.RunToolAsync(tool, new(), CancellationToken.None, stop);
+        var result = await ToolCallingAssistant.RunToolAsync(tool, new(), CancellationToken.None, stop, _log);
 
         Assert.False(result.Success);
         Assert.Contains("emergency stop", result.Message);
@@ -26,7 +36,7 @@ public class EmergencyStopTests
     {
         var stop = new EmergencyStopSwitch();
         var slow = new SlowTool();
-        var running = ToolCallingAssistant.RunToolAsync(slow, new(), CancellationToken.None, stop);
+        var running = ToolCallingAssistant.RunToolAsync(slow, new(), CancellationToken.None, stop, _log);
         await slow.Started.Task;
 
         stop.Halt("test");
@@ -36,7 +46,7 @@ public class EmergencyStopTests
 
         stop.Resume();
         var tool = new CountingTool();
-        var after = await ToolCallingAssistant.RunToolAsync(tool, new(), CancellationToken.None, stop);
+        var after = await ToolCallingAssistant.RunToolAsync(tool, new(), CancellationToken.None, stop, _log);
         Assert.True(after.Success);
         Assert.Equal(1, tool.Runs);
     }
@@ -63,7 +73,7 @@ public class EmergencyStopTests
         using var cts = new CancellationTokenSource();
         cts.Cancel();
         await Assert.ThrowsAnyAsync<OperationCanceledException>(() =>
-            ToolCallingAssistant.RunToolAsync(new SlowTool(), new(), cts.Token, stop));
+            ToolCallingAssistant.RunToolAsync(new SlowTool(), new(), cts.Token, stop, _log));
     }
 
     private sealed class CountingTool : ITool

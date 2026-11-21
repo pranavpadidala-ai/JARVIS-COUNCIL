@@ -134,20 +134,33 @@ public sealed class ToolCallingAssistant
         ITool tool,
         Dictionary<string, string> arguments,
         CancellationToken cancellationToken,
-        Council.App.Safety.EmergencyStopSwitch? stop = null)
+        Council.App.Safety.EmergencyStopSwitch? stop = null,
+        Council.App.Safety.ActionLog? log = null)
     {
         stop ??= Council.App.Safety.EmergencyStopSwitch.Default;
+        log ??= Council.App.Safety.ActionLog.Default;
         if (stop.IsHalted)
+        {
+            log.Record(tool.Name, arguments, false, "Blocked: emergency stop is on.");
             return new ToolResult(false, Council.App.Safety.EmergencyStopSwitch.BlockedMessage);
+        }
         using var linked = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken, stop.Token);
+        ToolResult result;
         try
         {
-            return await tool.ExecuteAsync(arguments, linked.Token);
+            result = await tool.ExecuteAsync(arguments, linked.Token);
         }
         catch (OperationCanceledException) when (stop.IsHalted && !cancellationToken.IsCancellationRequested)
         {
-            return new ToolResult(false, "Stopped by emergency stop. Anything finished before the stop stays done.");
+            result = new ToolResult(false, "Stopped by emergency stop. Anything finished before the stop stays done.");
         }
+        catch (OperationCanceledException)
+        {
+            log.Record(tool.Name, arguments, false, "Cancelled by the user.");
+            throw;
+        }
+        log.Record(tool.Name, arguments, result.Success, result.Message);
+        return result;
     }
 
     public async Task<string> ListLearnedPracticesAsync(CancellationToken cancellationToken = default)
