@@ -27,6 +27,20 @@ if (-not (Test-Path (Join-Path $ToolsDir "pypdf"))) {
 
 $output = Join-Path $Library $Topic
 & $python -I (Join-Path $PSScriptRoot "extract_pdf_text.py") $ToolsDir $Source $output 2>$null
+
+# Scanned PDFs have no text layer: read them with Windows' built-in OCR instead (slower, runs one at a time).
+foreach ($pdf in Get-ChildItem -Path $Source -Filter *.pdf) {
+    $txt = Join-Path $output ($pdf.BaseName + ".txt")
+    if (-not (Test-Path $txt)) { continue }
+    $content = Get-Content -Raw $txt
+    $pages = ([regex]::Matches($content, '(?m)^=== PAGE \d+ ===')).Count
+    $letters = ([regex]::Matches($content, '[A-Za-z]')).Count
+    if ($pages -gt 0 -and ($letters / $pages) -lt 200) {
+        Write-Host "Scanned PDF, reading with Windows OCR (this can take a while): $($pdf.Name)" -ForegroundColor Cyan
+        Remove-Item $txt
+        & powershell.exe -NoProfile -ExecutionPolicy Bypass -File (Join-Path $PSScriptRoot "Convert-ScannedPdfToText.ps1") -Pdf $pdf.FullName -Output $txt
+    }
+}
 Write-Host ""
 Write-Host "Library updated: $output" -ForegroundColor Green
 Write-Host "JARVIS picks up the new files automatically. Ask it, for example: 'What does EN 1999-1-1 say about HAZ softening?'"
