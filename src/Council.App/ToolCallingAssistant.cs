@@ -79,6 +79,7 @@ public sealed class ToolCallingAssistant
         _tools.Register(new Council.App.Knowledge.OcrTool(workspaceRoot, libraryRoot));
 
         _tools.Register(new Council.App.Reminders.ReminderTool());
+        _tools.Register(new Council.App.Files.FileManagerTool());
         _tools.Register(new PythonRuntimeTool(workspaceRoot));
         _tools.Register(_indianMarketTool);
         _tools.Register(new IndianTraderCliTool());
