@@ -74,6 +74,7 @@ public sealed class ToolCallingAssistant
         _tools.Register(new WorkspaceTool("create_file", "Create a new file without overwriting. Required arguments: path, content. Parent folder must exist.", workspaceRoot));
         _tools.Register(new WorkspaceTool("create_folder", "Create a folder in the workspace. Required argument: path.", workspaceRoot));
         _tools.Register(new AbaqusStatusTool());
+        _tools.Register(new Council.App.Reminders.ReminderTool());
         _tools.Register(new PythonRuntimeTool(workspaceRoot));
         _tools.Register(_indianMarketTool);
         _tools.Register(new IndianTraderCliTool());
@@ -162,6 +163,9 @@ public sealed class ToolCallingAssistant
         log.Record(tool.Name, arguments, result.Success, result.Message);
         return result;
     }
+
+    public async Task<IReadOnlyList<Council.Memory.LearnedInstinct>> GetLearnedPracticesAsync(CancellationToken cancellationToken = default) =>
+        _instincts is null ? Array.Empty<Council.Memory.LearnedInstinct>() : await _instincts.ListAsync(cancellationToken);
 
     public async Task<string> ListLearnedPracticesAsync(CancellationToken cancellationToken = default)
     {
