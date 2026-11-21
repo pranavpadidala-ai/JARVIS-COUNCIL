@@ -72,15 +72,22 @@ public sealed class OmniRouteLauncher : IDisposable
 
     public static bool IsListening(string host, int port)
     {
-        try
+        // "localhost" can resolve to both ::1 and 127.0.0.1, and a server may listen on only one of them.
+        System.Net.IPAddress[] addresses;
+        try { addresses = System.Net.Dns.GetHostAddresses(host); }
+        catch (SocketException) { return false; }
+
+        foreach (var address in addresses)
         {
-            using var client = new TcpClient();
-            return client.ConnectAsync(host, port).Wait(TimeSpan.FromMilliseconds(400)) && client.Connected;
+            try
+            {
+                using var client = new TcpClient(address.AddressFamily);
+                if (client.ConnectAsync(address, port).Wait(TimeSpan.FromSeconds(1)) && client.Connected)
+                    return true;
+            }
+            catch (Exception ex) when (ex is SocketException or AggregateException) { }
         }
-        catch (Exception ex) when (ex is SocketException or AggregateException)
-        {
-            return false;
-        }
+        return false;
     }
 
     /// <summary>
