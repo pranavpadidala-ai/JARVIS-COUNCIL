@@ -18,8 +18,7 @@ public sealed class LocalWhisperSpeechRecognizer
     {
         var configured = Environment.GetEnvironmentVariable("JARVIS_WHISPER_MODEL_PATH");
         _modelPath = modelPath ?? configured ?? Path.Combine(
-            Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
-            "JARVIS", "models", "ggml-small.bin");
+            LocalModelPaths.ResolveRoot(), "models", "ggml-small.bin");
     }
 
     public async Task<string?> ListenOnceAsync(CancellationToken cancellationToken = default)

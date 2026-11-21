@@ -27,6 +27,83 @@
       <Setter Property="CornerRadius" Value="9"/>
       <Setter Property="Padding" Value="12"/>
     </Style>
+    <!-- Dark, readable drop-down used by the provider and model selectors.
+         The default Windows template ignores Background, which left light text on a light box. -->
+    <Style x:Key="DarkComboBoxItem" TargetType="ComboBoxItem">
+      <Setter Property="Foreground" Value="#F0F0F0"/>
+      <Setter Property="Background" Value="#262626"/>
+      <Setter Property="Padding" Value="8,5"/>
+      <Setter Property="Template">
+        <Setter.Value>
+          <ControlTemplate TargetType="ComboBoxItem">
+            <Border x:Name="ItemBorder" Background="{TemplateBinding Background}" Padding="{TemplateBinding Padding}">
+              <ContentPresenter/>
+            </Border>
+            <ControlTemplate.Triggers>
+              <Trigger Property="IsHighlighted" Value="True">
+                <Setter TargetName="ItemBorder" Property="Background" Value="#3D5C57"/>
+              </Trigger>
+              <Trigger Property="IsSelected" Value="True">
+                <Setter TargetName="ItemBorder" Property="Background" Value="#2F4744"/>
+              </Trigger>
+            </ControlTemplate.Triggers>
+          </ControlTemplate>
+        </Setter.Value>
+      </Setter>
+    </Style>
+    <Style x:Key="DarkComboBox" TargetType="ComboBox">
+      <Setter Property="Foreground" Value="#F0F0F0"/>
+      <Setter Property="Background" Value="#262626"/>
+      <Setter Property="BorderBrush" Value="#555555"/>
+      <Setter Property="FontFamily" Value="Segoe UI"/>
+      <Setter Property="ItemContainerStyle" Value="{StaticResource DarkComboBoxItem}"/>
+      <Setter Property="Template">
+        <Setter.Value>
+          <ControlTemplate TargetType="ComboBox">
+            <Grid>
+              <ToggleButton x:Name="DropDownToggle" Focusable="False" ClickMode="Press"
+                            IsChecked="{Binding IsDropDownOpen, Mode=TwoWay, RelativeSource={RelativeSource TemplatedParent}}">
+                <ToggleButton.Template>
+                  <ControlTemplate TargetType="ToggleButton">
+                    <Border Background="#262626" BorderBrush="#555555" BorderThickness="1" CornerRadius="3">
+                      <TextBlock Text="&#x25BE;" Foreground="#BBBBBB" HorizontalAlignment="Right"
+                                 VerticalAlignment="Center" Margin="0,0,8,0"/>
+                    </Border>
+                  </ControlTemplate>
+                </ToggleButton.Template>
+              </ToggleButton>
+              <ContentPresenter x:Name="SelectedContent" IsHitTestVisible="False" Margin="8,0,24,0"
+                                VerticalAlignment="Center" HorizontalAlignment="Left"
+                                Content="{TemplateBinding SelectionBoxItem}"
+                                ContentTemplate="{TemplateBinding SelectionBoxItemTemplate}"
+                                TextElement.Foreground="{TemplateBinding Foreground}"/>
+              <TextBox x:Name="PART_EditableTextBox" Visibility="Hidden" Margin="2,2,22,2"
+                       Background="Transparent" BorderThickness="0" Foreground="{TemplateBinding Foreground}"
+                       VerticalContentAlignment="Center" IsReadOnly="{TemplateBinding IsReadOnly}"/>
+              <Popup x:Name="PART_Popup" Placement="Bottom" AllowsTransparency="True" Focusable="False"
+                     IsOpen="{TemplateBinding IsDropDownOpen}" PopupAnimation="Slide">
+                <Border Background="#262626" BorderBrush="#555555" BorderThickness="1"
+                        MinWidth="{Binding ActualWidth, RelativeSource={RelativeSource TemplatedParent}}"
+                        MaxHeight="{TemplateBinding MaxDropDownHeight}">
+                  <ScrollViewer>
+                    <ItemsPresenter KeyboardNavigation.DirectionalNavigation="Contained"/>
+                  </ScrollViewer>
+                </Border>
+              </Popup>
+            </Grid>
+            <ControlTemplate.Triggers>
+              <Trigger Property="IsEditable" Value="True">
+                <Setter TargetName="PART_EditableTextBox" Property="Visibility" Value="Visible"/>
+                <Setter TargetName="SelectedContent" Property="Visibility" Value="Hidden"/>
+              </Trigger>
+              <Trigger Property="IsEnabled" Value="False">
+                <Setter Property="Opacity" Value="0.5"/>
+              </Trigger>
+            </ControlTemplate.Triggers>
+          </ControlTemplate>
+        </Setter.Value>
+      </Setter>
+    </Style>
     <Style x:Key="NavButton" TargetType="Button">
       <Setter Property="Foreground" Value="#B8D3E2"/>
       <Setter Property="Background" Value="Transparent"/>

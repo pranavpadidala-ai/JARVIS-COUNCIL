@@ -118,7 +118,7 @@
 
         <DockPanel Grid.Row="0" Margin="4,3,4,20">
           <Border Width="31" Height="31" CornerRadius="9" Background="#263E3C" VerticalAlignment="Center">
-            <TextBlock Text="Γùë" Foreground="#62E0D0" FontSize="20"
+            <TextBlock Text="◉" Foreground="#62E0D0" FontSize="20"
                        HorizontalAlignment="Center" VerticalAlignment="Center"/>
           </Border>
           <StackPanel Margin="10,0,0,0" VerticalAlignment="Center">
@@ -129,16 +129,16 @@
 
         <Button Grid.Row="1" Style="{StaticResource SidebarButton}"
                 Background="#292929" BorderBrush="#414141" BorderThickness="1"
-                Content="∩╝ï   New chat" Click="NewChat_Click" Margin="0,0,0,18"/>
+                Content="＋   New chat" Click="NewChat_Click" Margin="0,0,0,18"/>
 
         <StackPanel Grid.Row="2">
           <TextBlock Text="WORKSPACE" Foreground="#858585" FontSize="10"
                      FontWeight="SemiBold" Margin="11,4,0,7"/>
-          <Button Style="{StaticResource SidebarButton}" Content="Γûñ   Memory"
+          <Button Style="{StaticResource SidebarButton}" Content="▤   Memory"
                   Tag="/memories" Click="QuickCommand_Click"/>
-          <Button Style="{StaticResource SidebarButton}" Content="Γùç   Skills"
+          <Button Style="{StaticResource SidebarButton}" Content="◇   Skills"
                   Tag="/skills" Click="QuickCommand_Click"/>
-          <Button Style="{StaticResource SidebarButton}" Content="ΓùÄ   Agents"
+          <Button Style="{StaticResource SidebarButton}" Content="◎   Agents"
                   Tag="/agents" Click="QuickCommand_Click"/>
           <Border Height="1" Background="#303030" Margin="5,14,5,13"/>
           <TextBlock Text="RECENT" Foreground="#858585" FontSize="10"
@@ -202,7 +202,7 @@
                       HorizontalAlignment="Stretch" Margin="0,50,0,35">
             <Border Width="54" Height="54" CornerRadius="18" Background="#263E3C"
                     HorizontalAlignment="Center" Margin="0,0,0,22">
-              <TextBlock Text="Γùë" Foreground="#68DCCF" FontSize="31"
+              <TextBlock Text="◉" Foreground="#68DCCF" FontSize="31"
                          HorizontalAlignment="Center" VerticalAlignment="Center"/>
             </Border>
             <TextBlock Text="What can I help with?" Foreground="#F3F3F3"
@@ -214,19 +214,19 @@
             <UniformGrid Columns="2" Rows="2">
               <Button Style="{StaticResource SuggestionButton}" Tag="Explain a research paper in simple terms, including its method, assumptions, equations and limitations."
                       Click="Suggestion_Click">
-                <StackPanel><TextBlock Text="Γûñ  Research a paper" FontWeight="SemiBold"/><TextBlock Text="Understand papers and technical documents" Foreground="#A0A0A0" FontSize="11" Margin="0,5,0,0" TextWrapping="Wrap"/></StackPanel>
+                <StackPanel><TextBlock Text="▤  Research a paper" FontWeight="SemiBold"/><TextBlock Text="Understand papers and technical documents" Foreground="#A0A0A0" FontSize="11" Margin="0,5,0,0" TextWrapping="Wrap"/></StackPanel>
               </Button>
               <Button Style="{StaticResource SuggestionButton}" Tag="Help me solve a structural engineering problem step by step. State assumptions and show the calculations."
                       Click="Suggestion_Click">
-                <StackPanel><TextBlock Text="Γîé  Engineering help" FontWeight="SemiBold"/><TextBlock Text="Work through analysis and design" Foreground="#A0A0A0" FontSize="11" Margin="0,5,0,0" TextWrapping="Wrap"/></StackPanel>
+                <StackPanel><TextBlock Text="⌂  Engineering help" FontWeight="SemiBold"/><TextBlock Text="Work through analysis and design" Foreground="#A0A0A0" FontSize="11" Margin="0,5,0,0" TextWrapping="Wrap"/></StackPanel>
               </Button>
               <Button Style="{StaticResource SuggestionButton}" Tag="Help me plan and organize my next task. Break it into practical steps and identify what needs my approval."
                       Click="Suggestion_Click">
-                <StackPanel><TextBlock Text="Γ£ô  Plan a task" FontWeight="SemiBold"/><TextBlock Text="Turn a goal into an actionable plan" Foreground="#A0A0A0" FontSize="11" Margin="0,5,0,0" TextWrapping="Wrap"/></StackPanel>
+                <StackPanel><TextBlock Text="✓  Plan a task" FontWeight="SemiBold"/><TextBlock Text="Turn a goal into an actionable plan" Foreground="#A0A0A0" FontSize="11" Margin="0,5,0,0" TextWrapping="Wrap"/></StackPanel>
               </Button>
               <Button Style="{StaticResource SuggestionButton}" Tag="Help me learn a topic interactively. Start by checking my current understanding, then teach me with examples."
                       Click="Suggestion_Click">
-                <StackPanel><TextBlock Text="Γùç  Learn something" FontWeight="SemiBold"/><TextBlock Text="An interactive tutor for any topic" Foreground="#A0A0A0" FontSize="11" Margin="0,5,0,0" TextWrapping="Wrap"/></StackPanel>
+                <StackPanel><TextBlock Text="◇  Learn something" FontWeight="SemiBold"/><TextBlock Text="An interactive tutor for any topic" Foreground="#A0A0A0" FontSize="11" Margin="0,5,0,0" TextWrapping="Wrap"/></StackPanel>
               </Button>
             </UniformGrid>
           </StackPanel>
@@ -255,7 +255,7 @@
                      SelectionTextBrush="#FFFFFF"
                      ToolTip="Message JARVIS. Enter sends; Shift+Enter adds a new line."
                      KeyDown="MessageInput_KeyDown"/>
-            <Button Grid.Column="1" Content="Γåæ" Style="{StaticResource SendButton}"
+            <Button Grid.Column="1" Content="↑" Style="{StaticResource SendButton}"
                     VerticalAlignment="Bottom" Margin="10,0,0,2" Click="Send_Click"/>
           </Grid>
         </Border>
@@ -265,14 +265,14 @@
             <ColumnDefinition Width="Auto"/>
           </Grid.ColumnDefinitions>
           <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
-            <Button x:Name="VoiceButton" Content="≡ƒÄÖ Voice" Style="{StaticResource ComposerToolButton}"
+            <Button x:Name="VoiceButton" Content="🎙 Voice" Style="{StaticResource ComposerToolButton}"
                     Click="Voice_Click"/>
             <Button x:Name="SpeakButton" Content="Speak: Off" Style="{StaticResource ComposerToolButton}"
                     Click="Speak_Click"/>
             <Button x:Name="StopButton" Content="Stop" Style="{StaticResource ComposerToolButton}"
                     IsEnabled="False" Click="Stop_Click"/>
           </StackPanel>
-          <TextBlock Grid.Column="1" Text="Enter to send ┬╖ Shift+Enter for a new line"
+          <TextBlock Grid.Column="1" Text="Enter to send · Shift+Enter for a new line"
                      Foreground="#7D7D7D" FontSize="10" VerticalAlignment="Center"/>
         </Grid>
         <TextBlock Grid.Row="2" Text="JARVIS can make mistakes. Verify important information."

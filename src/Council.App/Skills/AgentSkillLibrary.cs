@@ -80,8 +80,8 @@ public sealed class AgentSkillLibrary
             var name = ReadFrontMatter(content, "name") ?? Path.GetFileNameWithoutExtension(path);
             var description = ReadFrontMatter(content, "description") ?? "";
             var triggersText = ReadFrontMatter(content, "triggers") ?? "";
-            var triggers = triggersText.Split([',', ';', '|'], StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
-                .Concat(description.Split([',', ';', '.'], StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries))
+            var triggers = triggersText.Split(new[] { ',', ';', '|' }, StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
+                .Concat(description.Split(new[] { ',', ';', '.' }, StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries))
                 .Concat(new[] { name.Replace('-', ' '), Path.GetFileName(Path.GetDirectoryName(path)!)!.Replace('-', ' ') })
                 .Where(x => x.Length >= 3)
                 .Select(Normalize)

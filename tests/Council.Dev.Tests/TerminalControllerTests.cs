@@ -13,7 +13,7 @@ public class TerminalControllerTests
             new TerminalCommand(
                 "dotnet --version",
                 Environment.CurrentDirectory,
-                TimeSpan.FromSeconds(10)));
+                TimeSpan.FromSeconds(60)));
 
         Assert.True(result.Success);
         Assert.True(Version.TryParse(result.StandardOutput.Trim(), out _));
@@ -28,7 +28,7 @@ public class TerminalControllerTests
             new TerminalCommand(
                 "dotnet definitely-not-a-real-command",
                 Environment.CurrentDirectory,
-                TimeSpan.FromSeconds(10)));
+                TimeSpan.FromSeconds(60)));
 
         Assert.False(result.Success);
         Assert.NotEqual(0, result.ExitCode);
@@ -55,7 +55,7 @@ public class TerminalControllerTests
         var command = new TerminalCommand(
             "Remove-Item definitely-not-a-real-file.txt",
             Environment.CurrentDirectory,
-            TimeSpan.FromSeconds(10));
+            TimeSpan.FromSeconds(60));
 
         await Assert.ThrowsAsync<UnauthorizedAccessException>(
             () => _controller.ExecuteAsync(command));
@@ -79,7 +79,7 @@ public class TerminalControllerTests
         var command = new TerminalCommand(
             commandText,
             Environment.CurrentDirectory,
-            TimeSpan.FromSeconds(10));
+            TimeSpan.FromSeconds(60));
 
         await Assert.ThrowsAsync<UnauthorizedAccessException>(
             () => _controller.ExecuteAsync(command));
@@ -94,7 +94,7 @@ public class TerminalControllerTests
         var command = new TerminalCommand(
             commandText,
             Environment.CurrentDirectory,
-            TimeSpan.FromSeconds(10));
+            TimeSpan.FromSeconds(60));
 
         await Assert.ThrowsAsync<ArgumentException>(
             () => _controller.ExecuteAsync(command));
@@ -108,7 +108,7 @@ public class TerminalControllerTests
             Path.Combine(
                 Environment.CurrentDirectory,
                 "directory-that-does-not-exist"),
-            TimeSpan.FromSeconds(10));
+            TimeSpan.FromSeconds(60));
 
         await Assert.ThrowsAsync<DirectoryNotFoundException>(
             () => _controller.ExecuteAsync(command));

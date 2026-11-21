@@ -279,7 +279,7 @@ public partial class ChatWindow : Window
         Transcript.Children.Clear();
         WelcomePanel.Visibility = Visibility.Visible;
         MessageInput.Clear();
-        ProviderStatus.Text = "ΓùÅ  " + _session.ProviderName + " ┬╖ new conversation";
+        ProviderStatus.Text = "●  " + _session.ProviderName + " · new conversation";
         MessageInput.Focus();
     }
 
@@ -353,7 +353,7 @@ public partial class ChatWindow : Window
             };
             avatar.Child = new TextBlock
             {
-                Text = "Γùë",
+                Text = "◉",
                 Foreground = new SolidColorBrush(WpfColor.FromRgb(104, 220, 207)),
                 FontSize = 17,
                 HorizontalAlignment = WpfHorizontalAlignment.Center,
@@ -469,7 +469,7 @@ public partial class ChatWindow : Window
                 row.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
                 var marker = new TextBlock
                 {
-                    Text = listItem.Groups[2].Success ? listItem.Groups[2].Value + "." : "ΓÇó",
+                    Text = listItem.Groups[2].Success ? listItem.Groups[2].Value + "." : "•",
                     Foreground = new SolidColorBrush(WpfColor.FromRgb(190, 190, 190)),
                     FontSize = 14
                 };

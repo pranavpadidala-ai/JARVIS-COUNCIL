@@ -117,7 +117,7 @@ public sealed class CommandPolicy
 
         var firstToken = trimmed
             .Split(
-                [' ', '\t', '\r', '\n'],
+                new[] { ' ', '\t', '\r', '\n' },
                 StringSplitOptions.RemoveEmptyEntries)
             .FirstOrDefault();
 
