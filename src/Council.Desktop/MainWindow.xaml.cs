@@ -593,6 +593,10 @@ public partial class MainWindow : Window
     /// Opens the main chat window, the default JARVIS screen. Reuses it if it is already open.
     /// Closing it leaves JARVIS in the tray, so reminders and the wake word keep working.
     /// </summary>
+    /// <summary>Shows a short notification from the JARVIS tray icon.</summary>
+    public void ShowTrayMessage(string title, string text) =>
+        _trayIcon.ShowBalloonTip(5000, title, text, Forms.ToolTipIcon.Info);
+
     public void OpenChat()
     {
         if (_mainChat is { IsLoaded: true })
