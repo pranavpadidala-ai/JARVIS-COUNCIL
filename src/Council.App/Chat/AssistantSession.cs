@@ -240,6 +240,23 @@ public sealed class AssistantSession : IAsyncDisposable
         {
             message = MemoryHelp;
         }
+        else if (prompt.Equals("/emergency-stop", StringComparison.OrdinalIgnoreCase) ||
+                 prompt.Equals("/stop-all", StringComparison.OrdinalIgnoreCase))
+        {
+            Council.App.Safety.EmergencyStopSwitch.Default.Halt("Stopped from chat");
+            message = "Emergency stop is ON. Running work was cancelled and no tools will run. Type /resume or use the tray menu to resume.";
+        }
+        else if (prompt.Equals("/actions", StringComparison.OrdinalIgnoreCase) ||
+                 prompt.Equals("/log", StringComparison.OrdinalIgnoreCase))
+        {
+            message = Council.App.Safety.ActionLog.Default.Describe();
+        }
+        else if (prompt.Equals("/resume", StringComparison.OrdinalIgnoreCase))
+        {
+            var stop = Council.App.Safety.EmergencyStopSwitch.Default;
+            message = stop.IsHalted ? "JARVIS resumed. Tools are available again." : "JARVIS was not stopped.";
+            stop.Resume();
+        }
         else if (prompt.Equals("/clear", StringComparison.OrdinalIgnoreCase))
         {
             await _assistant.ClearConversationAsync(cancellationToken);
