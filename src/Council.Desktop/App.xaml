@@ -7,8 +7,17 @@
     <SolidColorBrush x:Key="PanelBorderBrush" Color="#17445A"/>
     <SolidColorBrush x:Key="AccentBrush" Color="#19D8F2"/>
     <SolidColorBrush x:Key="MutedBrush" Color="#7896A9"/>
+    <Style TargetType="TextBox">
+      <Setter Property="Foreground" Value="#E6F5FA"/>
+      <Setter Property="Background" Value="#0D2233"/>
+      <Setter Property="BorderBrush" Value="#315D73"/>
+      <Setter Property="CaretBrush" Value="#41DDF4"/>
+      <Setter Property="SelectionBrush" Value="#267B9D"/>
+      <Setter Property="SelectionTextBrush" Value="#FFFFFF"/>
+      <Setter Property="FontFamily" Value="Segoe UI"/>
+    </Style>
     <Style TargetType="TextBlock">
-      <Setter Property="Foreground" Value="#D7F4FF"/>
+      <Setter Property="Foreground" Value="#E6F5FA"/>
       <Setter Property="FontFamily" Value="Segoe UI"/>
     </Style>
     <Style x:Key="Panel" TargetType="Border">

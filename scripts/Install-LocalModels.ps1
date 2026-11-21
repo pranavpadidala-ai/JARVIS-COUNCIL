@@ -4,7 +4,7 @@
 #   .\scripts\Install-LocalModels.ps1
 
 $ErrorActionPreference = "Stop"
-$root = Join-Path $env:LOCALAPPDATA "JARVIS"
+$root = "E:\JARVIS\Models\LocalAI"
 $models = Join-Path $root "models"
 $voices = Join-Path $root "voices"
 $pythonEnv = Join-Path $root "piper-venv"
@@ -57,10 +57,10 @@ Write-Host "Pulling GLM-OCR specialist engineering-document model..."
 if ($LASTEXITCODE -ne 0) { throw "Could not pull the GLM-OCR document model." }
 
 $whisperPath = Join-Path $models "ggml-small.bin"
-if (-not (Test-Path $whisperPath) -or (Get-Item $whisperPath).Length -lt 100MB) {
+if (-not (Test-Path $whisperPath) -or (Get-Item $whisperPath).Length -lt 400MB) {
     Write-Host "Downloading Whisper small multilingual model (~466 MB)..."
     Invoke-WebRequest -Uri "https://huggingface.co/ggerganov/whisper.cpp/resolve/main/ggml-small.bin?download=true" -OutFile $whisperPath
-    if ((Get-Item $whisperPath).Length -lt 100MB) { throw "Whisper model download appears incomplete." }
+    if ((Get-Item $whisperPath).Length -lt 400MB) { throw "Whisper model download appears incomplete." }
 }
 
 $pythonLauncher = Get-Command py -ErrorAction SilentlyContinue
