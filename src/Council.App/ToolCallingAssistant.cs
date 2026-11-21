@@ -126,6 +126,30 @@ public sealed class ToolCallingAssistant
         return $"Saved project practice '{item.Id}' (confidence {item.Confidence:0.00}, evidence {item.EvidenceCount}).";
     }
 
+    /// <summary>
+    /// Every model-requested tool call goes through here, so the emergency stop blocks new
+    /// actions and cancels running ones (spec section 9).
+    /// </summary>
+    public static async Task<ToolResult> RunToolAsync(
+        ITool tool,
+        Dictionary<string, string> arguments,
+        CancellationToken cancellationToken,
+        Council.App.Safety.EmergencyStopSwitch? stop = null)
+    {
+        stop ??= Council.App.Safety.EmergencyStopSwitch.Default;
+        if (stop.IsHalted)
+            return new ToolResult(false, Council.App.Safety.EmergencyStopSwitch.BlockedMessage);
+        using var linked = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken, stop.Token);
+        try
+        {
+            return await tool.ExecuteAsync(arguments, linked.Token);
+        }
+        catch (OperationCanceledException) when (stop.IsHalted && !cancellationToken.IsCancellationRequested)
+        {
+            return new ToolResult(false, "Stopped by emergency stop. Anything finished before the stop stays done.");
+        }
+    }
+
     public async Task<string> ListLearnedPracticesAsync(CancellationToken cancellationToken = default)
     {
         if (_instincts is null)
@@ -233,7 +257,7 @@ public sealed class ToolCallingAssistant
                 }
                 else
                 {
-                    var result = await tool.ExecuteAsync(call.Arguments, cancellationToken);
+                    var result = await RunToolAsync(tool, call.Arguments, cancellationToken);
                     await AddHistoryAsync(
                         new AIMessage("user", "Tool result (" + tool.Name + "): " +
                             (result.Success ? "SUCCESS: " : "FAILED: ") + result.Message),
@@ -654,7 +678,7 @@ public sealed class ToolCallingAssistant
                         }
                         else
                         {
-                            var result = await tool.ExecuteAsync(call.Arguments, turnToken);
+                            var result = await RunToolAsync(tool, call.Arguments, turnToken);
                             Console.WriteLine($"[Tool: {tool.Name}] {(result.Success ? "Success" : "Blocked/failed")}");
                             await AddHistoryAsync(new AIMessage("user", "Tool result (" + tool.Name + "): " + (result.Success ? "SUCCESS: " : "FAILED: ") + result.Message), cancellationToken);
                         }
