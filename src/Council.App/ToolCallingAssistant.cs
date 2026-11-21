@@ -75,6 +75,10 @@ public sealed class ToolCallingAssistant
         _tools.Register(new WorkspaceTool("create_folder", "Create a folder in the workspace. Required argument: path.", workspaceRoot));
         _tools.Register(new AbaqusStatusTool());
         _tools.Register(new Council.App.Reminders.ReminderTool());
+
+        var libraryRoot = Council.App.Knowledge.StandardsLibrary.DefaultRoot(workspaceRoot);
+        _tools.Register(new Council.App.Knowledge.StandardsLibraryTool(new Council.App.Knowledge.StandardsLibrary(libraryRoot)));
+        _tools.Register(new Council.App.Knowledge.OcrTool(workspaceRoot, libraryRoot));
         _tools.Register(new PythonRuntimeTool(workspaceRoot));
         _tools.Register(_indianMarketTool);
         _tools.Register(new IndianTraderCliTool());
