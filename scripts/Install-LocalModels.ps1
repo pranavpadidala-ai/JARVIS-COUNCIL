@@ -3,8 +3,22 @@
 #   Set-ExecutionPolicy -Scope Process Bypass
 #   .\scripts\Install-LocalModels.ps1
 
+[CmdletBinding()]
+param(
+    # Where Whisper, Piper voices and the Piper Python runtime are stored.
+    # Defaults to Models\LocalAI inside this repository (the large E: drive on the owner's laptop).
+    [string]$ModelsRoot
+)
+
 $ErrorActionPreference = "Stop"
-$root = "E:\JARVIS\Models\LocalAI"
+$repoRoot = Split-Path -Parent $PSScriptRoot
+$root = if (-not [string]::IsNullOrWhiteSpace($ModelsRoot)) { $ModelsRoot }
+        elseif (-not [string]::IsNullOrWhiteSpace($env:JARVIS_MODELS_ROOT)) { $env:JARVIS_MODELS_ROOT }
+        else { Join-Path $repoRoot "Models\LocalAI" }
+# Tell the JARVIS app where the models are, now and after the next sign-in.
+[Environment]::SetEnvironmentVariable("JARVIS_MODELS_ROOT", $root, "User")
+$env:JARVIS_MODELS_ROOT = $root
+Write-Host "Local models folder: $root"
 $models = Join-Path $root "models"
 $voices = Join-Path $root "voices"
 $pythonEnv = Join-Path $root "piper-venv"

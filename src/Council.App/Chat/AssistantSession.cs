@@ -300,56 +300,5 @@ public sealed class AssistantSession : IAsyncDisposable
             : new AIResponse("JARVIS Memory", message, "local-encrypted-memory", TimeSpan.Zero);
     }
 
-    private static IAIProvider CreateProvider()
-    {
-        var selection = Environment.GetEnvironmentVariable("JARVIS_AI_PROVIDER")?.Trim().ToLowerInvariant();
-        var geminiKey = Environment.GetEnvironmentVariable("GEMINI_API_KEY");
-        var openAiKey = Environment.GetEnvironmentVariable("OPENAI_API_KEY");
-
-        switch (selection)
-        {
-            case "ollama":
-                var model = Environment.GetEnvironmentVariable("OLLAMA_MODEL") ?? "qwen3.5:2b-q4_K_M";
-                var baseUrl = Environment.GetEnvironmentVariable("OLLAMA_BASE_URL") ?? "http://localhost:11434";
-                var contextTokens = int.TryParse(
-                    Environment.GetEnvironmentVariable("JARVIS_OLLAMA_CONTEXT_TOKENS"), out var configuredContext)
-                    ? Math.Clamp(configuredContext, 2048, 8192)
-                    : 4096;
-                return new OllamaProvider(model, baseUrl, contextTokens);
-
-            case "gemini":
-                if (string.IsNullOrWhiteSpace(geminiKey))
-                    throw new InvalidOperationException("GEMINI_API_KEY is required when JARVIS_AI_PROVIDER=gemini.");
-                return new GeminiProvider(geminiKey, Environment.GetEnvironmentVariable("GEMINI_MODEL") ?? "gemini-3.6-flash");
-
-            case "openai":
-                if (string.IsNullOrWhiteSpace(openAiKey))
-                    throw new InvalidOperationException("OPENAI_API_KEY is required when JARVIS_AI_PROVIDER=openai.");
-                return new OpenAIProvider(openAiKey, Environment.GetEnvironmentVariable("OPENAI_MODEL") ?? "gpt-5.2");
-
-            case "omniroute":
-                var omniKey = Environment.GetEnvironmentVariable("OMNIROUTE_API_KEY");
-                var omniModel = Environment.GetEnvironmentVariable("OMNIROUTE_MODEL");
-                var omniBaseUrl = Environment.GetEnvironmentVariable("OMNIROUTE_BASE_URL") ?? "http://localhost:20128/v1";
-                var allowedModels = Environment.GetEnvironmentVariable("OMNIROUTE_FREE_MODELS");
-                if (string.IsNullOrWhiteSpace(omniKey))
-                    throw new InvalidOperationException("OMNIROUTE_API_KEY is required when JARVIS_AI_PROVIDER=omniroute.");
-                if (string.IsNullOrWhiteSpace(omniModel) || string.IsNullOrWhiteSpace(allowedModels))
-                    throw new InvalidOperationException("Set OMNIROUTE_MODEL and OMNIROUTE_FREE_MODELS to exact approved model IDs. Automatic paid routing is disabled.");
-                return new OmniRouteProvider(omniKey, omniModel, omniBaseUrl, allowedModels);
-
-            case "mock":
-                return new MockAIProvider();
-
-            case null or "":
-                if (!string.IsNullOrWhiteSpace(geminiKey))
-                    return new GeminiProvider(geminiKey, Environment.GetEnvironmentVariable("GEMINI_MODEL") ?? "gemini-3.6-flash");
-                if (!string.IsNullOrWhiteSpace(openAiKey))
-                    return new OpenAIProvider(openAiKey, Environment.GetEnvironmentVariable("OPENAI_MODEL") ?? "gpt-5.2");
-                return new MockAIProvider();
-
-            default:
-                throw new InvalidOperationException($"Unknown JARVIS_AI_PROVIDER '{selection}'. Choose ollama, gemini, openai, omniroute or mock.");
-        }
-    }
+    private static IAIProvider CreateProvider() => DesktopProviderFactory.Create();
 }

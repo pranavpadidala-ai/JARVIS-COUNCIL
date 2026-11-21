@@ -197,7 +197,7 @@ public sealed class ActionInterpreter
     {
         var tokens = step
             .Split(
-                [' ', '\t', '\r', '\n'],
+                new[] { ' ', '\t', '\r', '\n' },
                 StringSplitOptions.RemoveEmptyEntries);
 
         foreach (var token in tokens)

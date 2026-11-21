@@ -8,10 +8,13 @@ on:
       - feature/persistent-development-agent
       - bounded-autonomous-loop
       - feature/local-mcp-development-bridge
+      - 'integration/**'
+      - 'fix/**'
   pull_request:
     branches:
       - feature/safe-workspace-tools
       - bounded-autonomous-loop
+      - 'integration/**'
 
 concurrency:
   group: jarvis-validation-${{ github.event.pull_request.head.ref || github.ref_name }}
@@ -71,6 +74,18 @@ jobs:
               throw "PowerShell syntax validation failed."
             }
           }
+
+      - name: Check desktop text for garbled characters
+        shell: pwsh
+        run: |
+          # UTF-8 text misread by Windows PowerShell 5.1 shows up as sequences such as U+0393 U+00C7 or U+252C U+2556.
+          $markers = @([string][char]0x0393 + [char]0x00C7, [string][char]0x0393 + [char]0x00F9, [string][char]0x0393 + [char]0x00FB,
+                       [string][char]0x252C + [char]0x2556, [string][char]0x2261 + [char]0x0192, [string][char]0x2229 + [char]0x255D)
+          $bad = Get-ChildItem src -Recurse -Include *.xaml,*.cs | Where-Object {
+            $text = Get-Content $_.FullName -Raw -Encoding UTF8
+            $markers | Where-Object { $text.Contains($_) }
+          }
+          if ($bad) { $bad | ForEach-Object { Write-Error "Garbled characters in $($_.FullName)" }; throw "Fix the text encoding in the files above." }
 
       - name: Test Python worker and wake-word scripts
         run: python -m unittest discover -s tests/python -v

@@ -261,8 +261,7 @@ public partial class MainWindow : Window
             var saved = DesktopProviderSettingsStore.TryLoadAndApplySaved(out var settingsMessage);
             var current = DesktopProviderSettingsStore.GetCurrent();
             ProviderSelector.SelectedValue = current.Provider;
-            ProviderModelInput.Text = current.Model;
-            ProviderModelInput.IsEnabled = current.Provider != "mock";
+            await PopulateModelChoicesAsync(current.Provider, current.Model);
             _providerControlsReady = true;
 
             var providerLabel = DesktopProviderSettingsStore.GetDisplayName(current.Provider);
@@ -291,13 +290,46 @@ public partial class MainWindow : Window
         }
     }
 
-    private void ProviderSelector_SelectionChanged(object sender, System.Windows.Controls.SelectionChangedEventArgs e)
+    /// <summary>
+    /// Fills the model drop-down: installed models for local Ollama (chat models first),
+    /// otherwise the configured default for the cloud provider. The box stays editable
+    /// so any exact model ID can still be typed.
+    /// </summary>
+    private async Task PopulateModelChoicesAsync(string provider, string? preferredModel)
+    {
+        var choices = new List<string>();
+        if (provider == "ollama")
+        {
+            var installed = await OllamaModelCatalog.ListInstalledAsync();
+            choices.AddRange(OllamaModelCatalog.OrderForChat(installed));
+            if (installed.Count == 0)
+                ProviderStatusText.Text = "Ollama is not running or has no models yet. Start Ollama, then press REFRESH.";
+        }
+        else if (provider != "mock")
+        {
+            var fallback = DesktopProviderSettingsStore.GetDefaultModel(provider);
+            if (!string.IsNullOrWhiteSpace(fallback))
+                choices.Add(fallback);
+        }
+
+        var selected = string.IsNullOrWhiteSpace(preferredModel)
+            ? choices.FirstOrDefault() ?? DesktopProviderSettingsStore.GetDefaultModel(provider)
+            : preferredModel;
+        if (!string.IsNullOrWhiteSpace(selected) &&
+            !choices.Contains(selected, StringComparer.OrdinalIgnoreCase))
+            choices.Insert(0, selected);
+
+        ProviderModelInput.ItemsSource = choices;
+        ProviderModelInput.Text = selected ?? string.Empty;
+        ProviderModelInput.IsEnabled = provider != "mock";
+    }
+
+    private async void ProviderSelector_SelectionChanged(object sender, System.Windows.Controls.SelectionChangedEventArgs e)
     {
         if (!_providerControlsReady || ProviderSelector.SelectedValue is not string provider)
             return;
 
-        ProviderModelInput.Text = DesktopProviderSettingsStore.GetDefaultModel(provider);
-        ProviderModelInput.IsEnabled = provider != "mock";
+        await PopulateModelChoicesAsync(provider, DesktopProviderSettingsStore.GetDefaultModel(provider));
         ProviderStatusText.Text = "Selected " + DesktopProviderSettingsStore.GetDisplayName(provider) +
             ". Apply to use it in new chat windows.";
     }
@@ -321,8 +353,12 @@ public partial class MainWindow : Window
         }
     }
 
-    private async void RefreshRuntimeStatus_Click(object sender, RoutedEventArgs e) =>
+    private async void RefreshRuntimeStatus_Click(object sender, RoutedEventArgs e)
+    {
+        if (ProviderSelector.SelectedValue is string provider)
+            await PopulateModelChoicesAsync(provider, ProviderModelInput.Text);
         await RefreshRuntimeReadinessAsync();
+    }
 
     private async Task RefreshRuntimeReadinessAsync()
     {

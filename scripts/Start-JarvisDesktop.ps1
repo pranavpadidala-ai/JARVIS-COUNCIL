@@ -1,9 +1,17 @@
 [CmdletBinding()]
 param(
-    [switch]$BuildOnly
+    [switch]$BuildOnly,
+    # Keeps the window open after a failure so the error can be read (used by the "Update JARVIS" shortcut).
+    [switch]$PauseOnError
 )
 
 $ErrorActionPreference = "Stop"
+trap {
+    Write-Host ""
+    Write-Host ("JARVIS could not be started or updated: " + $_.Exception.Message) -ForegroundColor Red
+    if ($PauseOnError) { Read-Host "Press Enter to close this window" }
+    exit 1
+}
 $repoRoot = Split-Path -Parent $PSScriptRoot
 $desktopProject = Join-Path $repoRoot "src\Council.Desktop\Council.Desktop.csproj"
 $desktopExe = Join-Path $repoRoot "src\Council.Desktop\bin\Release\net8.0-windows\Council.Desktop.exe"
@@ -38,6 +46,16 @@ if ($env:JARVIS_AI_PROVIDER -eq "ollama") {
             Write-Warning "Local model '$model' was not found. Run .\scripts\Install-LocalModels.ps1 or pull the configured model."
         }
     }
+}
+
+$running = Get-Process -Name "Council.Desktop" -ErrorAction SilentlyContinue
+if ($running -and -not $BuildOnly) {
+    Write-Host "JARVIS is already open. Close it first to rebuild, or use the JARVIS shortcut to switch to it." -ForegroundColor Yellow
+    if ($PauseOnError) { Read-Host "Press Enter to close this window" }
+    return
+}
+if ($running) {
+    throw "Close JARVIS before rebuilding it; its files are in use."
 }
 
 Push-Location $repoRoot

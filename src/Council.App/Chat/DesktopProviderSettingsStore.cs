@@ -28,11 +28,9 @@ public static class DesktopProviderSettingsStore
         var provider = Environment.GetEnvironmentVariable("JARVIS_AI_PROVIDER")?.Trim().ToLowerInvariant();
         if (string.IsNullOrWhiteSpace(provider))
         {
-            provider = !string.IsNullOrWhiteSpace(Environment.GetEnvironmentVariable("GEMINI_API_KEY"))
-                ? "gemini"
-                : !string.IsNullOrWhiteSpace(Environment.GetEnvironmentVariable("OPENAI_API_KEY"))
-                    ? "openai"
-                    : "mock";
+            // Local-first: with nothing chosen, JARVIS uses Ollama (matching DesktopProviderFactory)
+            // instead of silently answering from the Mock test provider.
+            provider = "ollama";
         }
 
         return new DesktopProviderSelection(provider, GetCurrentModel(provider));

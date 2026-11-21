@@ -15,8 +15,7 @@ public sealed class PiperSpeechSynthesizer
 
     public PiperSpeechSynthesizer(string? pythonPath = null, string? voicesDirectory = null, string? defaultVoice = null)
     {
-        var root = Path.Combine(
-            Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "JARVIS");
+        var root = LocalModelPaths.ResolveRoot();
         _pythonPath = pythonPath
             ?? Environment.GetEnvironmentVariable("JARVIS_PIPER_PYTHON")
             ?? Path.Combine(root, "piper-venv", "Scripts", "python.exe");
