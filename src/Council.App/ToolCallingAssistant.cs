@@ -126,6 +126,9 @@ public sealed class ToolCallingAssistant
         return $"Saved project practice '{item.Id}' (confidence {item.Confidence:0.00}, evidence {item.EvidenceCount}).";
     }
 
+    public async Task<IReadOnlyList<Council.Memory.LearnedInstinct>> GetLearnedPracticesAsync(CancellationToken cancellationToken = default) =>
+        _instincts is null ? Array.Empty<Council.Memory.LearnedInstinct>() : await _instincts.ListAsync(cancellationToken);
+
     public async Task<string> ListLearnedPracticesAsync(CancellationToken cancellationToken = default)
     {
         if (_instincts is null)
