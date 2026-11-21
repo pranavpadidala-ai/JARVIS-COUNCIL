@@ -74,6 +74,7 @@ public sealed class ToolCallingAssistant
         _tools.Register(new WorkspaceTool("create_file", "Create a new file without overwriting. Required arguments: path, content. Parent folder must exist.", workspaceRoot));
         _tools.Register(new WorkspaceTool("create_folder", "Create a folder in the workspace. Required argument: path.", workspaceRoot));
         _tools.Register(new AbaqusStatusTool());
+        _tools.Register(new Council.App.Reminders.ReminderTool());
         _tools.Register(new PythonRuntimeTool(workspaceRoot));
         _tools.Register(_indianMarketTool);
         _tools.Register(new IndianTraderCliTool());
@@ -125,6 +126,46 @@ public sealed class ToolCallingAssistant
             trigger.Trim(), action.Trim(), cancellationToken: cancellationToken);
         return $"Saved project practice '{item.Id}' (confidence {item.Confidence:0.00}, evidence {item.EvidenceCount}).";
     }
+
+    /// <summary>
+    /// Every model-requested tool call goes through here, so the emergency stop blocks new
+    /// actions and cancels running ones (spec section 9).
+    /// </summary>
+    public static async Task<ToolResult> RunToolAsync(
+        ITool tool,
+        Dictionary<string, string> arguments,
+        CancellationToken cancellationToken,
+        Council.App.Safety.EmergencyStopSwitch? stop = null,
+        Council.App.Safety.ActionLog? log = null)
+    {
+        stop ??= Council.App.Safety.EmergencyStopSwitch.Default;
+        log ??= Council.App.Safety.ActionLog.Default;
+        if (stop.IsHalted)
+        {
+            log.Record(tool.Name, arguments, false, "Blocked: emergency stop is on.");
+            return new ToolResult(false, Council.App.Safety.EmergencyStopSwitch.BlockedMessage);
+        }
+        using var linked = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken, stop.Token);
+        ToolResult result;
+        try
+        {
+            result = await tool.ExecuteAsync(arguments, linked.Token);
+        }
+        catch (OperationCanceledException) when (stop.IsHalted && !cancellationToken.IsCancellationRequested)
+        {
+            result = new ToolResult(false, "Stopped by emergency stop. Anything finished before the stop stays done.");
+        }
+        catch (OperationCanceledException)
+        {
+            log.Record(tool.Name, arguments, false, "Cancelled by the user.");
+            throw;
+        }
+        log.Record(tool.Name, arguments, result.Success, result.Message);
+        return result;
+    }
+
+    public async Task<IReadOnlyList<Council.Memory.LearnedInstinct>> GetLearnedPracticesAsync(CancellationToken cancellationToken = default) =>
+        _instincts is null ? Array.Empty<Council.Memory.LearnedInstinct>() : await _instincts.ListAsync(cancellationToken);
 
     public async Task<string> ListLearnedPracticesAsync(CancellationToken cancellationToken = default)
     {
@@ -233,7 +274,7 @@ public sealed class ToolCallingAssistant
                 }
                 else
                 {
-                    var result = await tool.ExecuteAsync(call.Arguments, cancellationToken);
+                    var result = await RunToolAsync(tool, call.Arguments, cancellationToken);
                     await AddHistoryAsync(
                         new AIMessage("user", "Tool result (" + tool.Name + "): " +
                             (result.Success ? "SUCCESS: " : "FAILED: ") + result.Message),
@@ -654,7 +695,7 @@ public sealed class ToolCallingAssistant
                         }
                         else
                         {
-                            var result = await tool.ExecuteAsync(call.Arguments, turnToken);
+                            var result = await RunToolAsync(tool, call.Arguments, turnToken);
                             Console.WriteLine($"[Tool: {tool.Name}] {(result.Success ? "Success" : "Blocked/failed")}");
                             await AddHistoryAsync(new AIMessage("user", "Tool result (" + tool.Name + "): " + (result.Success ? "SUCCESS: " : "FAILED: ") + result.Message), cancellationToken);
                         }

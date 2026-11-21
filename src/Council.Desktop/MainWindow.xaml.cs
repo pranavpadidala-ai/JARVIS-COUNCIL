@@ -35,6 +35,8 @@ public partial class MainWindow : Window
 
     private readonly DispatcherTimer _clock = new() { Interval = TimeSpan.FromSeconds(1) };
     private readonly DispatcherTimer _telemetry = new() { Interval = TimeSpan.FromSeconds(2) };
+    private readonly DispatcherTimer _reminderCheck = new() { Interval = TimeSpan.FromSeconds(30) };
+    private readonly Council.App.Reminders.ReminderStore _reminders = new();
     private readonly Process _process = Process.GetCurrentProcess();
     private readonly Forms.NotifyIcon _trayIcon;
     private bool _allowApplicationExit;
@@ -85,6 +87,11 @@ public partial class MainWindow : Window
             }
         };
 
+        // Reminders set through chat are delivered here as tray notifications, even while the window is hidden.
+        _reminderCheck.Tick += (_, _) => DeliverDueReminders();
+        _reminderCheck.Start();
+        Dispatcher.BeginInvoke(new Action(DeliverDueReminders), DispatcherPriority.ApplicationIdle); // catch ones missed while JARVIS was closed
+
         Closed += async (_, _) =>
         {
             _wakeWordCancellation?.Cancel();
@@ -97,12 +104,37 @@ public partial class MainWindow : Window
             _wakeWordCancellation?.Dispose();
             _clock.Stop();
             _telemetry.Stop();
+            _reminderCheck.Stop();
             _trayIcon.Visible = false;
             _trayIcon.Dispose();
             _process.Dispose();
         };
     }
 
+
+    private void DeliverDueReminders()
+    {
+        IReadOnlyList<Council.App.Reminders.Reminder> due;
+        try { due = _reminders.ClaimDue(DateTimeOffset.Now); }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or InvalidOperationException)
+        {
+            _reminderCheck.Stop(); // a damaged or locked file should not raise an error every 30 seconds
+            _trayIcon.ShowBalloonTip(8000, "JARVIS reminders paused", ex.Message, Forms.ToolTipIcon.Warning);
+            return;
+        }
+
+        if (due.Count == 0)
+            return;
+
+        // Windows shows one balloon at a time, so several due reminders are combined into one.
+        var lines = due.Select(reminder =>
+            reminder.Text + (DateTimeOffset.Now - reminder.DueAt > TimeSpan.FromMinutes(2)
+                ? $" (due {reminder.DueAt.ToLocalTime():dd MMM HH:mm})"
+                : ""));
+        var title = due.Count == 1 ? "JARVIS reminder" : $"JARVIS: {due.Count} reminders";
+        _trayIcon.ShowBalloonTip(15000, title, string.Join(Environment.NewLine, lines), Forms.ToolTipIcon.Info);
+        System.Media.SystemSounds.Asterisk.Play();
+    }
 
     private Forms.NotifyIcon CreateTrayIcon()
     {
@@ -116,6 +148,19 @@ public partial class MainWindow : Window
         };
         _wakeWordMenuItem.CheckedChanged += WakeWordMenuItem_CheckedChanged;
         menu.Items.Add(_wakeWordMenuItem);
+        menu.Items.Add(new Forms.ToolStripSeparator());
+        var stopItem = new Forms.ToolStripMenuItem("EMERGENCY STOP")
+        {
+            ToolTipText = "Cancel everything JARVIS is doing, block all tools and close the microphone until you resume."
+        };
+        stopItem.Click += (_, _) =>
+        {
+            var stop = Council.App.Safety.EmergencyStopSwitch.Default;
+            if (stop.IsHalted) stop.Resume(); else stop.Halt("Stopped from the tray menu");
+        };
+        menu.Items.Add(stopItem);
+        Council.App.Safety.EmergencyStopSwitch.Default.Changed += (_, _) =>
+            Dispatcher.BeginInvoke(new Action(() => ApplyEmergencyStopState(stopItem)));
         menu.Items.Add(new Forms.ToolStripSeparator());
         menu.Items.Add("Exit JARVIS", null, (_, _) => ExitFromTray());
 
@@ -131,10 +176,38 @@ public partial class MainWindow : Window
     }
 
 
+    private void ApplyEmergencyStopState(Forms.ToolStripMenuItem stopItem)
+    {
+        var stop = Council.App.Safety.EmergencyStopSwitch.Default;
+        if (stop.IsHalted)
+        {
+            stopItem.Text = "Resume JARVIS";
+            if (_wakeWordMenuItem is { Checked: true })
+                _wakeWordMenuItem.Checked = false; // closes the microphone through StopWakeWordListener
+            _trayIcon.Text = "JARVIS - STOPPED";
+            _trayIcon.ShowBalloonTip(5000, "JARVIS emergency stop",
+                "Everything was cancelled and no tools will run. Right-click the tray icon and choose Resume JARVIS to continue.",
+                Forms.ToolTipIcon.Warning);
+        }
+        else
+        {
+            stopItem.Text = "EMERGENCY STOP";
+            _trayIcon.Text = "JARVIS - Right-click to open or exit";
+            _trayIcon.ShowBalloonTip(2500, "JARVIS resumed", "Tools are available again.", Forms.ToolTipIcon.Info);
+        }
+    }
+
     private void WakeWordMenuItem_CheckedChanged(object? sender, EventArgs e)
     {
         if (_wakeWordMenuItem is null)
             return;
+
+        if (_wakeWordMenuItem.Checked && Council.App.Safety.EmergencyStopSwitch.Default.IsHalted)
+        {
+            _wakeWordMenuItem.Checked = false;
+            _trayIcon.ShowBalloonTip(3000, "JARVIS is stopped", "Resume JARVIS before turning listening on.", Forms.ToolTipIcon.Warning);
+            return;
+        }
 
         if (!_wakeWordMenuItem.Checked)
         {
