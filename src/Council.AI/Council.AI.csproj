@@ -5,6 +5,7 @@
   </ItemGroup>
 
   <ItemGroup>
+    <PackageReference Include="Anthropic" Version="13.12.0" />
     <PackageReference Include="Google.GenAI" Version="1.19.0" />
     <PackageReference Include="OpenAI" Version="2.13.0" />
   </ItemGroup>

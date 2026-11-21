@@ -106,6 +106,7 @@ public static class RuntimeHealthCheck
             {
                 "gemini" => Present("Gemini provider", get("GEMINI_API_KEY"), "GEMINI_API_KEY"),
                 "openai" => Present("OpenAI provider", get("OPENAI_API_KEY"), "OPENAI_API_KEY"),
+                "claude" => Present("Claude provider", get("ANTHROPIC_API_KEY"), "ANTHROPIC_API_KEY"),
                 "omniroute" => !string.IsNullOrWhiteSpace(get("OMNIROUTE_API_KEY")) &&
                                !string.IsNullOrWhiteSpace(get("OMNIROUTE_MODEL")) &&
                                !string.IsNullOrWhiteSpace(get("OMNIROUTE_FREE_MODELS"))

@@ -70,6 +70,36 @@ public sealed class DesktopProviderFactoryTests
     }
 
     [Fact]
+    public void ClaudeIsNeverAddedAutomaticallyBecauseItIsPaid()
+    {
+        var chain = DesktopProviderFactory.CreateChain(Env(
+            ("JARVIS_AI_PROVIDER", "ollama"),
+            ("ANTHROPIC_API_KEY", "test-claude")));
+
+        Assert.DoesNotContain(chain, p => p is ClaudeProvider);
+        Assert.IsType<OllamaProvider>(Assert.Single(chain));
+    }
+
+    [Fact]
+    public void ChosenClaudeFallsBackToFreeLocalOllama()
+    {
+        var chain = DesktopProviderFactory.CreateChain(Env(
+            ("JARVIS_AI_PROVIDER", "claude"),
+            ("ANTHROPIC_API_KEY", "test-claude")));
+
+        Assert.Collection(chain,
+            p => Assert.IsType<ClaudeProvider>(p),
+            p => Assert.IsType<OllamaProvider>(p));
+    }
+
+    [Fact]
+    public void ChosenClaudeRequiresItsKey()
+    {
+        Assert.Throws<InvalidOperationException>(() =>
+            DesktopProviderFactory.CreateChain(Env(("JARVIS_AI_PROVIDER", "claude"))));
+    }
+
+    [Fact]
     public void SelectedCloudProviderStillRequiresItsKey()
     {
         Assert.Throws<InvalidOperationException>(() =>

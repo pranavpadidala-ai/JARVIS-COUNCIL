@@ -10,6 +10,8 @@ namespace Council.App.Chat;
 /// Ollama service or a cloud quota error does not take JARVIS offline:
 ///   local Ollama selected  -> Gemini (if GEMINI_API_KEY) -> OpenAI (if OPENAI_API_KEY)
 ///   a cloud provider       -> the other cloud provider (if keyed) -> local Ollama
+/// Claude is paid per use, so it is never added as a fallback. It runs only when
+/// JARVIS_AI_PROVIDER=claude is chosen on purpose, and then falls back to the others.
 /// With nothing selected, JARVIS starts local-first with Ollama.
 /// Mock mode never falls back.
 /// </summary>
@@ -18,6 +20,7 @@ public static class DesktopProviderFactory
     public const string DefaultOllamaModel = "qwen3.5:2b-q4_K_M";
     public const string DefaultGeminiModel = "gemini-3.6-flash";
     public const string DefaultOpenAIModel = "gpt-5.2";
+    public const string DefaultClaudeModel = ClaudeProvider.DefaultModel;
 
     public static IAIProvider Create(Func<string, string?>? environment = null)
     {
@@ -34,6 +37,7 @@ public static class DesktopProviderFactory
 
         var geminiKey = env("GEMINI_API_KEY");
         var openAiKey = env("OPENAI_API_KEY");
+        var claudeKey = env("ANTHROPIC_API_KEY");
         var fallbackEnabled = !string.Equals(env("JARVIS_PROVIDER_FALLBACK")?.Trim(), "off", StringComparison.OrdinalIgnoreCase);
 
         var chain = new List<IAIProvider>();
@@ -73,6 +77,18 @@ public static class DesktopProviderFactory
                 }
                 break;
 
+            case "claude":
+                if (string.IsNullOrWhiteSpace(claudeKey))
+                    throw new InvalidOperationException("ANTHROPIC_API_KEY is required when JARVIS_AI_PROVIDER=claude.");
+                AddClaude(chain, env, claudeKey);
+                if (fallbackEnabled)
+                {
+                    AddGemini(chain, env, geminiKey);
+                    AddOpenAI(chain, env, openAiKey);
+                    chain.Add(CreateOllama(env));
+                }
+                break;
+
             case "omniroute":
                 var omniKey = env("OMNIROUTE_API_KEY");
                 var omniModel = env("OMNIROUTE_MODEL");
@@ -88,7 +104,7 @@ public static class DesktopProviderFactory
                 break;
 
             default:
-                throw new InvalidOperationException($"Unknown JARVIS_AI_PROVIDER '{selection}'. Choose ollama, gemini, openai, omniroute or mock.");
+                throw new InvalidOperationException($"Unknown JARVIS_AI_PROVIDER '{selection}'. Choose ollama, gemini, openai, claude, omniroute or mock.");
         }
 
         return chain;
@@ -114,6 +130,12 @@ public static class DesktopProviderFactory
     {
         if (!string.IsNullOrWhiteSpace(key))
             chain.Add(new OpenAIProvider(key, NonEmpty(env("OPENAI_MODEL")) ?? DefaultOpenAIModel));
+    }
+
+    private static void AddClaude(List<IAIProvider> chain, Func<string, string?> env, string? key)
+    {
+        if (!string.IsNullOrWhiteSpace(key))
+            chain.Add(new ClaudeProvider(key, NonEmpty(env("CLAUDE_MODEL")) ?? DefaultClaudeModel));
     }
 
     private static string? NonEmpty(string? value) => string.IsNullOrWhiteSpace(value) ? null : value.Trim();

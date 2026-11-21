@@ -97,9 +97,10 @@ public static class DesktopProviderSettingsStore
             "ollama" => Environment.GetEnvironmentVariable("OLLAMA_MODEL") ?? "qwen3.5:2b-q4_K_M",
             "gemini" => Environment.GetEnvironmentVariable("GEMINI_MODEL") ?? "gemini-3.6-flash",
             "openai" => Environment.GetEnvironmentVariable("OPENAI_MODEL") ?? "gpt-5.2",
+            "claude" => Environment.GetEnvironmentVariable("CLAUDE_MODEL") ?? "claude-opus-5-5",
             "omniroute" => Environment.GetEnvironmentVariable("OMNIROUTE_MODEL") ?? string.Empty,
             "mock" => string.Empty,
-            _ => throw new ArgumentException("Choose ollama, gemini, openai, omniroute or mock.", nameof(provider))
+            _ => throw new ArgumentException("Choose ollama, gemini, openai, claude, omniroute or mock.", nameof(provider))
         };
     }
 
@@ -109,6 +110,7 @@ public static class DesktopProviderSettingsStore
             "ollama" => "Local Ollama",
             "gemini" => "Google Gemini",
             "openai" => "OpenAI",
+            "claude" => "Anthropic Claude",
             "omniroute" => "OmniRoute",
             "mock" => "Mock / test mode",
             _ => "Unknown provider"
@@ -121,6 +123,7 @@ public static class DesktopProviderSettingsStore
             "ollama" => "OLLAMA_MODEL",
             "gemini" => "GEMINI_MODEL",
             "openai" => "OPENAI_MODEL",
+            "claude" => "CLAUDE_MODEL",
             "omniroute" => "OMNIROUTE_MODEL",
             "mock" => null,
             _ => null
@@ -133,8 +136,8 @@ public static class DesktopProviderSettingsStore
     private static DesktopProviderSelection Validate(string provider, string? model)
     {
         var normalizedProvider = (provider ?? string.Empty).Trim().ToLowerInvariant();
-        if (normalizedProvider is not ("ollama" or "gemini" or "openai" or "omniroute" or "mock"))
-            throw new ArgumentException("Choose Ollama, Gemini, OpenAI, OmniRoute or Mock.", nameof(provider));
+        if (normalizedProvider is not ("ollama" or "gemini" or "openai" or "claude" or "omniroute" or "mock"))
+            throw new ArgumentException("Choose Ollama, Gemini, OpenAI, Claude, OmniRoute or Mock.", nameof(provider));
 
         var normalizedModel = (model ?? string.Empty).Trim();
         if (normalizedProvider == "mock")
@@ -168,6 +171,7 @@ public static class DesktopProviderSettingsStore
             "ollama" => "OLLAMA_MODEL",
             "gemini" => "GEMINI_MODEL",
             "openai" => "OPENAI_MODEL",
+            "claude" => "CLAUDE_MODEL",
             "omniroute" => "OMNIROUTE_MODEL",
             _ => null
         };
