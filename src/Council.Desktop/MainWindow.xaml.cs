@@ -37,6 +37,7 @@ public partial class MainWindow : Window
     private readonly DispatcherTimer _telemetry = new() { Interval = TimeSpan.FromSeconds(2) };
     private readonly DispatcherTimer _reminderCheck = new() { Interval = TimeSpan.FromSeconds(30) };
     private readonly Council.App.Reminders.ReminderStore _reminders = new();
+    private readonly Council.App.Focus.FocusCoach _focus = new();
     private readonly Process _process = Process.GetCurrentProcess();
     private readonly Forms.NotifyIcon _trayIcon;
     private bool _allowApplicationExit;
@@ -88,7 +89,7 @@ public partial class MainWindow : Window
         };
 
         // Reminders set through chat are delivered here as tray notifications, even while the window is hidden.
-        _reminderCheck.Tick += (_, _) => DeliverDueReminders();
+        _reminderCheck.Tick += (_, _) => { DeliverDueReminders(); CheckFocus(); };
         _reminderCheck.Start();
         Dispatcher.BeginInvoke(new Action(DeliverDueReminders), DispatcherPriority.ApplicationIdle); // catch ones missed while JARVIS was closed
 
@@ -111,6 +112,16 @@ public partial class MainWindow : Window
         };
     }
 
+
+    /// <summary>During a focus session, nudges the user when a distracting window is in front.</summary>
+    private void CheckFocus()
+    {
+        string? message;
+        try { message = _focus.Check(ForegroundWindow.Title(), DateTimeOffset.Now); }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or System.Text.Json.JsonException) { return; }
+        if (message is null) return;
+        _trayIcon.ShowBalloonTip(8000, "JARVIS focus", message, Forms.ToolTipIcon.Info);
+    }
 
     private void DeliverDueReminders()
     {
