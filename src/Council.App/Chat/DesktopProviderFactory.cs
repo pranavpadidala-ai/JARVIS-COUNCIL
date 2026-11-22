@@ -22,10 +22,40 @@ public static class DesktopProviderFactory
     public const string DefaultOpenAIModel = "gpt-5.2";
     public const string DefaultClaudeModel = ClaudeProvider.DefaultModel;
 
+    public const string DefaultOllamaLargeModel = "qwen3.5:4b";
+    private const long DefaultLargeModelMinFreeBytes = 4_500L * 1024 * 1024;
+
+    /// <summary>
+    /// The chain from <see cref="CreateChain"/>, wired the owner's way:
+    /// a cloud provider is selected -> online: cloud providers, then local; offline: local immediately.
+    /// The local brain uses the larger model (OLLAMA_LARGE_MODEL, default qwen3.5:4b) when enough RAM is free,
+    /// otherwise OLLAMA_MODEL. JARVIS_PROVIDER_FALLBACK=off keeps exactly the selected provider.
+    /// </summary>
     public static IAIProvider Create(Func<string, string?>? environment = null)
     {
-        var providers = CreateChain(environment);
-        return providers.Count == 1 ? providers[0] : new FallbackAIProvider(providers);
+        var env = environment ?? Environment.GetEnvironmentVariable;
+        var providers = CreateChain(env);
+        var fallbackEnabled = !string.Equals(env("JARVIS_PROVIDER_FALLBACK")?.Trim(), "off", StringComparison.OrdinalIgnoreCase);
+        if (!fallbackEnabled || providers.Count == 1 && providers[0] is not OllamaProvider)
+            return providers.Count == 1 ? providers[0] : new FallbackAIProvider(providers);
+
+        var wired = providers.Select(p => p is OllamaProvider ? WithLargeModel(p, env) : p).ToList();
+        if (wired.Count == 1) return wired[0];
+
+        var cloudFirst = providers[0] is not OllamaProvider && providers[^1] is OllamaProvider;
+        return cloudFirst
+            ? new ConnectivityAwareProvider(wired.Take(wired.Count - 1), wired[^1])
+            : new FallbackAIProvider(wired);
+    }
+
+    private static IAIProvider WithLargeModel(IAIProvider small, Func<string, string?> env)
+    {
+        var smallModel = NonEmpty(env("OLLAMA_MODEL")) ?? DefaultOllamaModel;
+        var largeModel = NonEmpty(env("OLLAMA_LARGE_MODEL")) ?? DefaultOllamaLargeModel;
+        if (largeModel.Equals("off", StringComparison.OrdinalIgnoreCase) || largeModel.Equals(smallModel, StringComparison.OrdinalIgnoreCase))
+            return small;
+        var minFree = long.TryParse(env("JARVIS_OLLAMA_LARGE_MIN_FREE_MB"), out var mb) && mb > 0 ? mb * 1024 * 1024 : DefaultLargeModelMinFreeBytes;
+        return new MemoryAwareLocalProvider(CreateOllama(env, largeModel), small, minFree);
     }
 
     public static IReadOnlyList<IAIProvider> CreateChain(Func<string, string?>? environment = null)
@@ -110,9 +140,9 @@ public static class DesktopProviderFactory
         return chain;
     }
 
-    private static IAIProvider CreateOllama(Func<string, string?> env)
+    private static IAIProvider CreateOllama(Func<string, string?> env, string? modelOverride = null)
     {
-        var model = NonEmpty(env("OLLAMA_MODEL")) ?? DefaultOllamaModel;
+        var model = modelOverride ?? NonEmpty(env("OLLAMA_MODEL")) ?? DefaultOllamaModel;
         var baseUrl = NonEmpty(env("OLLAMA_BASE_URL")) ?? "http://localhost:11434";
         var contextTokens = int.TryParse(env("JARVIS_OLLAMA_CONTEXT_TOKENS"), out var configuredContext)
             ? Math.Clamp(configuredContext, 2048, 8192)
