@@ -40,6 +40,7 @@ public partial class MainWindow : Window
     private readonly Council.App.Focus.FocusCoach _focus = new();
     private readonly Council.App.Proactive.ProactiveAdvisor _advisor = new();
     private readonly Council.App.Health.HabitTracker _habits = new();
+    private readonly Council.App.Notify.PhoneAlerts _phone = new();
     private DateTimeOffset _nextSuggestionCheck = DateTimeOffset.Now.AddMinutes(1);
     private readonly Process _process = Process.GetCurrentProcess();
     private readonly Forms.NotifyIcon _trayIcon;
@@ -156,6 +157,12 @@ public partial class MainWindow : Window
         _trayIcon.ShowBalloonTip(8000, "JARVIS focus", message, Forms.ToolTipIcon.Info);
     }
 
+    private async Task SendToPhoneAsync(string title, string text)
+    {
+        try { await _phone.SendAsync(title, text); }
+        catch (Exception ex) when (ex is System.Net.Http.HttpRequestException or TaskCanceledException or IOException) { } // the tray already showed it
+    }
+
     private void DeliverDueReminders()
     {
         IReadOnlyList<Council.App.Reminders.Reminder> due;
@@ -177,6 +184,7 @@ public partial class MainWindow : Window
                 : ""));
         var title = due.Count == 1 ? "JARVIS reminder" : $"JARVIS: {due.Count} reminders";
         _trayIcon.ShowBalloonTip(15000, title, string.Join(Environment.NewLine, lines), Forms.ToolTipIcon.Info);
+        _ = SendToPhoneAsync(title, string.Join(Environment.NewLine, lines)); // also reaches the watch, if phone alerts are set up
         System.Media.SystemSounds.Asterisk.Play();
     }
 
