@@ -87,6 +87,7 @@ public sealed class ToolCallingAssistant
         _tools.Register(new Council.App.Proactive.ProactiveTool());
         _tools.Register(new Council.App.Shopping.ShoppingListTool());
         _tools.Register(new Council.App.Transfer.FileShareTool());
+        _tools.Register(new Council.App.Health.WorkoutCoachTool());
         _tools.Register(new PythonRuntimeTool(workspaceRoot));
         _tools.Register(_indianMarketTool);
         _tools.Register(new IndianTraderCliTool());
