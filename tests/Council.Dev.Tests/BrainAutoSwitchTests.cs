@@ -56,7 +56,7 @@ public sealed class BrainAutoSwitchTests
         var first = new Stub("nemotron", fail: true);
         var second = new Stub("gemma", fail: true);
         var local = new Stub("local");
-        var brain = new ConnectivityAwareProvider([first, second], local, new FixedStatus(true));
+        var brain = new ConnectivityAwareProvider([first, second], local, new FixedStatus(true), TimeSpan.Zero);
         Assert.Equal("local", (await brain.AskAsync(Hi())).Provider);
         Assert.Equal(1, first.Calls);
         Assert.Equal(1, second.Calls);
@@ -65,7 +65,7 @@ public sealed class BrainAutoSwitchTests
     [Fact]
     public async Task ReportsEveryFailureWhenNothingAnswers()
     {
-        var brain = new ConnectivityAwareProvider([new Stub("cloud", true)], new Stub("local", true), new FixedStatus(true));
+        var brain = new ConnectivityAwareProvider([new Stub("cloud", true)], new Stub("local", true), new FixedStatus(true), TimeSpan.Zero);
         var error = await Assert.ThrowsAsync<AggregateException>(() => brain.AskAsync(Hi()));
         Assert.Equal(2, error.InnerExceptions.Count);
     }
@@ -95,7 +95,7 @@ public sealed class BrainAutoSwitchTests
         var probes = 0;
         var now = DateTimeOffset.UtcNow;
         var available = true;
-        var status = new InternetStatus(TimeSpan.FromSeconds(15), () => available, (_, _, _) => { probes++; return true; }, () => now);
+        var status = new InternetStatus(TimeSpan.FromSeconds(15), () => available, _ => { probes++; return true; }, () => now);
         Assert.True(status.IsOnline());
         Assert.True(status.IsOnline());
         Assert.Equal(1, probes);
@@ -109,7 +109,7 @@ public sealed class BrainAutoSwitchTests
     [Fact]
     public void ConnectedToWifiButNoInternetCountsAsOffline()
     {
-        var status = new InternetStatus(networkAvailable: () => true, canConnect: (_, _, _) => false);
+        var status = new InternetStatus(networkAvailable: () => true, probe: _ => false);
         Assert.False(status.IsOnline());
     }
 
