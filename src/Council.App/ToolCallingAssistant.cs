@@ -93,6 +93,7 @@ public sealed class ToolCallingAssistant
         _tools.Register(new Council.App.Devices.LocationWeatherTool());
         _tools.Register(new Council.App.Files.GoogleDriveTool());
         _tools.Register(new Council.App.Notify.NotificationTool());
+        _tools.Register(new Council.App.Health.DanceCoachTool());
         _tools.Register(new PythonRuntimeTool(workspaceRoot));
         _tools.Register(_indianMarketTool);
         _tools.Register(new IndianTraderCliTool());
