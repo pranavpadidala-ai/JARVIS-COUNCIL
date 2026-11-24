@@ -102,6 +102,7 @@ public sealed class ToolCallingAssistant
         _tools.Register(new DhanInstrumentLookupTool());
         _tools.Register(new DhanLiveFeedTool());
         _tools.Register(new OfficeWorkspaceTool(provider: _provider, imageProvider: _imageProvider, documentImageProvider: _documentImageProvider));
+        _tools.Register(new Council.App.Office.OfficeEditorTool());
         _tools.Register(new DesktopControlTool());
         _tools.Register(new BraveProfileTool(_braveProfiles));
         _tools.Register(new BrowserAutomationTool(_braveProfiles));
